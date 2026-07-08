@@ -56,7 +56,7 @@ function getNextStep(
       return { message: "All materials covered. Advance to Production.", nextPhase: "production", nextPhaseLabel: "Advance to Production" };
 
     case "production":
-      return { message: "Track production on the schedule. Mark dispatched when goods leave.", link: `/schedule`, linkLabel: "Open schedule", nextPhase: "dispatched", nextPhaseLabel: "Mark as Dispatched" };
+      return { message: "In production. Mark dispatched when goods leave.", nextPhase: "dispatched", nextPhaseLabel: "Mark as Dispatched" };
 
     case "dispatched":
       return { message: "Register finished goods before closing the project.", link: `/finished-goods`, linkLabel: "Finished goods", nextPhase: "closed", nextPhaseLabel: "Close project" };

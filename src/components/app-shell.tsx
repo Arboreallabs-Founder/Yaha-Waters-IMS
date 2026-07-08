@@ -7,7 +7,7 @@ import {
   Menu, X, LogOut, ChevronsUpDown, Circle,
   LayoutDashboard, Boxes, Wrench, FolderTree, Truck, ListTree,
   FolderKanban, ClipboardList, ShoppingCart, PackageCheck, Warehouse,
-  ScanLine, Package, AlertTriangle, CalendarClock, Gauge, UserCog, Users,
+  ScanLine, Package, AlertTriangle, Gauge, UserCog, Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -37,7 +37,6 @@ const ICONS: Record<string, LucideIcon> = {
   "/scan": ScanLine,
   "/finished-goods": Package,
   "/reconciliation": AlertTriangle,
-  "/schedule": CalendarClock,
   "/suppliers": Gauge,
   "/admin/users": UserCog,
 };

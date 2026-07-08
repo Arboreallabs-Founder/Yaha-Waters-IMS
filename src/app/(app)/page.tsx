@@ -12,7 +12,7 @@ export default async function DashboardPage() {
   const finance = canSeeFinancials(profile?.role);
   const supabase = await createClient();
 
-  const [activeP, openPo, overdue, untagged, missingPo, stale, variance, costingRes, onhandRes, invoiceRes, overdueActs] =
+  const [activeP, openPo, overdue, untagged, missingPo, stale, variance, costingRes, onhandRes, invoiceRes] =
     await Promise.all([
       supabase.from("projects").select("*", { count: "exact", head: true }).neq("status", "closed"),
       supabase.from("po_lines").select("*", { count: "exact", head: true }).in("line_status", ["pending", "partial"]),
@@ -24,7 +24,6 @@ export default async function DashboardPage() {
       supabase.from("v_project_costing").select("*"),
       finance ? supabase.from("v_component_on_hand").select("stock_value") : Promise.resolve({ data: [] }),
       supabase.from("v_invoice_vs_po").select("amount_diff, invoice_no, total_amount"),
-      supabase.from("v_overdue_activities").select("*", { count: "exact", head: true }),
     ]);
 
   const c = (r: { count: number | null }) => r.count ?? 0;
@@ -38,7 +37,6 @@ export default async function DashboardPage() {
     { label: "Active projects", value: formatNumber(c(activeP)) },
     { label: "Open PO lines", value: formatNumber(c(openPo)) },
     { label: "Overdue POs", value: formatNumber(c(overdue)), tone: c(overdue) > 0 ? "text-red-600" : undefined },
-    { label: "Overdue activities", value: formatNumber(c(overdueActs)), tone: c(overdueActs) > 0 ? "text-red-600" : undefined },
     { label: "Untagged receipts", value: formatNumber(c(untagged)), tone: c(untagged) > 0 ? "text-amber-600" : undefined },
   ];
 

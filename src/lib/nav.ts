@@ -51,7 +51,6 @@ export const NAV: NavGroup[] = [
     title: "Insight",
     items: [
       { label: "Action Center", href: "/reconciliation", status: "live" },
-      { label: "Production Schedule", href: "/schedule", status: "live" },
       { label: "Supplier KPIs", href: "/suppliers", status: "live" },
     ],
   },

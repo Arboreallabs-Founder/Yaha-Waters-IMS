@@ -10,7 +10,6 @@ import { formatDate, formatINR } from "@/lib/utils";
 import { LineItemEditor, type VariantParam } from "./line-item-editor";
 import { BomPanel } from "./bom-panel";
 import { ShortfallPanel } from "./shortfall-panel";
-import { ScheduleEditor } from "./schedule-editor";
 import { PhaseBanner } from "./phase-banner";
 import {
   addLineItem,
@@ -65,11 +64,6 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
     .select("customer_po_value, ordered_value, received_value, consumed_value")
     .eq("project_id", id)
     .maybeSingle();
-
-  const [{ data: activities }, { data: schedule }] = await Promise.all([
-    supabase.from("project_activities").select("*").eq("project_id", id).order("sort_order"),
-    supabase.from("v_project_schedule").select("po_released, material_ready").eq("project_id", id).maybeSingle(),
-  ]);
 
   const { data: shortfall } = await supabase
     .from("v_project_shortfall")
@@ -202,19 +196,6 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           Stock check &amp; shortfall
         </h2>
         <ShortfallPanel projectId={id} rows={shortfallRows} canProcure={canWrite} />
-      </section>
-
-      <section className="mt-10">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Production schedule
-        </h2>
-        <ScheduleEditor
-          projectId={id}
-          activities={activities ?? []}
-          poReleased={!!schedule?.po_released}
-          materialReady={!!schedule?.material_ready}
-          canWrite={canWrite}
-        />
       </section>
     </div>
   );
