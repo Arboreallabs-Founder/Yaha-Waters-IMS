@@ -1,0 +1,601 @@
+Tremendously, okay? The changes will happen in, let's say, four or five items. Okay.
+
+[Speaker 1]
+So, there could be in standard temperate. Yeah, so let's, let's say, Titan. Well, let's Focus over there. Okay. So, write on 1K. The inlet and the outlet size of the filter.
+
+[Speaker 2]
+The inlet and the outlet size of the filter can vary, right? So, it can be between six inch. The Inlet and the outlet, or there are certain cases. It can be even eight inch. Okay, yeah. Because the same filter can handle. A six inch size of India and section size of outlet.
+
+[Speaker 2]
+And it can also handy eight inch size or 10 in size. Got it, got it, sir? The food what we call as the inlet and Outlet nozzle that will get changed, right? Secondly, the filter will have. You must screen inside. Okay, yeah, it is going to scream. Now that screen the filtration degree?
+
+[Speaker 2]
+That means the mesh size can vary. It can be 100 microns. It can be 200, it can be 300. It can be fire, and it can be 7000 whatever the customer. All our people. I like it, right? So, these are the two major changes, which will happen. Okay, I would say one or two more, but these are the two or two major changes, which may happen for the same monitor, you got it.
+
+[Speaker 1]
+God. So sir, I mean. Uh, just again for my understanding. Can we have the Triton bomb like, you know? Let's say, you know, revision a is
+
+[Speaker 2]
+Standard template,
+
+[Speaker 1]
+Huh? Like, revision a will be. As an example, four inch Inlet, six inch Outlet, oh sorry, uh, six inch Inlet, eight inch Outlet or revision B Triton will be, uh, yeah. That's what I, when I told you last time, if you make a standard template. Okay for Triton. Welcome.
+
+[Speaker 2]
+There would be certain.
+
+[Speaker 2]
+There will be certain field, which will have a drop from yeah. Perfect! So, it could be six inch 8 and 10 and 12. Yes. So, when? All cases preparing that? Subsequent mob leaders birthday hmm, subset b-o-n or Triton quality? Yeah. Evil mention. He will pick up that six from the drop down.
+
+[Speaker 2]
+Yeah.
+
+[Speaker 1]
+Fair enough, sir I, that that I think works out best. And, and when it comes to the screen. When you and he can type in. Also, yes.
+
+[Speaker 2]
+Because that can change 200 300 correct,
+
+[Speaker 1]
+Uh sir, is there any sort of a minimum maximum value that your screens can vary from?
+
+[Speaker 3]
+No minimum value for a certain type of product, which is the? Bia, that is, the brush type of filters.
+
+[Speaker 2]
+We definitely give the minimum values 100 microns. Okay. And maximum. You can even go up too. Three pound three thousand Micron that is 300. Now that is three millimeters. Okay, so 100 microns, and uh.
+
+[Speaker 1]
+300 millimeters, which is three thousand okay? 300 microns up to 3000 microns. Yeah, got it 100 to 3000. Got it. Got it, sir um, it's three millimeters. Got it, sir? All right. I think I think this is pretty straightforward. Now! Uh, can we move on to the next part?
+
+[Speaker 1]
+Yeah, I'm just trying to understand. Yeah. Cool ones.
+
+[Speaker 2]
+I'm again repeating, so once the. Drawings are approved. Okay. From from. Yes, he praying hands over that drawing. On your process flow would build a claim hands over those wine screw. You're lucky, yes. Takes designation is? Guidance. Okay. His designation is planning. That means he plans the material. Got it.
+
+[Speaker 2]
+So you will see. Okay, there is a triton well. Quantity two numbers and write on 10K quantity, one number okay, and he will say you will see that there are. Some vows, given some languages given some pipes given. You know, you get my point,
+
+[Speaker 1]
+Yes,
+
+[Speaker 3]
+Then. Then you will look at that over the plan, how the python series of filters?
+
+[Speaker 2]
+You will have this subject bomb already with him. Only. You will change those certain values. Yeah. And you will get the bookkeeper correct. Yeah.
+
+[Speaker 2]
+So once he does. This role function.
+
+[Speaker 2]
+Those 70 items. Needs to be reflected somewhere. Right?
+
+[Speaker 1]
+So either some of them would be in stock. And none of these items have to be.
+
+[Speaker 2]
+Correct. This is the process e folders. Okay? But I, I don't want to get into the mechanics of the management system, but? Generally, you will see that those items are available or not applicable, right?
+
+[Speaker 3]
+If it is not available depending on the quantity of? One order second order third, order three customers or five customers. Evil order. That particular item. Npc is five pieces seven pieces depending on the requirement.
+
+[Speaker 2]
+If he has already got in stock, even he will. He will add, add more in a swamp, otherwise he will take it as a win license, correct. Yeah.
+
+[Speaker 3]
+So, so here, uh, in your, uh, document. It said that, you know, you want to be able to track.
+
+[Speaker 1]
+Supplier. Quality in terms of commitment and delivery dates, and see,
+
+[Speaker 3]
+You know, kpis. We will talk separately. Okay, we will first finish process. Yes, yes, so once. Those items are identified and all items.
+
+[Speaker 2]
+There will be some item which would. You are, which we go on the shop floor, right? Because you need to do the fabrication correct? Long dog fabrication. Also, the team of. Sandwich, right? And all this today is coming under prayer. Okay. So it will go again through frame to so much you got it.
+
+[Speaker 2]
+That this material is already been. Receive. Right?
+
+[Speaker 3]
+But before this process of sending it to support. There is one important. Process. So, once the Pu is issued, okay? Once the PO is issued. One copy of the PO course goes to accounts. Correct? So, there is a girl, no life. Suction.
+
+[Speaker 2]
+Okay. She records that PO of those items,
+
+[Speaker 1]
+God, for your procurement, got it. Okay.
+
+[Speaker 2]
+Should be done. Ruggage?
+
+[Speaker 1]
+No, no, say, I'm saying, the pure of the procurement, right? You will raise a purchase order to the vendor, right, yes, that that, okay, got it for this order is our order, which we are placing it on our supplier, correct. For that particular project. Yeah. All right, yes. Combination of?
+
+[Speaker 1]
+Three or four products. Got it. So, let's say.
+
+[Speaker 2]
+I have got an order of along. Brighton of different models. For three buildings. Okay, somewhere two, somewhere three, somewhere five, okay. Right, one po generally will go to the supplier. You give the motor and the gearbox. Okay. And on the view we are writing the project number, there is a project number which has been given.
+
+[Speaker 2]
+That this is the project number which it will be applicable for this purchase order on our motor and gearbox Supply correct.
+
+[Speaker 2]
+Once, and one copy of. Or this is all of the supplier will go to accounts. Yeah. So accounts what they do is they will record this PO. I mean exponent Excel sheet.
+
+[Speaker 2]
+Uh, project me. Okay.
+
+[Speaker 2]
+After one week cost here 10 days, the material comes. Right?
+
+[Speaker 1]
+No material. At the gate. Will be checked. As per that beer. Right? This is done by. The parcel monasamoch. Okay. So he will check.
+
+[Speaker 2]
+The iPhone as per the PO and I have been received or not. Got it. He will sign it. And he will get. At Jalan of the supplier. He will given directly to. Accounts. Okay. Saying that this material? Has been received again, so I'm so pure. Got it. Then again on the Excel sheet.
+
+[Speaker 2]
+Sakshi will write down saying that again this pure. This material has been received. Right? Okay if the bill and the bill is received? If the bill is received, let's say if the bill is also coming along with the material. The bill will go back, you know? Rockish. Okay.
+
+[Speaker 1]
+You will check it out. He will check those values as per the.
+
+[Speaker 1]
+Right?
+
+[Speaker 2]
+Yeah. He will sign along and again give it to sakshi the accountant. And then she will record in an Excel sheet at this particular item. This is the B number. Got it.
+
+[Speaker 1]
+So, so, where? Where does sakshi essentially put this again in the same Excel? Is it same Excel that same Excel? I can share it with you if you want. Yes.
+
+[Speaker 2]
+Is it?
+
+[Speaker 1]
+Uh, so you have to share your screen. I'll stop my. Yeah.
+
+[Speaker 2]
+You can see it.
+
+[Speaker 2]
+Yes, now I can. So, here is the supply name. Here is the material description. Right, this is the p o number.
+
+[Speaker 2]
+Okay, right? Units, and all that the view amount. May, what is the material status, whether it is received or not? Okay.
+
+[Speaker 1]
+And the invoice number, but I, I show you one more in the first one, sure. Latest announced.
+
+[Speaker 3]
+Many Excel sheets. Some of it, we will work to eliminate. Yes, yes, yes.
+
+[Speaker 3]
+There were too many.
+
+[Speaker 2]
+Okay, you can see this just a second, so it's loading. Yeah, you can see it now.
+
+[Speaker 2]
+So? So, then you, what happens is?
+
+[Speaker 2]
+This is the pios I'm helping. You should not. Right? Video, the fuel which have been issued. So, let's say, this is the company VD Corporation. This material has been issued to them. This is the PO given to them on. Kind of April. This is the quantity. This is the amount.
+
+[Speaker 2]
+The material has been received. Okay, and this is against the product name iron exchange, right? And that is their project number and. Okay, okay. Now, there is a there is a issue over here because there are two POS of the customer post. Projects which are being handled over here and some of the material is also on the stock, you know, right?
+
+[Speaker 2]
+Right? But you can see over here. These are all the materials which have been put over here. From this different GD. Okay, then? Dear different people that have been issued on different different suppliers, correct correct. So, there will be quite a bit of suppliers. Some material would not would have been not received.
+
+[Speaker 2]
+Correct,
+
+[Speaker 1]
+Right,
+
+[Speaker 2]
+Repeal, not receive material, not received. Correct,
+
+[Speaker 1]
+Right?
+
+[Speaker 2]
+Well, let's say, this is not received, will not received okay. So, this is for the problem. Either one items over here and see and received. This dog doesn't get updated, and this is done. This is updated till now, right? Sometimes they miss out also, so this is like this one.
+
+[Speaker 2]
+Oh, this is received. This is received. As for the PO and the pillar is not BBC, you know the material has been the same, but the pill has not been received. You understand. Yeah. Like this? I mean, is there a specific reason as to why bill is not received with the?
+
+[Speaker 1]
+Delivery itself.
+
+[Speaker 2]
+Okay, so a lot of people say sometimes people send the material on chalal. Because that's the way sometime. Things work in the industry
+
+[Speaker 1]
+Correct. No fair enough
+
+[Speaker 2]
+Like this is, I will tell you this is just across the street near the factory, okay, like they would have called them up, and they would have told them this is a PO of. 8 mm. All these items are coming under this po118, right? Okay. Now, 5 liter can rubber and close.
+
+[Speaker 2]
+One year caliper, right? Yes. I do not know, but anyway, grinding will grinding wheel is a consumable correct, right? In insulation tape. Yeah, okay, so these are all Hardware writers correct. So you so you did not receive also and will also not receive anyway. Okay, what I'm saying is that?
+
+[Speaker 2]
+Hello, if you would have if you sometimes a lot of times, even have you would have Supply there.
+
+[Speaker 1]
+God, sir. But I mean, the main objective here is for the build is to. Check whether the PO amount and the bill amount is the same, right. The rate and the PO amount is the same, and the quantity is the same. Yes, got it. The end amount. Is the same?
+
+[Speaker 1]
+No, what happens is that this is a double check for us. I will tell you how? So? So, if I bought a PO like this? I just select. I just select the. Project.
+
+[Speaker 2]
+It is okay, Dad. So, I'll be able to see. Like, all these items had been ordered.
+
+[Speaker 1]
+Right. There are a lot of items always correct correct. Okay.
+
+[Speaker 2]
+So, there are two. There are two things which I don't know who engage with us. This was something like. Then I add all these items. Then, I can know. On this project, email correct, right? Yeah. Yes, that was the. Uh, biggest Advantage we get is over here. And secondly, it gives a crack of the along with that, whether this material has.
+
+[Speaker 2]
+Okay, so this is the way. We are getting it done. For all the orders got itself. Material total has been ordered till date for electron two. This is starting from first off Airport. All right, this particular particular she could be starting from Costco.
+
+[Speaker 2]
+Just starting from. 24th of. Let's say for a second, okay, when it is starting correct. So
+
+[Speaker 1]
+This
+
+[Speaker 2]
+Is particularly for this financial here.
+
+[Speaker 1]
+God is also,
+
+[Speaker 2]
+Yeah. So, like, gvpr, only we have supplied this material. This order already, we have supplied so.
+
+[Speaker 2]
+So, when you do this? We will get all these items which. We are receiving in gvpr guard itself. Okay, yes, all clear. So this is the this is the process for. We are following. Right, but there is a pain area in this main area is bust. This is entirely dependent on one person.
+
+[Speaker 2]
+Right? Who's that person? Uh, the account sakshi? Oh, okay. It is dependent on one person known as Rakesh. Okay. Because he's preparing the? Orders for all of these. Okay, got it.
+
+[Speaker 1]
+And a number of times. What he will do is he will. He will not put the project name. And number of times he will not. He will order over the phone, but he will not enter it.
+
+[Speaker 1]
+Uh, prepared. You order that time okay, okay. So, so? So, there is a continuous argument which is happening on that front. Which I need to stop, right? Because our cheese in the counter correct, if you give it to her, she will. She will account for that, right?
+
+[Speaker 2]
+Yeah, so that is the whole whole idea behind this. Although it is happening it, it still needs to be fine. It's still which law work as could be still done in this area, right, right?
+
+[Speaker 2]
+So, there will be a lot of items also where they would have done it in stock, let's say. Project name so? I'm not sure. So, let's say, select.
+
+[Speaker 2]
+Let's say, stock, okay, right?
+
+[Speaker 1]
+So this could be ordered in stock, you know, just to maintain stock, not uh attached to any project. Got it. Yeah, correct. Got it. But yeah.
+
+[Speaker 1]
+And this needs to. The stock needs to move out, got it. So this doesn't get a updated. Okay, so let's say that I have got now around. Or
+
+[Speaker 2]
+Something like that you write anything like 50 pieces over here. Correct, right? So, when, when we are using the stock? It should automatically. When I'm using this talk. This figure is not getting updated in the. In the stockist, got it, sir? That means. The system is is not been updated that you have used out of 55 pieces.
+
+[Speaker 2]
+For this project, two pieces for this project five pieces for this one right. Total 12 pieces I've used, so balance would be 38, all right, like that particular. Competition. Is not happening. And ultimately, it comes to a scenario. That you are having, you know, 20 lakhs, sorry. 20 lakhs 50 lakhs stop.
+
+[Speaker 2]
+Hmm. And then again, we still order it. And again, we have to commit home. Okay. Then I gave me a call. Call this guy Rakesh. And tell emboss. You tell us where have you use this, you know? Okay, so he becomes the master of the right. Without him. Nobody knows what is happening in this spot.
+
+[Speaker 2]
+Right? So, this, this is our biggest pain area today. Got it. Yeah. If he's not. Well, for two days, we don't know. How much is the stock? Because he is not updating. He is somehow is, is seems to be very much loaded, and he doesn't want to update it.
+
+[Speaker 2]
+I'm telling you this is my frustration, right? Right? So, I need to make the system work around it. Right?
+
+[Speaker 1]
+You understood my pain point. Yes, sir, completely. Okay, that's it. If you're able to do this? My, our pregnancy will be in control. And we will not be dependent on. Right?
+
+[Speaker 1]
+Just I want to? Oh, can you see my screen? Yes. So? Now, I think we have reached here. But this is something you want to tackle later, is it?
+
+[Speaker 2]
+Yeah, yeah, this is calculator the last three items. No,
+
+[Speaker 1]
+Yeah.
+
+[Speaker 2]
+Application Machining shop floors Hydro plastic penny, you just forget about it. Okay, sure, done and inventory money. Perfection. No. Happen, is that once my PO list is updated? And my stock is also getting upgraded. That should go directly to my accounts and say, okay, this has been used in so and so job.
+
+[Speaker 2]
+Internally, so automatically my tally guy. Can check that, and you can update and record itself. So, now, my tally. When I take a revenue costly, my costing of that project, okay? I get a very erroneous numbers over there, right? So, let's say, if my cost is 10 lakhs. I will get around 4 lakhs.
+
+[Speaker 2]
+Got it. Remaining. 60 acts. It's still lying in stock. It is not moving into the. Finish Goods, right? So again, who we have to call. Rakesh. Typical case of non-harm ant inefficient organization, right? Will come. He will sit down. You will say yes, sir. This is going. This has gone in thermax.
+
+[Speaker 2]
+This has gone in INX cage. This has gone in this. Yes, Mr Rakesh. Thank you very much. Then my tally guy will put that thing inside his Deli, and then my stop from 40 lakhs will come. Sustain likes. Then, my costing will change for that for that particular project.
+
+[Speaker 2]
+But then, he's a human being. We even forget. Yeah. So, after five days, he says, say, I think so many will be used nearby. So, we will be used here, and I want to update this regularly.
+
+[Speaker 2]
+So, who's the boss in the company?
+
+[Speaker 2]
+So, if I get a manager on top of? Which have only have got now Prime as a new manager, okay? Okay. Who's the boss actual boss due date? Yes. Because the because the boss also they don't know how to handle this. Guided set, and this is really like a rocket underground.
+
+[Speaker 2]
+I don't want to use now there, but really a rocket. I'm not really.
+
+[Speaker 1]
+Nasa will let us work on this, uh, I
+
+[Speaker 2]
+Think yes,
+
+[Speaker 1]
+Only on this. This is phase one.
+
+[Speaker 1]
+Yes, control. This is good.
+
+[Speaker 1]
+We'll work on this. Give us
+
+[Speaker 2]
+Now it is. Can you imagine six months ago or one year ago? I would say 70 percent okay, but after hammering hammering hammering, but he's not able to do it. See, I don't blame the person. The system is not there. Correct. First system is dependent on Excel, so I cannot, you know, I say, blame him for doing that.
+
+[Speaker 2]
+So, you will have to make. You will have to drink little bit different, said. How do you go around it? God itself. Because even if you give in the system so? He will still order Burma. Correct, correct? Or something we have to do whenever? I am ready to give a laptop to my my incoming delivery guy.
+
+[Speaker 2]
+I'm ready to give. Rakesh. Something has to be done in such a way that. They cannot move without the system correct.
+
+[Speaker 4]
+I think so. It's like, similar to the IMS, we have already like, like, similar module type, like scanning scanner, but hm, they see that. That makes sense when it is, uh, what do you say? Uh,
+
+[Speaker 1]
+The inventory is being consumed, right? I'm just thinking around, how do we actually, you know, so that, you know, even if he places an order to a supplier via phone call. How do we actually? Track that? So, there should be a variance as per the bomb, right? So, if he's completion, order with X vendor, right?
+
+[Speaker 4]
+You get for sleep. There's only so many vendors right for each part, right? So once there is a vendor that he's calling okay, that can be tried. Okay, so that means X number of Parts is probably ordering, like, whatever parts that vendor sells, right, right?
+
+[Speaker 2]
+Is deductive, then you have what that bomb needs and what has been ordered, right? So, there'll be a variance, right? So, if the, it means, let's just say, 10 skills. Okay, I'm just saying, for example, yeah, okay. And then, um. 10 skins, and I don't know four fittings,
+
+[Speaker 4]
+Right? Right
+
+[Speaker 1]
+Now, the
+
+[Speaker 4]
+Screens have arrived, but the bomb also says there should be four four keys, and that was a verb along. That means there'll be a variance of minus four. Hmm, has more incoming Pokemon correct. That's just like, for example.
+
+[Speaker 2]
+So, let's say, python value, correct, right? He has to prepare them. Indent. Okay.
+
+[Speaker 1]
+Let's say the poem was the 12K, so only 20K has got 70 items of that correct correct. Now, a month ago. You would have. You would have been alone. Similar items like? Particular kind of a vowel. Uh, our different orders and. The cumulative bomb would have been. 20, right?
+
+[Speaker 1]
+Okay, I'm already cutting this correct. Yeah.
+
+[Speaker 2]
+Now, the order place would have been, let's say 20, only right, right? So in this particular. Bong when he comes or veneers price to put over there. We will keep on slowing in zero zero zero because all the 20 has been consumed. Right, but if you if you would have ordered 21 hmm?
+
+[Speaker 2]
+Of course, automatically show him over there.
+
+[Speaker 2]
+Why not? You can consume that money, and if he wants some more stock, he can order five or two over there. But more important is that it will keep a track. Yeah. Those items. What are being ordered? Correct? I'm doing visits correct, correct? So,
+
+[Speaker 4]
+So just a quick question here when an item is coming in right in non Logistics wise, then all of those items will get scanned in anyways, right? Like, is not presently not scalable, but if you say?
+
+[Speaker 2]
+You want to scan it and and record it automatically. We can do that also okay.
+
+[Speaker 5]
+Yeah, because that way, then the verbal order doesn't even matter, because, yeah, anything that's coming in is getting scanned in anyways. And it can't be used otherwise.
+
+[Speaker 2]
+Without the scanners. Okay,
+
+[Speaker 5]
+So
+
+[Speaker 2]
+If you want to put that share, you know, strip over there and then do that can be done? You know together? I think so, so sanctions, you have to make a small pilot. Cisco. Yes, sir. Yeah, you can make a small pilot system. And see how it works shorter.
+
+[Speaker 2]
+Because these are all metal items, so they're a lot of, you know, rust and grease and all that kind of thing. So. Clear that all the system works rather than they're not being a consist coming. Try to. Do it for the tripod series. Sure, sir, forget about that process also.
+
+[Speaker 2]
+Oh s***, he's doing the uniting and all that you can only focus on this particular. Drapon seeds you understand, you got it, sir? Or you want to develop the full system and then do the pilot around you.
+
+[Speaker 1]
+So we generally work on the latter where we develop the system and then based on how the pilot
+
+[Speaker 2]
+Is going. We make iterations. Bigger, you let me know what you would like to do because this is really the main area God. Let's begin because I keep on. Kinking about you. How do I make it independent of him? But I'm not able to do that God. No, sir, let us develop.
+
+[Speaker 2]
+Or something, uh, I, I want a system which is very independent of God.
+
+[Speaker 2]
+Proofing the system set? Yes, I want cable to be out of the system. Correct. Yes, any layman can see a Triton 1000. And he can cushion that number. Of those three or four parameters change automatically. Those POS should come out all those indent should come out. Hmm, why again, that each item which is there or whatever it is, which we are saying?
+
+[Speaker 2]
+And it should be automatically a dynamic shoot, which will say that. Okay, these two numbers are already there in your score people. Basically, right?
+
+[Speaker 1]
+No goddess, we'll, we'll do this, I, I, I'd say. Let us work on at least this section of the process. Yes, for maybe I, I would want to take till Saturday. Python series there are you have the catalog with you?
+
+[Speaker 2]
+No, sir, did you share that because you can have like that, is there you can have, like?
+
+[Speaker 5]
+So, the excuse you can keep it like 10
+
+[Speaker 2]
+Skills, right? And
+
+[Speaker 5]
+Then, that 60 or 70 is going to be, uh, the same
+
+[Speaker 2]
+Correct, so
+
+[Speaker 5]
+The drop down can come automatically. Yeah, and then he can then add or subtract from that. You know they are remaining represent. He can either add or he can subtract or he can change. Got it so that it's the percent you know. You can do that, and then you can create like a list of suppliers where you're getting that those material form.
+
+[Speaker 5]
+Yes, so. You know how? That is, how I think,
+
+[Speaker 1]
+Yeah,
+
+[Speaker 5]
+We so
+
+[Speaker 2]
+Perfect. What she says is actually okay, because our supplies are also very standard with those items, you know, right? We are. We are changing suppliers on that, but one minute I'll just first show you the. Okay. It's too long. So, what? I'll just also need is if you can share.
+
+[Speaker 2]
+The. The accounting tracking that you are doing, right?
+
+[Speaker 1]
+The document you just showed us for tracking the account. Yeah, I'll just share this. Yeah.
+
+[Speaker 2]
+And just have to close the next five minutes, and I have another call coming in, right? We can sit up again, maybe tomorrow, or. You have it tomorrow, but you can see this catalog. Yes. Okay, you can. You can see over here. These models are very standard, right? And this is the pr model.
+
+[Speaker 2]
+And this is the slmb. This is the BR model, and this is the slm model, right? So, if we are able to take care of this one, two, three, four, five, uh, six models over here and six models over there, okay? And every model has got these variants, so this model will vary from 2 inch to 6 inch.
+
+[Speaker 2]
+Then, this will vary from 6 inch to 14 inch melange to 16 inch. You know, I was mentioning correct. And this is the drop down menu, which I was talking about the microns, right, right? So, if you are able to manage this? Um, 12. Items. And, and you are able to manage this with a standard template.
+
+[Speaker 2]
+I, I would say at least. 40 to 50 percent of my workload is getting standardized. Then we can focus on the other parts regardless.
+
+[Speaker 1]
+No shoes. Are we first try to tackle this? And get this sorted out. I would request. One is that sheet, uh, you know, that tracks the? Accounting base. Yeah, then, second, is this? Uh, brochure.
+
+[Speaker 2]
+Length, and third is the bomb list.
+
+[Speaker 1]
+Congress for template for every title, yes.
+
+[Speaker 2]
+Okay, and which are the item which are common in that?
+
+[Speaker 1]
+Yes,
+
+[Speaker 2]
+So that I will put it as a yellow and give it
+
+[Speaker 1]
+Perfect. Perfect
+
+[Speaker 2]
+For those items. Will remain common, and remaining items will will vary for that particular model. Correct?
+
+[Speaker 1]
+Correct,
+
+[Speaker 2]
+Yes. So, this, I will give you my tomorrow.
+
+[Speaker 1]
+No, in the meantime, if you, whatever you have in hand, if you can share it now. WhatsApp,
+
+[Speaker 2]
+Yeah, just give me half an hour. I have some important thing coming up. No, send it, please.
+
+[Speaker 2]
+Thank you so much. Thank you. Thank you.
+
+[Speaker 2]
+Huh?
+
+[Speaker 2]
+Ranch correct? Bros, I, you know, that's for bro. So your shirt is? There are two sides to secure. I was telling Irene also okay. One side is.
+
+[Speaker 1]
+You know, he is very sweet and like this right. Second side is, I think he's at office, and he wants to show he's the boss. So when he shows he's the boss. That was the last meeting.
+
+[Speaker 4]
+Yeah,
+
+[Speaker 2]
+Right in front of vijaya.
+
+[Speaker 1]
+Okay, but otherwise he's a sweetie.
+
+[Speaker 2]
+Yeah, true,
+
+[Speaker 1]
+Right? Well, I'm telling you when he had called me or recently. He was, like, said, I want to give you work. But, uh, you have to do it, huh, as a person? Very sweet and suddenly. Next, call I thought, bye is.
+
+[Speaker 1]
+And then this call. Again, this is my praying point, bro. You would solve this only. I just want this from you, like it.
+
+[Speaker 1]
+The sport, where experts an inventory controller.
+
+[Speaker 2]
+This
+
+[Speaker 1]
+Is a smaller thing. We can add layers to it, but I think this, please make it a one now, and we'll call it Source Source Source Force. Yes.
+
+[Speaker 4]
+Is the bigger system, yeah on, from on-prem. On-Prem on-prem. Yeah, right. No good only. We'll sit together to just storm a couple of things both so Cooper and this, um, I'm just working on fine tuning and going on the individual Pages, adding those parts. But, oh yeah, damn. Bro, yes, yes.
+
+[Speaker 6]
+Yes.
+
+[Speaker 4]
+We are both very talented, um, almost. Uh, so how I'm tracking it? I'll tell you.
+
+[Speaker 1]
+Okay, I'm actually not tracking the payout of an investor of.
+
+[Speaker 1]
+Pay out of a franchisee partner on in the deal.
+
+[Speaker 2]
+Hmm, what I'm doing is, I'm just marking.
+
+[Speaker 1]
+What all franchisee Partners?
+
+[Speaker 1]
+Which investors or the dealers from a franchisee partner? Okay, I put that. Then. What I do? Should once I think Alexa.
+
+[Speaker 1]
+Wait a second.
+
+[Speaker 5]
+I would love to continue this conversation, but maybe.
+
+[Speaker 5]
+Yeah, so let me eat. Let me also relax for like an hour, no baby.

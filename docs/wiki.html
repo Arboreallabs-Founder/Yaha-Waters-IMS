@@ -1,0 +1,1341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YAHA Waters IMS — Interactive Process Flow Wiki</title>
+  
+  <!-- Google Fonts: Inter/Geist System Sans style & Outfit for headers -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Tailwind Config to match global.css exactly -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
+            display: ['Outfit', 'sans-serif'],
+            mono: ['Fira Code', 'monospace'],
+          },
+          colors: {
+            background: '#f8fafc',
+            foreground: '#0f172a',
+            card: '#ffffff',
+            primary: {
+              DEFAULT: '#0369a1', /* YAHA Waters Blue */
+              foreground: '#f0f9ff',
+            },
+            secondary: {
+              DEFAULT: '#e2e8f0',
+              foreground: '#0f172a',
+            },
+            muted: {
+              DEFAULT: '#f1f5f9',
+              foreground: '#64748b',
+            },
+            accent: {
+              DEFAULT: '#e0f2fe',
+              foreground: '#0c4a6e',
+            },
+            border: '#e2e8f0',
+            input: '#cbd5e1',
+            ring: '#0ea5e9',
+            success: '#16a34a',
+            warning: '#d97706',
+            destructive: '#dc2626',
+            roleAdmin: '#dc2626',
+            roleFounder: '#7c3aed',
+            roleLead: '#0284c7',
+            roleMember: '#16a34a',
+          },
+          borderRadius: {
+            lg: '0.625rem', // 10px from global.css
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+    
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
+    .app-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+      border-radius: 0.625rem;
+    }
+
+    .flow-node-active {
+      border: 2px solid #0369a1;
+      box-shadow: 0 4px 6px -1px rgba(3, 105, 161, 0.1), 0 2px 4px -2px rgba(3, 105, 161, 0.1);
+    }
+  </style>
+</head>
+<body class="antialiased min-h-screen flex flex-col">
+
+  <!-- TOP DECORATION LINE -->
+  <div class="h-1 w-full bg-gradient-to-r from-roleAdmin via-roleFounder via-roleLead to-roleMember"></div>
+
+  <!-- HEADER (App Style) -->
+  <header class="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-white px-6 shadow-sm">
+    <div class="flex items-center gap-2">
+      <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground shadow-sm">
+        YW
+      </span>
+      <div>
+        <span class="font-semibold text-foreground text-sm font-display block leading-none">YAHA Waters IMS</span>
+        <span class="text-[10px] text-muted-foreground">Interactive Process Flow Wiki</span>
+      </div>
+    </div>
+
+    <!-- ROLE BAR SELECTOR -->
+    <div class="ml-auto flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg border border-slate-200">
+      <span class="text-[11px] text-muted-foreground font-semibold px-2">Role Filter:</span>
+      <button onclick="setRoleFilter('all')" id="btn-role-all" class="role-btn px-2.5 py-1 rounded-md text-xs font-medium bg-white text-slate-800 shadow-sm border border-slate-200 transition-colors duration-150">
+        Show All
+      </button>
+      <button onclick="setRoleFilter('admin')" id="btn-role-admin" class="role-btn px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 border border-transparent transition-colors duration-150">
+        Admin
+      </button>
+      <button onclick="setRoleFilter('founder')" id="btn-role-founder" class="role-btn px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 border border-transparent transition-colors duration-150">
+        Founder
+      </button>
+      <button onclick="setRoleFilter('team_lead')" id="btn-role-team_lead" class="role-btn px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 border border-transparent transition-colors duration-150">
+        Team Lead
+      </button>
+      <button onclick="setRoleFilter('team_member')" id="btn-role-team_member" class="role-btn px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 border border-transparent transition-colors duration-150">
+        Team Member
+      </button>
+    </div>
+  </header>
+
+  <!-- WORKSPACE GRID -->
+  <main class="max-w-7xl mx-auto px-6 py-8 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8 w-full">
+    
+    <!-- LEFT SIDEBAR: WIKI MENU -->
+    <aside class="lg:col-span-3 flex flex-col gap-4">
+      <div class="app-card p-4 flex flex-col gap-1">
+        <h3 class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider px-2 mb-2 font-display">Documentation</h3>
+        
+        <button onclick="switchDocTab('overview')" id="tab-overview" class="doc-tab-btn flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50 transition w-full text-left bg-primary text-primary-foreground shadow-sm">
+          <!-- Info Icon -->
+          <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          System Overview
+        </button>
+        
+        <button onclick="switchDocTab('matrix')" id="tab-matrix" class="doc-tab-btn flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50 transition w-full text-left">
+          <!-- Matrix Icon -->
+          <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+          </svg>
+          Permissions Matrix (RLS)
+        </button>
+
+        <h3 class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider px-2 mt-4 mb-2 font-display">Process Flows</h3>
+        
+        <div class="flex flex-col gap-0.5">
+          <button onclick="switchDocTab('flow-setup')" id="tab-flow-setup" class="doc-tab-btn flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium text-slate-600 hover:bg-slate-50 transition w-full text-left">
+            <span class="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0"></span> 1. Project & Variant Setup
+          </button>
+          <button onclick="switchDocTab('flow-bom')" id="tab-flow-bom" class="doc-tab-btn flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium text-slate-600 hover:bg-slate-50 transition w-full text-left">
+            <span class="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0"></span> 2. BOM Engine & Approval
+          </button>
+          <button onclick="switchDocTab('flow-requisitions')" id="tab-flow-requisitions" class="doc-tab-btn flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium text-slate-600 hover:bg-slate-50 transition w-full text-left">
+            <span class="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0"></span> 3. Stock Shortfall Check
+          </button>
+          <button onclick="switchDocTab('flow-procurement')" id="tab-flow-procurement" class="doc-tab-btn flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium text-slate-600 hover:bg-slate-50 transition w-full text-left">
+            <span class="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0"></span> 4. Procurement & POs
+          </button>
+          <button onclick="switchDocTab('flow-grn')" id="tab-flow-grn" class="doc-tab-btn flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium text-slate-600 hover:bg-slate-50 transition w-full text-left">
+            <span class="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0"></span> 5. Goods Receipt Note (GRN)
+          </button>
+          <button onclick="switchDocTab('flow-qr-stickers')" id="tab-flow-qr-stickers" class="doc-tab-btn flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium text-slate-600 hover:bg-slate-50 transition w-full text-left">
+            <span class="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0"></span> 6. QR Sticker Printing & Lots
+          </button>
+          <button onclick="switchDocTab('flow-qr-consume')" id="tab-flow-qr-consume" class="doc-tab-btn flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium text-slate-600 hover:bg-slate-50 transition w-full text-left">
+            <span class="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0"></span> 7. Scan & Consume Material
+          </button>
+          <button onclick="switchDocTab('flow-reconciliation')" id="tab-flow-reconciliation" class="doc-tab-btn flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium text-slate-600 hover:bg-slate-50 transition w-full text-left">
+            <span class="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0"></span> 8. Action Center & Schedule
+          </button>
+        </div>
+      </div>
+
+      <!-- ROLE CAPABILITY STAT PANEL -->
+      <div id="role-panel" class="app-card p-4 border-l-4 border-slate-400 bg-white transition-all duration-300">
+        <h4 id="role-panel-title" class="text-xs font-bold font-display text-slate-900 mb-1">All Roles Displayed</h4>
+        <p id="role-panel-desc" class="text-xs text-muted-foreground leading-relaxed">
+          Hover over process nodes or select role filters above to see highlights. Postgres RLS is automatically handled in the data queries.
+        </p>
+        <div id="role-panel-gated" class="mt-3 pt-3 border-t border-border hidden">
+          <span class="text-[9px] font-bold text-destructive uppercase tracking-wider block mb-1">Financial Data Protection</span>
+          <p class="text-[11px] text-muted-foreground leading-normal">
+            For this role, financial values such as purchase rates, item standard costs, and amount summaries are masked dynamically at the database view level.
+          </p>
+        </div>
+      </div>
+    </aside>
+
+    <!-- CENTER PANEL: MAIN DOCUMENTATION CONTENT & MOCK SCREENS -->
+    <section class="lg:col-span-6 flex flex-col gap-6">
+      
+      <!-- ROLE BANNER NOTIFICATION -->
+      <div id="role-banner" class="hidden p-3.5 rounded-lg border flex items-center gap-3 transition">
+        <div id="role-banner-indicator" class="w-2.5 h-2.5 rounded-full shrink-0"></div>
+        <div class="text-xs">
+          <span class="font-bold text-slate-800 block" id="role-banner-title">Viewing as Member</span>
+          <span class="text-slate-500 font-medium" id="role-banner-desc">Financial columns are masked, and master data writes are rejected.</span>
+        </div>
+      </div>
+
+      <!-- PAGE: OVERVIEW -->
+      <div id="content-overview" class="doc-content flex flex-col gap-6">
+        <div class="app-card p-6 bg-white">
+          <h2 class="text-xl font-bold font-display text-slate-950 mb-3">YAHA Waters IMS Philosophy</h2>
+          <p class="text-sm text-slate-600 leading-relaxed mb-4">
+            The Triton series and media-filtration systems manufactured by YAHA Water Systems are custom-configured products. Traditional systems bottle-neck procurement and inventory updates because they rely on single-person data entry (Rakesh's Excel updates).
+          </p>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            This IMS is built on four core design pillars to solve these organizational bottlenecks:
+          </p>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+            <div class="p-4 bg-slate-50 rounded-lg border border-border">
+              <span class="text-xs font-semibold text-primary uppercase tracking-wider block mb-1">1. Rakesh-Proofing</span>
+              <p class="text-[12px] text-muted-foreground leading-normal">Capture inventory reality even when processes are bypassed. Nullable project PO links and informal tags ensure un-PO'd gate receipts are cataloged immediately rather than delayed.</p>
+            </div>
+            <div class="p-4 bg-slate-50 rounded-lg border border-border">
+              <span class="text-xs font-semibold text-primary uppercase tracking-wider block mb-1">2. Decoupled Action</span>
+              <p class="text-[12px] text-muted-foreground leading-normal">Prem (Planning) generates BOMs, Sanoj (Store) scans gate arrivals, and shop floor workers consume parts. Stock updates automatically as a side effect of everyone doing their own step.</p>
+            </div>
+            <div class="p-4 bg-slate-50 rounded-lg border border-border">
+              <span class="text-xs font-semibold text-primary uppercase tracking-wider block mb-1">3. Immutable Ledger</span>
+              <p class="text-[12px] text-muted-foreground leading-normal">On-hand counts are never edited directly. They are dynamically aggregated from the signed <code>stock_movements</code> transaction history. Every edit is an audited adjustment.</p>
+            </div>
+            <div class="p-4 bg-slate-50 rounded-lg border border-border">
+              <span class="text-xs font-semibold text-primary uppercase tracking-wider block mb-1">4. QR sticker design</span>
+              <p class="text-[12px] text-muted-foreground leading-normal">Stickers display only the Component Code + Name + QR. Quantities are never printed. Staff scan the QR code to read the live system quantity, preventing stale paper-based counts.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="app-card p-6 bg-white">
+          <h3 class="text-md font-bold font-display text-slate-900 mb-4">Core Entity Lifecycle</h3>
+          <div class="relative pl-6 border-l-2 border-slate-200 flex flex-col gap-6 text-xs">
+            <div class="relative">
+              <div class="absolute -left-[31px] top-1 w-4 h-4 bg-white border-2 border-primary rounded-full"></div>
+              <strong class="text-slate-800">Customer Order & Variant Selection</strong>
+              <p class="text-muted-foreground mt-0.5">Order details and parameters (Inlet, Micron) trigger variant-driven BOM templates.</p>
+            </div>
+            <div class="relative">
+              <div class="absolute -left-[31px] top-1 w-4 h-4 bg-white border-2 border-primary rounded-full"></div>
+              <strong class="text-slate-800">Shortfall Analysis</strong>
+              <p class="text-muted-foreground mt-0.5">BOM instantiated, compared with current on-hand lots, and indents are created for missing components.</p>
+            </div>
+            <div class="relative">
+              <div class="absolute -left-[31px] top-1 w-4 h-4 bg-white border-2 border-primary rounded-full"></div>
+              <strong class="text-slate-800">Procurement & Batching</strong>
+              <p class="text-muted-foreground mt-0.5">POs raised (supports informal phone flags). Multi-project batching lines are back-fillable.</p>
+            </div>
+            <div class="relative">
+              <div class="absolute -left-[31px] top-1 w-4 h-4 bg-white border-2 border-primary rounded-full"></div>
+              <strong class="text-slate-800">Challan GRN & QR Entry</strong>
+              <p class="text-muted-foreground mt-0.5">Gate logs receipt, creates inventory lot records, and prints stickers. Unmatched items captured as untagged.</p>
+            </div>
+            <div class="relative">
+              <div class="absolute -left-[31px] top-1 w-4 h-4 bg-white border-2 border-primary rounded-full"></div>
+              <strong class="text-slate-800">Scan Consumption</strong>
+              <p class="text-muted-foreground mt-0.5">Shop floor scans QR code to consume lot items directly into project, automatically updating costs.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE: PERMISSION MATRIX -->
+      <div id="content-matrix" class="doc-content flex flex-col gap-6 hidden">
+        <div class="app-card p-6 bg-white">
+          <h2 class="text-xl font-bold font-display text-slate-900 mb-2">Role & RLS Policies</h2>
+          <p class="text-xs text-muted-foreground mb-6">
+            Supabase Postgres policies restrict data reads and writes per profile role. Selecting a role from the header filters the matrix.
+          </p>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse border border-border">
+              <thead>
+                <tr class="bg-slate-50 border-b border-border text-slate-600 font-semibold">
+                  <th class="py-2.5 px-3">Table / View</th>
+                  <th class="py-2.5 px-3">Admin</th>
+                  <th class="py-2.5 px-3">Founder</th>
+                  <th class="py-2.5 px-3">Team Lead</th>
+                  <th class="py-2.5 px-3">Team Member</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-border">
+                <tr class="matrix-row hover:bg-slate-50 transition" data-roles="admin founder team_lead team_member">
+                  <td class="py-3 px-3 font-semibold text-slate-800">profiles & teams</td>
+                  <td class="py-3 px-3 text-roleAdmin font-semibold bg-rose-50/50">All Writes</td>
+                  <td class="py-3 px-3 text-roleFounder font-medium">Read Only</td>
+                  <td class="py-3 px-3 text-muted-foreground">None</td>
+                  <td class="py-3 px-3 text-muted-foreground">None</td>
+                </tr>
+                <tr class="matrix-row hover:bg-slate-50 transition" data-roles="admin founder team_lead team_member">
+                  <td class="py-3 px-3 font-semibold text-slate-800">categories & components</td>
+                  <td class="py-3 px-3 text-roleAdmin font-semibold bg-rose-50/50">Full Access</td>
+                  <td class="py-3 px-3 text-roleFounder font-medium">Read Only</td>
+                  <td class="py-3 px-3 text-roleLead font-medium">Read Only</td>
+                  <td class="py-3 px-3 text-roleMember font-medium">Read (Masked)</td>
+                </tr>
+                <tr class="matrix-row hover:bg-slate-50 transition" data-roles="admin founder team_lead team_member">
+                  <td class="py-3 px-3 font-semibold text-slate-800">boms & bom_lines</td>
+                  <td class="py-3 px-3 text-roleAdmin font-semibold bg-rose-50/50">Full Access</td>
+                  <td class="py-3 px-3 text-roleFounder font-medium">Read / Approve</td>
+                  <td class="py-3 px-3 text-roleLead font-semibold bg-blue-50/50">Team Write</td>
+                  <td class="py-3 px-3 text-roleMember font-medium">Read (Team)</td>
+                </tr>
+                <tr class="matrix-row hover:bg-slate-50 transition" data-roles="admin founder team_lead">
+                  <td class="py-3 px-3 font-semibold text-slate-800">purchase_orders & po_lines</td>
+                  <td class="py-3 px-3 text-roleAdmin font-semibold bg-rose-50/50">Full Access</td>
+                  <td class="py-3 px-3 text-roleFounder font-medium">Read Only</td>
+                  <td class="py-3 px-3 text-roleLead font-semibold bg-blue-50/50">Team Write</td>
+                  <td class="py-3 px-3 text-muted-foreground">None</td>
+                </tr>
+                <tr class="matrix-row hover:bg-slate-50 transition" data-roles="admin founder team_lead team_member">
+                  <td class="py-3 px-3 font-semibold text-slate-800">grns & grn_lines</td>
+                  <td class="py-3 px-3 text-roleAdmin font-semibold bg-rose-50/50">Full Access</td>
+                  <td class="py-3 px-3 text-roleFounder font-medium">Read Only</td>
+                  <td class="py-3 px-3 text-roleLead font-medium">Write (Team)</td>
+                  <td class="py-3 px-3 text-roleMember font-semibold bg-emerald-50/50">Insert-Only</td>
+                </tr>
+                <tr class="matrix-row hover:bg-slate-50 transition" data-roles="admin founder team_lead team_member">
+                  <td class="py-3 px-3 font-semibold text-slate-800">stock_movements</td>
+                  <td class="py-3 px-3 text-roleAdmin font-semibold">Read Only</td>
+                  <td class="py-3 px-3 text-roleFounder font-medium">Read Only</td>
+                  <td class="py-3 px-3 text-roleLead font-semibold bg-blue-50/50">Insert-Only</td>
+                  <td class="py-3 px-3 text-roleMember font-semibold bg-emerald-50/50">Insert-Only</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- RLS INFO ALERT -->
+          <div class="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg text-xs leading-normal flex items-start gap-3">
+            <!-- Warning Alert Icon -->
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-5 text-warning shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <div>
+              <span class="font-bold text-slate-800 block mb-0.5">Critical Immutability Rule</span>
+              To preserve audit ledger integrity, <code>stock_movements</code> has **NO UPDATE** or **NO DELETE** rules configured for any role, including Admin. All inventory adjustments, corrections, and issues must be posted as new movements.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE: 1. PROJECT & VARIANT SETUP -->
+      <div id="content-flow-setup" class="doc-content flex flex-col gap-6 hidden">
+        <div class="app-card p-6 bg-white">
+          <span class="text-xs font-bold text-primary uppercase tracking-widest block mb-1">Process Flow 1</span>
+          <h2 class="text-xl font-bold font-display text-slate-900 mb-2">Project & Variant Configuration</h2>
+          
+          <!-- Flow nodes -->
+          <div class="flex items-center justify-between gap-2 p-3 bg-slate-50 border border-border rounded-lg mb-6 overflow-x-auto text-[11px]">
+            <div class="flow-step flex items-center gap-1.5 px-3 py-1.5 rounded border border-border bg-white" data-roles="admin team_lead">
+              <span class="font-bold text-primary">1.</span>
+              <span class="font-medium text-slate-800">Create Project</span>
+            </div>
+            <span class="text-slate-400">➔</span>
+            <div class="flow-step flex items-center gap-1.5 px-3 py-1.5 rounded border border-border bg-white" data-roles="admin team_lead">
+              <span class="font-bold text-primary">2.</span>
+              <span class="font-medium text-slate-800">Set Variant Dropdowns</span>
+            </div>
+            <span class="text-slate-400">➔</span>
+            <div class="flow-step flex items-center gap-1.5 px-3 py-1.5 rounded border border-border bg-white" data-roles="admin team_lead team_member">
+              <span class="font-bold text-primary">3.</span>
+              <span class="font-medium text-slate-800">Upload Specs/Docs</span>
+            </div>
+          </div>
+
+          <!-- Mock UI Screen -->
+          <div class="border border-border rounded-lg overflow-hidden bg-slate-50 p-4">
+            <span class="text-[9px] uppercase font-bold text-muted-foreground block mb-2">Mock UI: Project Configuration Form</span>
+            <div class="bg-white border border-border rounded-lg p-4 shadow-sm flex flex-col gap-3 max-w-md mx-auto text-xs">
+              <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                <span class="font-bold text-slate-900">Configure Project Lines</span>
+                <span class="text-[10px] bg-slate-100 border px-1.5 py-0.5 rounded text-slate-600">YH-001</span>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-slate-600 font-semibold mb-1">Product Model</label>
+                  <select disabled class="w-full bg-slate-50 border border-input rounded p-1.5 text-slate-800"><option>TRITON-12K</option></select>
+                </div>
+                <div>
+                  <label class="block class-label text-slate-600 font-semibold mb-1">Quantity</label>
+                  <input type="number" readonly value="2" class="w-full bg-slate-50 border border-input rounded p-1 text-slate-800" />
+                </div>
+              </div>
+              
+              <div class="border-t border-slate-100 pt-3 space-y-3">
+                <span class="font-bold text-[10px] uppercase text-primary tracking-wide block">Variant Selection</span>
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-slate-600 font-semibold mb-1">Inlet Size (*)</label>
+                    <select id="mock-inlet-size" class="w-full border border-input rounded p-1 text-slate-800 focus:ring-1 focus:ring-ring"><option value="6">6 inch</option><option value="8" selected>8 inch</option><option value="12">12 inch</option></select>
+                  </div>
+                  <div>
+                    <label class="block text-slate-600 font-semibold mb-1">Micron Rating (*)</label>
+                    <input type="number" id="mock-micron-rating" value="200" class="w-full border border-input rounded p-1 text-slate-800 focus:ring-1 focus:ring-ring" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2 justify-end mt-2 pt-2 border-t border-slate-100">
+                <button class="border border-input hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-md font-semibold text-[11px] transition">Cancel</button>
+                <button class="bg-primary hover:bg-sky-800 text-white px-3 py-1.5 rounded-md font-semibold text-[11px] shadow-sm transition">Generate BOM</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE: 2. BOM ENGINE & APPROVAL -->
+      <div id="content-flow-bom" class="doc-content flex flex-col gap-6 hidden">
+        <div class="app-card p-6 bg-white">
+          <span class="text-xs font-bold text-primary uppercase tracking-widest block mb-1">Process Flow 2</span>
+          <h2 class="text-xl font-bold font-display text-slate-900 mb-2">BOM Engine & Approval</h2>
+          
+          <!-- Flow nodes -->
+          <div class="flex items-center justify-between gap-2 p-3 bg-slate-50 border border-border rounded-lg mb-6 overflow-x-auto text-[11px]">
+            <div class="flow-step flex items-center gap-1.5 px-3 py-1.5 rounded border border-border bg-white" data-roles="admin team_lead">
+              <span class="font-bold text-primary">1.</span>
+              <span class="font-medium text-slate-800">Auto Expand BOM</span>
+            </div>
+            <span class="text-slate-400">➔</span>
+            <div class="flow-step flex items-center gap-1.5 px-3 py-1.5 rounded border border-border bg-white" data-roles="admin team_lead">
+              <span class="font-bold text-primary">2.</span>
+              <span class="font-medium text-slate-800">Add Manual Lines</span>
+            </div>
+            <span class="text-slate-400">➔</span>
+            <div class="flow-step flex items-center gap-1.5 px-3 py-1.5 rounded border border-border bg-white" data-roles="admin founder team_lead">
+              <span class="font-bold text-primary">3.</span>
+              <span class="font-medium text-slate-800">Approve BOM</span>
+            </div>
+          </div>
+
+          <!-- Mock UI Screen -->
+          <div class="border border-border rounded-lg overflow-hidden bg-slate-50 p-4">
+            <span class="text-[9px] uppercase font-bold text-muted-foreground block mb-2">Mock UI: Project BOM Table view</span>
+            <div class="bg-white border border-border rounded-lg p-4 shadow-sm flex flex-col gap-3 text-xs">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="font-bold text-slate-900">BOM Instance List</span>
+                  <span class="bg-amber-100 text-amber-800 text-[10px] border border-amber-200 px-1.5 py-0.5 rounded font-medium" id="mock-bom-status">Draft</span>
+                </div>
+                <!-- Approve Button -->
+                <button onclick="approveMockBOM()" id="mock-btn-approve-bom" class="bg-primary hover:bg-sky-800 text-white px-2.5 py-1 rounded font-semibold text-[11px] shadow-sm transition">
+                  Approve BOM
+                </button>
+              </div>
+
+              <!-- Mock Table -->
+              <table class="w-full text-left text-[11px] border border-slate-100">
+                <thead>
+                  <tr class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                    <th class="p-2">Component Code</th>
+                    <th class="p-2">Name</th>
+                    <th class="p-2">Source</th>
+                    <th class="p-2 text-right">Required Qty</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 text-slate-700">
+                  <tr>
+                    <td class="p-2 font-semibold">NOZ-8</td>
+                    <td class="p-2">8" Inlet Nozzle</td>
+                    <td class="p-2"><span class="text-blue-500">Template (Variant)</span></td>
+                    <td class="p-2 text-right font-medium">2</td>
+                  </tr>
+                  <tr>
+                    <td class="p-2 font-semibold">BOLT-HEX-M12</td>
+                    <td class="p-2">Hex Bolt M12</td>
+                    <td class="p-2 text-slate-400">Template (Common)</td>
+                    <td class="p-2 text-right font-medium">60</td>
+                  </tr>
+                  <tr id="mock-manual-row" class="hidden">
+                    <td class="p-2 font-semibold text-purple-600">PANEL-CTR-12K</td>
+                    <td class="p-2">Custom Control Panel</td>
+                    <td class="p-2"><span class="text-purple-600 font-medium">Manual Line</span></td>
+                    <td class="p-2 text-right font-medium">1</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div class="flex items-center gap-2 justify-between pt-2">
+                <button onclick="addMockManualLine()" id="mock-btn-add-line" class="border border-input hover:bg-slate-50 text-slate-700 px-2 py-1 rounded font-semibold text-[10px] transition">
+                  + Add Manual Component
+                </button>
+                <span class="text-[10px] text-slate-400">Total: <strong class="text-slate-700" id="mock-bom-lines-count">2</strong> items in BOM</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE: 3. STOCK SHORTFALL CHECK -->
+      <div id="content-flow-requisitions" class="doc-content flex flex-col gap-6 hidden">
+        <div class="app-card p-6 bg-white">
+          <span class="text-xs font-bold text-primary uppercase tracking-widest block mb-1">Process Flow 3</span>
+          <h2 class="text-xl font-bold font-display text-slate-900 mb-2">Stock Shortfall Check</h2>
+          
+          <!-- Flow nodes -->
+          <div class="flex items-center justify-between gap-2 p-3 bg-slate-50 border border-border rounded-lg mb-6 overflow-x-auto text-[11px]">
+            <div class="flow-step flex items-center gap-1.5 px-3 py-1.5 rounded border border-border bg-white" data-roles="admin founder team_lead">
+              <span class="font-bold text-primary">1.</span>
+              <span class="font-medium text-slate-800">Compare BOM vs Stock</span>
+            </div>
+            <span class="text-slate-400">➔</span>
+            <div class="flow-step flex items-center gap-1.5 px-3 py-1.5 rounded border border-border bg-white" data-roles="admin team_lead">
+              <span class="font-bold text-primary">2.</span>
+              <span class="font-medium text-slate-800">Reserve On-Hand Lots</span>
+            </div>
+            <span class="text-slate-400">➔</span>
+            <div class="flow-step flex items-center gap-1.5 px-3 py-1.5 rounded border border-border bg-white" data-roles="admin team_lead team_member">
+              <span class="font-bold text-primary">3.</span>
+              <span class="font-medium text-slate-800">Raise Indent (REQ)</span>
+            </div>
+          </div>
+
+          <!-- Mock UI Screen -->
+          <div class="border border-border rounded-lg overflow-hidden bg-slate-50 p-4">
+            <span class="text-[9px] uppercase font-bold text-muted-foreground block mb-2">Mock UI: Project Shortfall & Stock Check</span>
+            <div class="bg-white border border-border rounded-lg p-4 shadow-sm flex flex-col gap-3 text-xs">
+              <span class="font-bold text-slate-900">Project Stock Shortfall Analysis</span>
+
+              <!-- Mock Table -->
+              <table class="w-full text-left text-[11px] border border-slate-100">
+                <thead>
+                  <tr class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                    <th class="p-2">Component</th>
+                    <th class="p-2 text-right">Required</th>
+                    <th class="p-2 text-right">On Hand</th>
+                    <th class="p-2 text-right">Ordered</th>
+                    <th class="p-2 text-right">Shortfall</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 text-slate-700">
+                  <tr>
+                    <td class="p-2 font-semibold">NOZ-8</td>
+                    <td class="p-2 text-right">2</td>
+                    <td class="p-2 text-right text-emerald-600 font-medium">3</td>
+                    <td class="p-2 text-right">0</td>
+                    <td class="p-2 text-right text-slate-400">0</td>
+                  </tr>
+                  <tr>
+                    <td class="p-2 font-semibold">BOLT-HEX-M12</td>
+                    <td class="p-2 text-right">60</td>
+                    <td class="p-2 text-right text-slate-400">0</td>
+                    <td class="p-2 text-right text-slate-400">0</td>
+                    <td class="p-2 text-right text-destructive font-bold">60</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div class="flex items-center gap-2 justify-end pt-2">
+                <button class="border border-input hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-md font-semibold text-[11px] transition">
+                  Create Requisition (Indent)
+                </button>
+                <button class="bg-primary hover:bg-sky-800 text-white px-3 py-1.5 rounded-md font-semibold text-[11px] shadow-sm transition">
+                  Convert to PO (Direct)
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE: 4. PROCUREMENT & PO BATCHING -->
+      <div id="content-flow-procurement" class="doc-content flex flex-col gap-6 hidden">
+        <div class="app-card p-6 bg-white">
+          <span class="text-xs font-bold text-primary uppercase tracking-widest block mb-1">Process Flow 4</span>
+          <h2 class="text-xl font-bold font-display text-slate-900 mb-2">Procurement & PO Batching</h2>
+          
+          <!-- Flow nodes -->
+          <div class="flex items-center justify-between gap-2 p-3 bg-slate-50 border border-border rounded-lg mb-6 overflow-x-auto text-[11px]">
+            <div class="flow-step flex items-center gap-1.5 px-3 py-1.5 rounded border border-border bg-white" data-roles="admin team_lead">
+              <span class="font-bold text-primary">1.</span>
+              <span class="font-medium text-slate-800">Raise PO / Batch Projects</span>
+            </div>
+            <span class="text-slate-400">➔</span>
+            <div class="flow-step flex items-center gap-1.5 px-3 py-1.5 rounded border border-border bg-white" data-roles="admin team_lead">
+              <span class="font-bold text-primary">2.</span>
+              <span class="font-medium text-slate-800">Phone Order Flag</span>
+            </div>
+            <span class="text-slate-400">➔</span>
+            <div class="flow-step flex items-center gap-1.5 px-3 py-1.5 rounded border border-border bg-white" data-roles="admin team_lead">
+              <span class="font-bold text-primary">3.</span>
+              <span class="font-medium text-slate-800">Clean Untagged PO Lines</span>
+            </div>
+          </div>
+
+          <!-- Mock UI Screen -->
+          <div class="border border-border rounded-lg overflow-hidden bg-slate-50 p-4">
+            <span class="text-[9px] uppercase font-bold text-muted-foreground block mb-2">Mock UI: Purchase Order Creator</span>
+            <div class="bg-white border border-border rounded-lg p-4 shadow-sm flex flex-col gap-3 text-xs">
+              <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                <span class="font-bold text-slate-900">Raise Purchase Order</span>
+                <span class="text-[10px] text-muted-foreground font-mono">PO/26-27/0038</span>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-slate-600 font-semibold mb-1">Vendor (*)</label>
+                  <select class="w-full border border-input rounded p-1 text-slate-800"><option>Mecno Automation LLP</option></select>
+                </div>
+                
+                <!-- Phone Order Switch/Checkbox -->
+                <div>
+                  <label class="block text-slate-600 font-semibold mb-1">Order Placement</label>
+                  <label class="flex items-center gap-1.5 mt-1 cursor-pointer">
+                    <input type="checkbox" id="mock-po-informal" class="rounded border-input text-primary focus:ring-ring" />
+                    <span class="text-slate-700 font-medium">Informal / Phone Order</span>
+                  </label>
+                </div>
+              </div>
+
+              <!-- Lines Table -->
+              <table class="w-full text-left text-[11px] border border-slate-100">
+                <thead>
+                  <tr class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                    <th class="p-2">Component</th>
+                    <th class="p-2">Project Tag</th>
+                    <th class="p-2 text-right">Qty</th>
+                    <th class="p-2 text-right sim-financial-col">Rate (₹)</th>
+                    <th class="p-2 text-right sim-financial-col">Amount (₹)</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 text-slate-700">
+                  <tr>
+                    <td class="p-2 font-semibold">BOLT-HEX-M12</td>
+                    <td class="p-2">
+                      <select class="border border-input rounded text-[10px] p-0.5 text-slate-800 w-24">
+                        <option value="YH-001">YH-001</option>
+                        <option value="none">Stock (None)</option>
+                      </select>
+                    </td>
+                    <td class="p-2 text-right">60</td>
+                    <td class="p-2 text-right sim-financial-col text-slate-600">10.00</td>
+                    <td class="p-2 text-right sim-financial-col font-medium">600.00</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div class="flex items-center justify-between pt-2">
+                <span class="text-[10px] text-slate-500 sim-financial-col">Total PO Amount: <strong class="text-slate-800">₹600.00</strong></span>
+                <span class="text-[10px] text-slate-500 hidden sim-financial-col-hidden">Total PO Amount: <strong class="text-slate-400">---</strong></span>
+                <button class="bg-primary hover:bg-sky-800 text-white px-3 py-1.5 rounded-md font-semibold text-[11px] shadow-sm transition">
+                  Create PO
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE: 5. GOODS RECEIPT NOTE (GRN) -->
+      <div id="content-flow-grn" class="doc-content flex flex-col gap-6 hidden">
+        <div class="app-card p-6 bg-white">
+          <span class="text-xs font-bold text-primary uppercase tracking-widest block mb-1">Process Flow 5</span>
+          <h2 class="text-xl font-bold font-display text-slate-900 mb-2">Goods Receipt Note (GRN) at Gate</h2>
+          
+          <!-- Flow nodes -->
+          <div class="flex items-center justify-between gap-2 p-3 bg-slate-50 border border-border rounded-lg mb-6 overflow-x-auto text-[11px]">
+            <div class="flow-step flex items-center gap-1.5 px-3 py-1.5 rounded border border-border bg-white" data-roles="admin team_lead team_member">
+              <span class="font-bold text-primary">1.</span>
+              <span class="font-medium text-slate-800">Enter Challan details</span>
+            </div>
+            <span class="text-slate-400">➔</span>
+            <div class="flow-step flex items-center gap-1.5 px-3 py-1.5 rounded border border-border bg-white" data-roles="admin team_lead team_member">
+              <span class="font-bold text-primary">2.</span>
+              <span class="font-medium text-slate-800">Log Unmatched Item</span>
+            </div>
+            <span class="text-slate-400">➔</span>
+            <div class="flow-step flex items-center gap-1.5 px-3 py-1.5 rounded border border-border bg-white" data-roles="admin team_lead">
+              <span class="font-bold text-primary">3.</span>
+              <span class="font-medium text-slate-800">Auto PO Rollup</span>
+            </div>
+          </div>
+
+          <!-- Mock UI Screen -->
+          <div class="border border-border rounded-lg overflow-hidden bg-slate-50 p-4">
+            <span class="text-[9px] uppercase font-bold text-muted-foreground block mb-2">Mock UI: Gate Entry & Challan GRN Screen</span>
+            <div class="bg-white border border-border rounded-lg p-4 shadow-sm flex flex-col gap-3 text-xs">
+              <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                <span class="font-bold text-slate-900 font-display">New Goods Receipt (GRN)</span>
+                <span class="text-[10px] text-muted-foreground font-mono">GRN/26-27/0019</span>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-slate-600 font-semibold mb-1">Challan / Invoice No (*)</label>
+                  <input type="text" value="CH-98218" class="w-full border border-input rounded p-1 text-slate-800" />
+                </div>
+                <div>
+                  <label class="block text-slate-600 font-semibold mb-1">Select PO Reference</label>
+                  <select class="w-full border border-input rounded p-1 text-slate-800">
+                    <option value="po-38">PO/26-27/0038 (Mecno)</option>
+                    <option value="none">No PO (Phone Order / Gate Capture)</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Lines checklist -->
+              <div class="border border-slate-100 rounded p-2.5 space-y-2">
+                <span class="font-bold text-[10px] uppercase text-slate-400 block tracking-wider">Expected Lines</span>
+                
+                <div class="flex items-center justify-between border-b border-slate-50 pb-1.5 text-[11px]">
+                  <div>
+                    <span class="font-semibold block text-slate-800">BOLT-HEX-M12 (Project: YH-001)</span>
+                    <span class="text-[9px] text-slate-400">PO ordered qty: 60</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] text-slate-500">Recv Qty:</span>
+                    <input type="number" id="mock-grn-recv-qty" value="60" class="border border-input rounded p-0.5 w-12 text-center text-slate-800" />
+                  </div>
+                </div>
+
+                <!-- Untagged gate item checklist option -->
+                <div class="flex items-center justify-between text-[11px] pt-1" id="mock-grn-untagged-row">
+                  <div>
+                    <span class="font-semibold text-rose-600 block">Unmatched Gate Item (No PO / Tag)</span>
+                    <span class="text-[9px] text-slate-400">Added to inventory as untagged receipt</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] text-slate-500">Qty:</span>
+                    <input type="number" readonly value="5" class="bg-slate-50 border border-input rounded p-0.5 w-12 text-center text-slate-800" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex items-center justify-end">
+                <button class="bg-primary hover:bg-sky-800 text-white px-3 py-1.5 rounded-md font-semibold text-[11px] shadow-sm transition">
+                  Post Goods Receipt (GRN)
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE: 6. QR STICKER PRINTING & LOTS -->
+      <div id="content-flow-qr-stickers" class="doc-content flex flex-col gap-6 hidden">
+        <div class="app-card p-6 bg-white">
+          <span class="text-xs font-bold text-primary uppercase tracking-widest block mb-1">Process Flow 6</span>
+          <h2 class="text-xl font-bold font-display text-slate-900 mb-2">QR Sticker Generation & Lot Creation</h2>
+          
+          <!-- Flow nodes -->
+          <div class="flex items-center justify-between gap-2 p-3 bg-slate-50 border border-border rounded-lg mb-6 overflow-x-auto text-[11px]">
+            <div class="flow-step flex items-center gap-1.5 px-3 py-1.5 rounded border border-border bg-white" data-roles="admin team_lead team_member">
+              <span class="font-bold text-primary">1.</span>
+              <span class="font-medium text-slate-800">Auto Generate Lot Code</span>
+            </div>
+            <span class="text-slate-400">➔</span>
+            <div class="flow-step flex items-center gap-1.5 px-3 py-1.5 rounded border border-border bg-white" data-roles="admin team_lead team_member">
+              <span class="font-bold text-primary">2.</span>
+              <span class="font-medium text-slate-800">Print Sticker</span>
+            </div>
+            <span class="text-slate-400">➔</span>
+            <div class="flow-step flex items-center gap-1.5 px-3 py-1.5 rounded border border-border bg-white" data-roles="admin team_lead team_member">
+              <span class="font-bold text-primary">3.</span>
+              <span class="font-medium text-slate-800">Physically Label Box</span>
+            </div>
+          </div>
+
+          <!-- Mock UI Screen -->
+          <div class="border border-border rounded-lg overflow-hidden bg-slate-50 p-4">
+            <span class="text-[9px] uppercase font-bold text-muted-foreground block mb-2">Mock UI: Sticker Printing layout</span>
+            <div class="bg-white border border-border rounded-lg p-6 shadow-sm flex flex-col items-center gap-4 text-xs max-w-sm mx-auto">
+              <span class="font-bold text-slate-400 uppercase text-[9px] tracking-wider border-b w-full text-center pb-2">YAHA WATER SYSTEMS PVT. LTD.</span>
+              
+              <div class="flex items-center justify-between gap-6 w-full px-2">
+                <div class="space-y-1">
+                  <div class="text-[14px] font-bold text-slate-900 leading-tight">BOLT-HEX-M12</div>
+                  <div class="text-[10px] text-slate-500 font-mono">Lot: L-2606-0391</div>
+                  <div class="text-[9px] bg-slate-100 text-slate-600 px-1 py-0.5 rounded inline-block">Supplier: Mecno Auto</div>
+                </div>
+                <!-- Mock QR -->
+                <div class="size-16 bg-slate-100 border border-slate-200 p-1.5 rounded flex items-center justify-center">
+                  <svg viewBox="0 0 29 29" class="size-12 text-slate-900" fill="currentColor">
+                    <path d="M0 0h7v7H0zm1 1v5h5V1zm8-1h1v1H9zm1 1h1v1h-1zm-1 1h1v1H9zm2-2h1v1h-1zm2 1h1v1h-1zm1 1h1v1h-1zm1-2h1v1h-1zm2 1h1v1h-1zm-4 4h1v1h-1zm3 0h1v1h-1zm5-5h7v7h-7zm1 1v5h5V1z"/>
+                  </svg>
+                </div>
+              </div>
+
+              <!-- EMPTY QUANTITY WARNING -->
+              <div class="bg-blue-50 border border-blue-100 text-[10px] text-blue-700 leading-normal p-2.5 rounded-md w-full">
+                <strong>Notice:</strong> No stock quantity is printed on this sticker. Live remaining quantity is retrieved by scanning the QR code. This avoids stale paper values after partial consumption.
+              </div>
+
+              <button class="w-full bg-slate-900 hover:bg-slate-800 text-white font-medium py-1.5 rounded shadow-sm text-[11px] transition">
+                Print Lot Sticker
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE: 7. QR CONSUMPTION -->
+      <div id="content-flow-qr-consume" class="doc-content flex flex-col gap-6 hidden">
+        <div class="app-card p-6 bg-white">
+          <span class="text-xs font-bold text-primary uppercase tracking-widest block mb-1">Process Flow 7</span>
+          <h2 class="text-xl font-bold font-display text-slate-900 mb-2">Scan & Consume Material</h2>
+          
+          <!-- Flow nodes -->
+          <div class="flex items-center justify-between gap-2 p-3 bg-slate-50 border border-border rounded-lg mb-6 overflow-x-auto text-[11px]">
+            <div class="flow-step flex items-center gap-1.5 px-3 py-1.5 rounded border border-border bg-white" data-roles="admin team_lead team_member">
+              <span class="font-bold text-primary">1.</span>
+              <span class="font-medium text-slate-800">Scan sticker QR code</span>
+            </div>
+            <span class="text-slate-400">➔</span>
+            <div class="flow-step flex items-center gap-1.5 px-3 py-1.5 rounded border border-border bg-white" data-roles="admin team_lead team_member">
+              <span class="font-bold text-primary">2.</span>
+              <span class="font-medium text-slate-800">Input Quantity to issue</span>
+            </div>
+            <span class="text-slate-400">➔</span>
+            <div class="flow-step flex items-center gap-1.5 px-3 py-1.5 rounded border border-border bg-white" data-roles="admin team_lead team_member">
+              <span class="font-bold text-primary">3.</span>
+              <span class="font-medium text-slate-800">Post negative movement</span>
+            </div>
+          </div>
+
+          <!-- Mock UI Screen -->
+          <div class="border border-border rounded-lg overflow-hidden bg-slate-50 p-4">
+            <span class="text-[9px] uppercase font-bold text-muted-foreground block mb-2">Mock UI: Mobile PWA Scanner screen</span>
+            <div class="bg-white border border-border rounded-lg overflow-hidden shadow-sm flex flex-col max-w-xs mx-auto text-xs">
+              <!-- Header -->
+              <div class="bg-slate-900 text-white p-3 font-semibold text-center font-display">
+                PWA Scanning Node
+              </div>
+              
+              <!-- Scan Box Camera Simulator -->
+              <div class="bg-slate-950 aspect-square flex flex-col items-center justify-center p-6 relative border-b border-border">
+                <div class="border-2 border-emerald-500 size-48 absolute rounded flex items-center justify-center">
+                  <div class="h-0.5 w-44 bg-emerald-500 animate-bounce"></div>
+                </div>
+                <div class="text-[10px] text-slate-500 absolute bottom-4">Align QR inside frame</div>
+              </div>
+
+              <!-- Input values -->
+              <div class="p-4 space-y-3">
+                <div>
+                  <label class="block text-slate-600 font-semibold mb-1">Scanned Lot Code</label>
+                  <input type="text" id="mock-scan-lot" value="L-9281-01" class="w-full bg-slate-50 border border-input rounded p-1 text-slate-800" readonly />
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                  <div>
+                    <label class="block text-slate-600 font-semibold mb-1">Remaining</label>
+                    <input type="number" id="mock-scan-onhand" value="10" class="w-full bg-slate-50 border border-input rounded p-1 text-slate-800" readonly />
+                  </div>
+                  <div>
+                    <label class="block text-slate-600 font-semibold mb-1">Issue Qty (*)</label>
+                    <input type="number" id="mock-scan-issue" value="2" class="w-full border border-input rounded p-1 text-slate-800 focus:ring-1 focus:ring-ring" />
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-slate-600 font-semibold mb-1">Issue to Project (*)</label>
+                  <select class="w-full border border-input rounded p-1 text-slate-800"><option>YH-001</option></select>
+                </div>
+
+                <button class="w-full bg-primary hover:bg-sky-800 text-white font-medium py-2 rounded-md shadow-sm transition">
+                  Consume into Project
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE: 8. RECONCILIATION & SCHEDULE -->
+      <div id="content-flow-reconciliation" class="doc-content flex flex-col gap-6 hidden">
+        <div class="app-card p-6 bg-white">
+          <span class="text-xs font-bold text-primary uppercase tracking-widest block mb-1">Process Flow 8</span>
+          <h2 class="text-xl font-bold font-display text-slate-900 mb-2">Action Center & Schedule</h2>
+          
+          <!-- Flow nodes -->
+          <div class="flex items-center justify-between gap-2 p-3 bg-slate-50 border border-border rounded-lg mb-6 overflow-x-auto text-[11px]">
+            <div class="flow-step flex items-center gap-1.5 px-3 py-1.5 rounded border border-border bg-white" data-roles="admin founder team_lead">
+              <span class="font-bold text-primary">1.</span>
+              <span class="font-medium text-slate-800">Identify Action alerts</span>
+            </div>
+            <span class="text-slate-400">➔</span>
+            <div class="flow-step flex items-center gap-1.5 px-3 py-1.5 rounded border border-border bg-white" data-roles="admin team_lead">
+              <span class="font-bold text-primary">2.</span>
+              <span class="font-medium text-slate-800">Resolve items inline</span>
+            </div>
+            <span class="text-slate-400">➔</span>
+            <div class="flow-step flex items-center gap-1.5 px-3 py-1.5 rounded border border-border bg-white" data-roles="admin founder team_lead">
+              <span class="font-bold text-primary">3.</span>
+              <span class="font-medium text-slate-800">Review Costings</span>
+            </div>
+          </div>
+
+          <!-- Mock UI Screen -->
+          <div class="border border-border rounded-lg overflow-hidden bg-slate-50 p-4 space-y-4">
+            <span class="text-[9px] uppercase font-bold text-muted-foreground block">Mock UI: Action Center Dashboard Widgets</span>
+            
+            <div class="grid grid-cols-3 gap-2">
+              <div class="bg-white border border-border rounded-lg p-2.5 flex flex-col shadow-sm">
+                <span class="text-[9px] font-semibold text-muted-foreground uppercase">BOM Variance</span>
+                <span class="text-sm font-bold text-slate-950 mt-1">2 Lines</span>
+                <span class="text-[8px] text-destructive font-medium mt-0.5">Under-ordered</span>
+              </div>
+              <div class="bg-white border border-border rounded-lg p-2.5 flex flex-col shadow-sm">
+                <span class="text-[9px] font-semibold text-muted-foreground uppercase">Untagged Receipts</span>
+                <span class="text-sm font-bold text-slate-950 mt-1" id="mock-stat-untagged">1 Receipt</span>
+                <span class="text-[8px] text-warning font-medium mt-0.5">Needs project tag</span>
+              </div>
+              <div class="bg-white border border-border rounded-lg p-2.5 flex flex-col shadow-sm">
+                <span class="text-[9px] font-semibold text-muted-foreground uppercase">PO Overdue</span>
+                <span class="text-sm font-bold text-slate-950 mt-1">1 Order</span>
+                <span class="text-[8px] text-destructive font-medium mt-0.5">Past expected delivery</span>
+              </div>
+            </div>
+
+            <!-- Mock Activity schedule -->
+            <div class="bg-white border border-border rounded-lg p-3 shadow-sm text-xs">
+              <span class="font-bold text-slate-900 block mb-2">Project Production Schedule (YH-001)</span>
+              
+              <table class="w-full text-left text-[10px] border border-slate-100">
+                <thead>
+                  <tr class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                    <th class="p-1.5">Activity</th>
+                    <th class="p-1.5">Responsibility</th>
+                    <th class="p-1.5">Planned</th>
+                    <th class="p-1.5">Actual</th>
+                    <th class="p-1.5 text-right">Delay</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 text-slate-700">
+                  <tr>
+                    <td class="p-1.5 font-semibold">1. Document Approval</td>
+                    <td class="p-1.5">Prem (Planning)</td>
+                    <td class="p-1.5">2026-06-24</td>
+                    <td class="p-1.5">2026-06-25</td>
+                    <td class="p-1.5 text-right text-warning font-bold">+1d</td>
+                  </tr>
+                  <tr>
+                    <td class="p-1.5 font-semibold">2. Material Receive</td>
+                    <td class="p-1.5">Sanoj (Store)</td>
+                    <td class="p-1.5">2026-06-26</td>
+                    <td class="p-1.5 text-slate-400">Pending</td>
+                    <td class="p-1.5 text-right text-slate-400">-</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT SIDEBAR: LIVE SIMULATOR -->
+    <aside class="lg:col-span-3 flex flex-col gap-4">
+      <div class="app-card p-5 bg-white border-t-4 border-primary">
+        <div class="mb-4">
+          <h3 class="text-sm font-bold font-display text-slate-900 flex items-center gap-1.5">
+            <!-- Sparkles Icon -->
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+            </svg>
+            State Simulator
+          </h3>
+          <p class="text-[11px] text-muted-foreground mt-1">Click these simulator actions to see how the system updates live screen tables and costing values.</p>
+        </div>
+
+        <!-- SIMULATOR ACTIONS -->
+        <div class="flex flex-col gap-2.5">
+          <button onclick="runSimulation('receive_untagged')" class="w-full py-2 px-3 bg-slate-50 hover:bg-slate-100 text-[11px] text-slate-700 rounded-lg border border-border hover:border-primary/30 transition text-left flex items-start gap-2.5 shadow-sm">
+            <span class="text-primary mt-1">●</span>
+            <div>
+              <span class="text-slate-900 block font-bold">Simulate Untagged Receipt</span>
+              <span class="text-[10px] text-muted-foreground font-medium">Log 5 items at gate with no PO reference</span>
+            </div>
+          </button>
+
+          <button onclick="runSimulation('consume_stock')" class="w-full py-2 px-3 bg-slate-50 hover:bg-slate-100 text-[11px] text-slate-700 rounded-lg border border-border hover:border-primary/30 transition text-left flex items-start gap-2.5 shadow-sm">
+            <span class="text-success mt-1">●</span>
+            <div>
+              <span class="text-slate-900 block font-bold">Simulate QR Scan & Issue</span>
+              <span class="text-[10px] text-muted-foreground font-medium">Issue 2 units of NOZ-8 into Project YH-001</span>
+            </div>
+          </button>
+
+          <button onclick="runSimulation('resolve_tag')" class="w-full py-2 px-3 bg-slate-50 hover:bg-slate-100 text-[11px] text-slate-700 rounded-lg border border-border hover:border-primary/30 transition text-left flex items-start gap-2.5 shadow-sm">
+            <span class="text-roleFounder mt-1">●</span>
+            <div>
+              <span class="text-slate-900 block font-bold">Simulate Tag Back-filling</span>
+              <span class="text-[10px] text-muted-foreground font-medium">Assign project code to untagged gate items</span>
+            </div>
+          </button>
+
+          <button onclick="resetSimulation()" class="w-full py-2 px-3 bg-rose-50 hover:bg-rose-100 text-[11px] text-rose-700 font-bold border border-rose-200 rounded-lg transition text-center shadow-sm">
+            Reset Simulator
+          </button>
+        </div>
+
+        <!-- MOCK TABLES MONITOR -->
+        <div class="flex flex-col gap-2 mt-4 pt-4 border-t border-border">
+          <span class="text-[9px] uppercase font-bold tracking-wider text-slate-400 font-display">Database Status Monitor</span>
+          
+          <div class="space-y-3 font-mono text-[9px] leading-relaxed">
+            <!-- Table 1 -->
+            <div class="bg-slate-50 p-2.5 rounded-lg border border-border">
+              <span class="text-primary font-bold block border-b border-slate-200 pb-1 mb-1.5">table: inventory_lots</span>
+              <div class="space-y-0.5 text-slate-700">
+                <div>Lot code: <span class="font-bold text-slate-900" id="sim-lot-code">L-9281-01</span></div>
+                <div>Component: <span class="text-slate-900">NOZ-8</span></div>
+                <div>On-hand: <span class="font-bold text-slate-900" id="sim-lot-qty">10</span></div>
+                <div>Status: <span class="text-success font-bold" id="sim-lot-status">available</span></div>
+              </div>
+            </div>
+            
+            <!-- Table 2 -->
+            <div class="bg-slate-50 p-2.5 rounded-lg border border-border">
+              <span class="text-primary font-bold block border-b border-slate-200 pb-1 mb-1.5">table: stock_movements</span>
+              <div class="space-y-1 max-h-[85px] overflow-y-auto text-slate-700" id="sim-movements-list">
+                <div class="text-slate-400 italic">No movements in transaction block.</div>
+              </div>
+            </div>
+
+            <!-- Table 3 -->
+            <div class="bg-slate-50 p-2.5 rounded-lg border border-border">
+              <span class="text-primary font-bold block border-b border-slate-200 pb-1 mb-1.5">derived_view: costing & alerts</span>
+              <div class="space-y-0.5 text-slate-700">
+                <div>Project YH-001 Cost: <span class="font-bold text-slate-900" id="sim-cost-consumed">₹0</span></div>
+                <div>Untagged Receipts: <span class="font-bold text-destructive" id="sim-cost-untagged">1</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="mt-auto py-6 border-t border-border bg-white text-center text-xs text-slate-500">
+    <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
+      <span>YAHA Waters Inventory Management System (IMS) documentation.</span>
+      <span>Developed for YAHA Water Systems Pvt. Ltd. (YWSPL)</span>
+    </div>
+  </footer>
+
+  <!-- INTERACTIVE WIKI JAVASCRIPT -->
+  <script>
+    // Tab switching state
+    function switchDocTab(tabName) {
+      document.querySelectorAll('.doc-content').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.doc-tab-btn').forEach(btn => {
+        btn.className = "doc-tab-btn flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50 transition w-full text-left";
+      });
+
+      const targetContent = document.getElementById(`content-${tabName}`);
+      if (targetContent) targetContent.classList.remove('hidden');
+
+      const targetTab = document.getElementById(`tab-${tabName}`);
+      if (targetTab) {
+        targetTab.className = "doc-tab-btn flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50 transition w-full text-left bg-primary text-primary-foreground shadow-sm";
+      }
+    }
+
+    // Role Highlight Filters
+    let activeRole = 'all';
+
+    const roleDetails = {
+      all: {
+        title: "All Roles Displayed",
+        desc: "Hover over process nodes or select role filters above to see highlights. Postgres RLS is automatically handled in the data queries.",
+        borderClass: "border-slate-400",
+        gated: false
+      },
+      admin: {
+        title: "System Administrator",
+        desc: "Full database read/write access. Manages user profiling, organizations, master tables, documents, POs, GRNs, and ledger adjustments.",
+        borderClass: "border-roleAdmin",
+        gated: false
+      },
+      founder: {
+        title: "Company Founder",
+        desc: "Full view permissions across all system modules, costing analytics, and KPI dashboards. Responsible for BOM and document approval stages.",
+        borderClass: "border-roleFounder",
+        gated: false
+      },
+      team_lead: {
+        title: "Project / Team Lead",
+        desc: "Manages assigned project lifecycles. Can draft variant configurations, edit BOM lines, raise requisitions, issue POs, and verify schedule activity completions.",
+        borderClass: "border-roleLead",
+        gated: false
+      },
+      team_member: {
+        title: "Shop Floor / Store Staff",
+        desc: "Handles material operations. Scans gate arrivals, enters challans, triggers QR stickers, and records consumption to projects via scanner.",
+        borderClass: "border-roleMember",
+        gated: true
+      }
+    };
+
+    function setRoleFilter(role) {
+      activeRole = role;
+
+      // Update button visual states
+      document.querySelectorAll('.role-btn').forEach(btn => {
+        btn.className = "role-btn px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 border border-transparent transition-colors duration-150";
+      });
+
+      const activeBtn = document.getElementById(`btn-role-${role}`);
+      if (activeBtn) {
+        activeBtn.className = "role-btn px-2.5 py-1 rounded-md text-xs font-medium bg-white text-slate-800 shadow-sm border border-slate-200 transition-colors duration-150";
+      }
+
+      // Update Role Info Sidebar
+      const detail = roleDetails[role];
+      const rolePanel = document.getElementById('role-panel');
+      const rolePanelTitle = document.getElementById('role-panel-title');
+      const rolePanelDesc = document.getElementById('role-panel-desc');
+      const rolePanelGated = document.getElementById('role-panel-gated');
+
+      rolePanel.className = `app-card p-4 border-l-4 ${detail.borderClass} bg-white transition-all duration-300`;
+      rolePanelTitle.textContent = detail.title;
+      rolePanelDesc.textContent = detail.desc;
+
+      if (detail.gated) {
+        rolePanelGated.classList.remove('hidden');
+      } else {
+        rolePanelGated.classList.add('hidden');
+      }
+
+      // Show/Hide Role Banner and Financial column values
+      const roleBanner = document.getElementById('role-banner');
+      const indicator = document.getElementById('role-banner-indicator');
+      const bTitle = document.getElementById('role-banner-title');
+      const bDesc = document.getElementById('role-banner-desc');
+
+      const financialCols = document.querySelectorAll('.sim-financial-col');
+      const hiddenFinancialLabel = document.querySelectorAll('.sim-financial-col-hidden');
+
+      if (role === 'all') {
+        roleBanner.classList.add('hidden');
+        financialCols.forEach(el => el.classList.remove('hidden'));
+        hiddenFinancialLabel.forEach(el => el.classList.add('hidden'));
+      } else {
+        roleBanner.classList.remove('hidden');
+        roleBanner.className = `p-3.5 rounded-lg border flex items-center gap-3 transition ${
+          role === 'admin' ? 'bg-rose-50 border-rose-200 text-rose-800' :
+          role === 'founder' ? 'bg-purple-50 border-purple-200 text-purple-800' :
+          role === 'team_lead' ? 'bg-blue-50 border-blue-200 text-blue-800' :
+          'bg-emerald-50 border-emerald-200 text-emerald-800'
+        }`;
+
+        indicator.className = `w-2.5 h-2.5 rounded-full shrink-0 ${
+          role === 'admin' ? 'bg-roleAdmin' :
+          role === 'founder' ? 'bg-roleFounder' :
+          role === 'team_lead' ? 'bg-roleLead' :
+          'bg-roleMember'
+        }`;
+
+        bTitle.textContent = `Viewing details as ${role.toUpperCase().replace('_', ' ')}`;
+        bDesc.textContent = role === 'team_member' ? 
+          "Financial columns are hidden from you, and master write actions will trigger 403 errors." :
+          "You have access to view rates and edit documents based on role permissions.";
+
+        // Manage Column Visibility
+        if (role === 'team_member') {
+          financialCols.forEach(el => el.classList.add('hidden'));
+          hiddenFinancialLabel.forEach(el => el.classList.remove('hidden'));
+        } else {
+          financialCols.forEach(el => el.classList.remove('hidden'));
+          hiddenFinancialLabel.forEach(el => el.classList.add('hidden'));
+        }
+      }
+
+      // Highlight step flowchart nodes
+      document.querySelectorAll('.flow-step').forEach(node => {
+        const allowedRoles = node.getAttribute('data-roles').split(' ');
+        if (role === 'all' || allowedRoles.includes(role)) {
+          node.classList.add('flow-node-active');
+          node.classList.remove('opacity-40');
+        } else {
+          node.classList.remove('flow-node-active');
+          node.classList.add('opacity-40');
+        }
+      });
+
+      // Highlight Permission Matrix Rows
+      document.querySelectorAll('.matrix-row').forEach(row => {
+        const rowRoles = row.getAttribute('data-roles').split(' ');
+        if (role === 'all' || rowRoles.includes(role)) {
+          row.classList.remove('opacity-30');
+        } else {
+          row.classList.add('opacity-30');
+        }
+      });
+    }
+
+    // STATE SIMULATOR IMPLEMENTATION
+    let simState = {
+      lotCode: "L-9281-01",
+      onHand: 10,
+      status: "available",
+      movements: [],
+      costConsumed: 0,
+      untaggedCount: 1
+    };
+
+    function updateSimDisplay() {
+      // Sidebar Updates
+      document.getElementById('sim-lot-code').textContent = simState.lotCode;
+      document.getElementById('sim-lot-qty').textContent = simState.onHand;
+      
+      const statusEl = document.getElementById('sim-lot-status');
+      statusEl.textContent = simState.status;
+      if (simState.status === "consumed") {
+        statusEl.className = "text-destructive font-bold";
+      } else {
+        statusEl.className = "text-success font-bold";
+      }
+
+      document.getElementById('sim-cost-consumed').textContent = `₹${simState.costConsumed}`;
+      
+      const untaggedEl = document.getElementById('sim-cost-untagged');
+      untaggedEl.textContent = simState.untaggedCount;
+      if (simState.untaggedCount > 0) {
+        untaggedEl.className = "text-destructive font-bold";
+      } else {
+        untaggedEl.className = "text-slate-500 font-semibold";
+      }
+
+      const listEl = document.getElementById('sim-movements-list');
+      listEl.innerHTML = '';
+      if (simState.movements.length === 0) {
+        listEl.innerHTML = '<div class="text-slate-400 italic">No movements in transaction block.</div>';
+      } else {
+        simState.movements.forEach(m => {
+          const div = document.createElement('div');
+          div.className = m.qty > 0 ? 'text-success font-medium' : 'text-destructive font-medium';
+          div.textContent = `${m.qty > 0 ? '+' : ''}${m.qty} (${m.type})`;
+          listEl.appendChild(div);
+        });
+      }
+
+      // UI Screen Synchronization (Mock view updates based on simState)
+      const mockScanOnhand = document.getElementById('mock-scan-onhand');
+      if (mockScanOnhand) mockScanOnhand.value = simState.onHand;
+
+      const mockStatUntagged = document.getElementById('mock-stat-untagged');
+      if (mockStatUntagged) mockStatUntagged.textContent = `${simState.untaggedCount} Receipt${simState.untaggedCount !== 1 ? 's' : ''}`;
+
+      const mockUntaggedRow = document.getElementById('mock-grn-untagged-row');
+      if (mockUntaggedRow) {
+        if (simState.untaggedCount > 1) {
+          mockUntaggedRow.classList.remove('hidden');
+        } else {
+          // keep initial state
+        }
+      }
+    }
+
+    function runSimulation(action) {
+      if (action === 'receive_untagged') {
+        simState.onHand += 5;
+        simState.status = "available";
+        simState.untaggedCount += 1;
+        simState.movements.unshift({ qty: 5, type: 'grn_untagged' });
+      } else if (action === 'consume_stock') {
+        if (simState.onHand <= 0) {
+          alert("Cannot consume: Lot is fully consumed (0 on hand)!");
+          return;
+        }
+        simState.onHand -= 2;
+        if (simState.onHand <= 0) {
+          simState.onHand = 0;
+          simState.status = "consumed";
+        }
+        simState.costConsumed += (2 * 20); // standard price = 20
+        simState.movements.unshift({ qty: -2, type: 'issue_project' });
+      } else if (action === 'resolve_tag') {
+        if (simState.untaggedCount <= 0) {
+          alert("No untagged receipts to resolve!");
+          return;
+        }
+        simState.untaggedCount -= 1;
+        simState.movements.unshift({ qty: 0, type: 'tag_backfilled' });
+      }
+      updateSimDisplay();
+    }
+
+    function resetSimulation() {
+      simState = {
+        lotCode: "L-9281-01",
+        onHand: 10,
+        status: "available",
+        movements: [],
+        costConsumed: 0,
+        untaggedCount: 1
+      };
+      updateSimDisplay();
+    }
+
+    // Interactive Screen handlers
+    function addMockManualLine() {
+      const row = document.getElementById('mock-manual-row');
+      if (row) {
+        row.classList.remove('hidden');
+        document.getElementById('mock-bom-lines-count').textContent = "3";
+      }
+    }
+
+    function approveMockBOM() {
+      const badge = document.getElementById('mock-bom-status');
+      const btn = document.getElementById('mock-btn-approve-bom');
+      const btnAdd = document.getElementById('mock-btn-add-line');
+      
+      if (badge && btn) {
+        badge.textContent = "Approved";
+        badge.className = "bg-emerald-100 text-emerald-800 text-[10px] border border-emerald-200 px-1.5 py-0.5 rounded font-medium";
+        btn.textContent = "BOM Locked";
+        btn.disabled = true;
+        btn.className = "bg-slate-200 text-slate-500 px-2.5 py-1 rounded font-semibold text-[11px] border border-slate-300 cursor-not-allowed";
+        if (btnAdd) {
+          btnAdd.disabled = true;
+          btnAdd.className = "border border-slate-200 text-slate-400 px-2 py-1 rounded font-semibold text-[10px] cursor-not-allowed";
+        }
+      }
+    }
+
+    // Initialize display on load
+    updateSimDisplay();
+  </script>
+</body>
+</html>

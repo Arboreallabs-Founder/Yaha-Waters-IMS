@@ -1,0 +1,266 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
+import { getProfile, canWriteMasters } from "@/lib/auth";
+import { expandBomLines, type TemplateLine } from "@/lib/bom-engine";
+
+export type ActionResult = { ok?: true; error?: string; message?: string };
+
+async function planner() {
+  const profile = await getProfile();
+  return canWriteMasters(profile?.role) ? profile : null; // admin or team_lead
+}
+
+function revalidate(projectId: string) {
+  revalidatePath(`/projects/${projectId}`);
+}
+
+// ---------- project status ----------
+export async function updateProjectStatus(fd: FormData): Promise<ActionResult> {
+  const p = await planner();
+  if (!p) return { error: "Not authorized." };
+  const project_id = String(fd.get("project_id") ?? "");
+  const status = String(fd.get("status") ?? "");
+  if (!project_id || !status) return { error: "Missing fields." };
+  const supabase = await createClient();
+  const { error } = await supabase.from("projects").update({ status }).eq("id", project_id);
+  if (error) return { error: error.message };
+  revalidate(project_id);
+  return { ok: true };
+}
+
+// ---------- quick-issue a single component from open stock ----------
+export async function quickIssueComponent(fd: FormData): Promise<ActionResult> {
+  const p = await planner();
+  if (!p) return { error: "Not authorized." };
+  const project_id = String(fd.get("project_id") ?? "");
+  const component_id = String(fd.get("component_id") ?? "");
+  const qty = Number(fd.get("qty") ?? 0);
+  if (!project_id || !component_id || qty <= 0) return { error: "Invalid parameters." };
+
+  const supabase = await createClient();
+
+  // 1. Create a requisition for this project
+  const { data: req, error: reqErr } = await supabase
+    .from("requisitions")
+    .insert({ project_id, status: "open", created_by: p.id })
+    .select("id")
+    .single();
+  if (reqErr || !req) return { error: reqErr?.message ?? "Could not create requisition." };
+
+  // 2. Add the line
+  const { error: lineErr } = await supabase
+    .from("requisition_lines")
+    .insert({ requisition_id: req.id, component_id, qty_requested: qty, created_by: p.id });
+  if (lineErr) return { error: lineErr.message };
+
+  // 3. Issue immediately via the atomic PL/pgSQL function
+  const { data: result, error: issueErr } = await supabase.rpc("issue_requisition", {
+    p_req_id: req.id,
+    p_user_id: p.id,
+  });
+  if (issueErr) {
+    const msg = (issueErr.message ?? "").replace(/^INSUFFICIENT_STOCK:\s*/i, "");
+    return { error: msg || issueErr.message };
+  }
+  const parsed = typeof result === "string" ? JSON.parse(result) : result;
+  if (parsed?.error) {
+    const msg = String(parsed.error).replace(/^INSUFFICIENT_STOCK:\s*/i, "");
+    return { error: msg };
+  }
+
+  revalidate(project_id);
+  return { ok: true };
+}
+
+// ---------- line items ----------
+export async function addLineItem(fd: FormData): Promise<ActionResult> {
+  const p = await planner();
+  if (!p) return { error: "Only Admin / Team Lead can edit orders." };
+  const project_id = String(fd.get("project_id") ?? "");
+  const product_id = String(fd.get("product_id") ?? "");
+  if (!project_id || !product_id) return { error: "Pick a product." };
+  let variant_selections: unknown = {};
+  try {
+    variant_selections = JSON.parse(String(fd.get("variant_selections") ?? "{}"));
+  } catch {
+    variant_selections = {};
+  }
+  const quantity = Math.max(1, Number(fd.get("quantity") ?? 1) || 1);
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("project_line_items")
+    .insert({ project_id, product_id, variant_selections, quantity, created_by: p.id });
+  if (error) return { error: error.message };
+  revalidate(project_id);
+  return { ok: true };
+}
+
+export async function removeLineItem(fd: FormData): Promise<ActionResult> {
+  const p = await planner();
+  if (!p) return { error: "Not authorized." };
+  const id = String(fd.get("id") ?? "");
+  const project_id = String(fd.get("project_id") ?? "");
+  const supabase = await createClient();
+  const { error } = await supabase.from("project_line_items").delete().eq("id", id);
+  if (error) return { error: error.message };
+  revalidate(project_id);
+  return { ok: true };
+}
+
+// ---------- variant → BOM engine ----------
+export async function generateBom(fd: FormData): Promise<ActionResult> {
+  const p = await planner();
+  if (!p) return { error: "Only Admin / Team Lead can generate a BOM." };
+  const project_id = String(fd.get("project_id") ?? "");
+  if (!project_id) return { error: "Missing project." };
+  const supabase = await createClient();
+
+  // 1) line items
+  const { data: items } = await supabase
+    .from("project_line_items")
+    .select("id, product_id, variant_selections, quantity")
+    .eq("project_id", project_id);
+  if (!items || items.length === 0) return { error: "Add at least one line item first." };
+
+  // 2) ensure a BOM exists (reset to draft on regenerate)
+  const { data: existingBom } = await supabase
+    .from("boms")
+    .select("id, status")
+    .eq("project_id", project_id)
+    .maybeSingle();
+  let bomId = existingBom?.id as string | undefined;
+  if (!bomId) {
+    const { data: bom, error } = await supabase
+      .from("boms")
+      .insert({ project_id, status: "draft", created_by: p.id })
+      .select("id")
+      .single();
+    if (error) return { error: error.message };
+    bomId = bom.id;
+  } else if (existingBom?.status === "approved") {
+    await supabase.from("boms").update({ status: "draft", approved_by: null, approved_at: null }).eq("id", bomId);
+  }
+
+  // 3) clear previous template-sourced lines (keep manual)
+  await supabase.from("bom_lines").delete().eq("bom_id", bomId).eq("source", "template");
+
+  // 4) lookups: active templates + their lines + component_no map
+  const productIds = [...new Set(items.map((i) => i.product_id).filter(Boolean))];
+  const [{ data: templates }, { data: components }] = await Promise.all([
+    supabase.from("bom_templates").select("id, product_id").eq("is_active", true).in("product_id", productIds),
+    supabase.from("components").select("id, component_no"),
+  ]);
+  const templateByProduct = new Map((templates ?? []).map((t) => [t.product_id, t.id]));
+  const compByNo = new Map((components ?? []).map((c) => [String(c.component_no).toLowerCase(), c.id]));
+
+  const templateIds = [...new Set([...templateByProduct.values()])];
+  const linesByTemplate = new Map<string, TemplateLine[]>();
+  if (templateIds.length) {
+    const { data: tlines } = await supabase
+      .from("bom_template_lines")
+      .select("*")
+      .in("bom_template_id", templateIds);
+    for (const tl of tlines ?? []) {
+      const k = tl.bom_template_id as string;
+      if (!linesByTemplate.has(k)) linesByTemplate.set(k, []);
+      linesByTemplate.get(k)!.push({
+        component_id: tl.component_id,
+        quantity: tl.quantity,
+        is_variant_driven: tl.is_variant_driven,
+        variant_rule: tl.variant_rule,
+      });
+    }
+  }
+
+  // 5) expand (pure logic)
+  const { lines: expanded, skippedNoTemplate, skippedNoMatch } = expandBomLines({
+    items: items.map((i) => ({
+      id: i.id,
+      product_id: i.product_id,
+      variant_selections: (i.variant_selections ?? {}) as Record<string, unknown>,
+      quantity: i.quantity,
+    })),
+    templateByProduct,
+    linesByTemplate,
+    compByNo,
+  });
+
+  const newLines = expanded.map((l) => ({ ...l, bom_id: bomId, source: "template", created_by: p.id }));
+  if (newLines.length) {
+    const { error } = await supabase.from("bom_lines").insert(newLines);
+    if (error) return { error: error.message };
+  }
+
+  revalidate(project_id);
+  const notes: string[] = [`Generated ${newLines.length} BOM line(s).`];
+  if (skippedNoTemplate) notes.push(`${skippedNoTemplate} line item(s) had no active BOM template.`);
+  if (skippedNoMatch) notes.push(`${skippedNoMatch} variant-driven line(s) had no matching rule for the selected variant.`);
+  return { ok: true, message: notes.join(" ") };
+}
+
+// ---------- BOM approval + manual lines ----------
+export async function approveBom(fd: FormData): Promise<ActionResult> {
+  const p = await planner();
+  if (!p) return { error: "Only Admin / Team Lead can approve." };
+  const bom_id = String(fd.get("bom_id") ?? "");
+  const project_id = String(fd.get("project_id") ?? "");
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("boms")
+    .update({ status: "approved", approved_by: p.id, approved_at: new Date().toISOString() })
+    .eq("id", bom_id);
+  if (error) return { error: error.message };
+  revalidate(project_id);
+  return { ok: true };
+}
+
+export async function unapproveBom(fd: FormData): Promise<ActionResult> {
+  const p = await planner();
+  if (!p) return { error: "Not authorized." };
+  const bom_id = String(fd.get("bom_id") ?? "");
+  const project_id = String(fd.get("project_id") ?? "");
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("boms")
+    .update({ status: "draft", approved_by: null, approved_at: null })
+    .eq("id", bom_id);
+  if (error) return { error: error.message };
+  revalidate(project_id);
+  return { ok: true };
+}
+
+export async function addManualBomLine(fd: FormData): Promise<ActionResult> {
+  const p = await planner();
+  if (!p) return { error: "Not authorized." };
+  const bom_id = String(fd.get("bom_id") ?? "");
+  const project_id = String(fd.get("project_id") ?? "");
+  const component_id = String(fd.get("component_id") ?? "");
+  const required_qty = Number(fd.get("required_qty") ?? 0) || 0;
+  if (!component_id) return { error: "Pick a component." };
+  const supabase = await createClient();
+  const { error } = await supabase.from("bom_lines").insert({
+    bom_id,
+    component_id,
+    required_qty,
+    source: "manual",
+    note: String(fd.get("note") ?? "").trim() || null,
+    created_by: p.id,
+  });
+  if (error) return { error: error.message };
+  revalidate(project_id);
+  return { ok: true };
+}
+
+export async function removeBomLine(fd: FormData): Promise<ActionResult> {
+  const p = await planner();
+  if (!p) return { error: "Not authorized." };
+  const id = String(fd.get("id") ?? "");
+  const project_id = String(fd.get("project_id") ?? "");
+  const supabase = await createClient();
+  const { error } = await supabase.from("bom_lines").delete().eq("id", id);
+  if (error) return { error: error.message };
+  revalidate(project_id);
+  return { ok: true };
+}
