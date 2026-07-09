@@ -20,7 +20,9 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { formatINR, formatNumber, formatDate } from "@/lib/utils";
+import type { ActionResult } from "@/lib/server/crud";
 
+export type { ActionResult };
 export type ColumnFormat = "text" | "number" | "inr" | "bool" | "date" | "badge";
 export type Column = { key: string; label: string; format?: ColumnFormat; financial?: boolean };
 
@@ -39,7 +41,6 @@ export type Field = {
   defaultChecked?: boolean;
 };
 
-export type ActionResult = { ok?: true; error?: string };
 type Row = Record<string, unknown> & { id: string };
 
 export function CrudManager({

@@ -49,7 +49,7 @@ export default async function GrnDetailPage({ params }: { params: Promise<{ id: 
   const openPoByComponent: Record<string, OpenPoEntry[]> = {};
   for (const pl of allOpenPoLines ?? []) {
     if (!pl.component_id) continue;
-    const po = pl.purchase_orders as { po_no: string } | null;
+    const po = pl.purchase_orders as unknown as { po_no: string } | null;
     const remaining = Number(pl.qty_ordered ?? 0) - Number(pl.qty_received ?? 0);
     if (remaining <= 0) continue;
     const entry: OpenPoEntry = {
