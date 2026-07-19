@@ -58,8 +58,11 @@ export async function addGrnLine(fd: FormData): Promise<ActionResult> {
   const pieceLength = Number(fd.get("piece_length") ?? "") || null;
   const pieceWidth  = Number(fd.get("piece_width")  ?? "") || null;
 
+  const target_lot_id = String(fd.get("target_lot_id") ?? "") || null;
+
   const supabase = await createClient();
-  // Trigger: flags untagged, creates inventory lot + receipt movement, rolls up PO qty.
+  // Trigger: flags untagged, creates inventory lot(s) per tracking_mode (or adds
+  // to target_lot_id box), records receipt movement, rolls up PO qty.
   const { data: line, error } = await supabase.from("grn_lines").insert({
     grn_id,
     component_id,
@@ -67,12 +70,13 @@ export async function addGrnLine(fd: FormData): Promise<ActionResult> {
     po_line_id: String(fd.get("po_line_id") ?? "") || null,
     project_id: String(fd.get("project_id") ?? "") || null,
     unit_cost: unitCostRaw === "" ? null : Number(unitCostRaw),
+    target_lot_id,
     created_by: p.id,
   }).select("id").single();
   if (error) return { error: error.message };
 
-  // If dimensions were supplied, patch the lot the trigger just created.
-  if (pieceCount !== null || pieceLength !== null || pieceWidth !== null) {
+  // If dimensions were supplied (bulk), patch the lot the trigger just created.
+  if (target_lot_id === null && (pieceCount !== null || pieceLength !== null || pieceWidth !== null)) {
     await supabase
       .from("inventory_lots")
       .update({ piece_count: pieceCount, piece_length: pieceLength, piece_width: pieceWidth })

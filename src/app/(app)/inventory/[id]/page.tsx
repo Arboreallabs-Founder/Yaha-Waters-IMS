@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { MobileRowCard } from "@/components/ui/mobile-row-card";
 import { formatNumber, formatINR, formatDate } from "@/lib/utils";
 import { UnissueLotButton } from "./unissue-button";
 
@@ -124,7 +125,7 @@ export default async function ComponentInventoryPage({ params }: { params: Promi
       />
 
       {/* Summary */}
-      <div className="mb-8 grid grid-cols-3 gap-4">
+      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card>
           <CardContent className="p-5">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Open</p>
@@ -151,36 +152,54 @@ export default async function ComponentInventoryPage({ params }: { params: Promi
       {/* Open lots */}
       <section className="mb-10">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Open inventory</h2>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Lot code</TableHead>
-              <TableHead>On hand</TableHead>
-              <TableHead>Location</TableHead>
-              {finance && <TableHead>Unit cost{unit ? ` (₹/${unit})` : ""}</TableHead>}
-              <TableHead className="w-12" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {openLots.length === 0 ? (
-              <TableRow><TableCell colSpan={finance ? 5 : 4} className="py-6 text-center text-muted-foreground">No open lots.</TableCell></TableRow>
-            ) : (
-              openLots.map((l) => (
-                <TableRow key={l.id}>
-                  <TableCell className="font-mono text-xs">{l.lot_code}</TableCell>
-                  <TableCell><QtyCell lot={l} qt={qt} /></TableCell>
-                  <TableCell className="text-muted-foreground">{l.location ?? "—"}</TableCell>
-                  {finance && <TableCell className="text-muted-foreground">{formatINR(l.unit_cost)}</TableCell>}
-                  <TableCell className="text-right">
-                    <Link href={`/inventory/lots/${l.id}`} aria-label="Lot detail" className={buttonVariants({ variant: "ghost", size: "icon" })}>
-                      <ArrowRight className="size-4" />
-                    </Link>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+        {openLots.length === 0 ? (
+          <p className="py-6 text-center text-muted-foreground">No open lots.</p>
+        ) : (
+          <>
+            <div className="hidden sm:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Lot code</TableHead>
+                    <TableHead>On hand</TableHead>
+                    <TableHead>Location</TableHead>
+                    {finance && <TableHead>Unit cost{unit ? ` (₹/${unit})` : ""}</TableHead>}
+                    <TableHead className="w-12" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {openLots.map((l) => (
+                    <TableRow key={l.id}>
+                      <TableCell className="font-mono text-xs">{l.lot_code}</TableCell>
+                      <TableCell><QtyCell lot={l} qt={qt} /></TableCell>
+                      <TableCell className="text-muted-foreground">{l.location ?? "—"}</TableCell>
+                      {finance && <TableCell className="text-muted-foreground">{formatINR(l.unit_cost)}</TableCell>}
+                      <TableCell className="text-right">
+                        <Link href={`/inventory/lots/${l.id}`} aria-label="Lot detail" className={buttonVariants({ variant: "ghost", size: "icon" })}>
+                          <ArrowRight className="size-4" />
+                        </Link>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="space-y-3 sm:hidden">
+              {openLots.map((l) => (
+                <Link key={l.id} href={`/inventory/lots/${l.id}`} className="block">
+                  <MobileRowCard
+                    title={l.lot_code}
+                    fields={[
+                      { label: "On hand", value: <QtyCell lot={l} qt={qt} /> },
+                      { label: "Location", value: l.location ?? "—" },
+                      ...(finance ? [{ label: `Unit cost${unit ? ` (₹/${unit})` : ""}`, value: formatINR(l.unit_cost) }] : []),
+                    ]}
+                  />
+                </Link>
+              ))}
+            </div>
+          </>
+        )}
       </section>
 
       {/* Issued lots */}
@@ -188,45 +207,71 @@ export default async function ComponentInventoryPage({ params }: { params: Promi
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Issued inventory <span className="ml-1 font-normal normal-case text-amber-600">(frozen under a project)</span>
         </h2>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Lot code</TableHead>
-              <TableHead>Qty</TableHead>
-              <TableHead>Project</TableHead>
-              <TableHead>Location</TableHead>
-              {finance && <TableHead>Unit cost{unit ? ` (₹/${unit})` : ""}</TableHead>}
-              <TableHead className="w-24" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {issuedLots.length === 0 ? (
-              <TableRow><TableCell colSpan={finance ? 6 : 5} className="py-6 text-center text-muted-foreground">No issued lots.</TableCell></TableRow>
-            ) : (
-              issuedLots.map((l) => (
-                <TableRow key={l.id}>
-                  <TableCell className="font-mono text-xs">{l.lot_code}</TableCell>
-                  <TableCell className="text-amber-700"><QtyCell lot={l} qt={qt} /></TableCell>
-                  <TableCell>
-                    {l.project_id
-                      ? <Badge variant="secondary">{projNo.get(l.project_id) ?? "—"}</Badge>
-                      : <span className="text-muted-foreground">—</span>}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{l.location ?? "—"}</TableCell>
-                  {finance && <TableCell className="text-muted-foreground">{formatINR(l.unit_cost)}</TableCell>}
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
+        {issuedLots.length === 0 ? (
+          <p className="py-6 text-center text-muted-foreground">No issued lots.</p>
+        ) : (
+          <>
+            <div className="hidden sm:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Lot code</TableHead>
+                    <TableHead>Qty</TableHead>
+                    <TableHead>Project</TableHead>
+                    <TableHead>Location</TableHead>
+                    {finance && <TableHead>Unit cost{unit ? ` (₹/${unit})` : ""}</TableHead>}
+                    <TableHead className="w-24" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {issuedLots.map((l) => (
+                    <TableRow key={l.id}>
+                      <TableCell className="font-mono text-xs">{l.lot_code}</TableCell>
+                      <TableCell className="text-amber-700"><QtyCell lot={l} qt={qt} /></TableCell>
+                      <TableCell>
+                        {l.project_id
+                          ? <Badge variant="secondary">{projNo.get(l.project_id) ?? "—"}</Badge>
+                          : <span className="text-muted-foreground">—</span>}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{l.location ?? "—"}</TableCell>
+                      {finance && <TableCell className="text-muted-foreground">{formatINR(l.unit_cost)}</TableCell>}
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {isAdmin && <UnissueLotButton lotId={l.id} componentId={id} />}
+                          <Link href={`/inventory/lots/${l.id}`} aria-label="Lot detail" className={buttonVariants({ variant: "ghost", size: "icon" })}>
+                            <ArrowRight className="size-4" />
+                          </Link>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="space-y-3 sm:hidden">
+              {issuedLots.map((l) => (
+                <MobileRowCard
+                  key={l.id}
+                  title={l.lot_code}
+                  badge={l.project_id ? <Badge variant="secondary">{projNo.get(l.project_id) ?? "—"}</Badge> : undefined}
+                  fields={[
+                    { label: "Qty", value: <span className="text-amber-700"><QtyCell lot={l} qt={qt} /></span> },
+                    { label: "Location", value: l.location ?? "—" },
+                    ...(finance ? [{ label: `Unit cost${unit ? ` (₹/${unit})` : ""}`, value: formatINR(l.unit_cost) }] : []),
+                  ]}
+                  actions={
+                    <>
                       {isAdmin && <UnissueLotButton lotId={l.id} componentId={id} />}
                       <Link href={`/inventory/lots/${l.id}`} aria-label="Lot detail" className={buttonVariants({ variant: "ghost", size: "icon" })}>
                         <ArrowRight className="size-4" />
                       </Link>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+                    </>
+                  }
+                />
+              ))}
+            </div>
+          </>
+        )}
         {isAdmin && issuedLots.length > 0 && (
           <p className="mt-2 text-xs text-muted-foreground">
             Unissuing a lot removes its project reservation and returns it to open stock.
@@ -237,42 +282,61 @@ export default async function ComponentInventoryPage({ params }: { params: Promi
       {/* Consumption history */}
       <section>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Consumption history</h2>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead>Lot</TableHead>
-              <TableHead>Qty consumed</TableHead>
-              <TableHead>Project</TableHead>
-              <TableHead>By</TableHead>
-              <TableHead>Via</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {(movements ?? []).length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="py-6 text-center text-muted-foreground">No consumption recorded yet.</TableCell></TableRow>
-            ) : (
-              (movements ?? []).map((m) => (
-                <TableRow key={m.id}>
-                  <TableCell className="text-muted-foreground">{formatDate(m.performed_at)}</TableCell>
-                  <TableCell className="font-mono text-xs">{lotCode.get(m.lot_id) ?? "—"}</TableCell>
-                  <TableCell className="font-semibold text-red-600">
-                    {formatNumber(Math.abs(Number(m.qty)))}{unitSuffix}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {m.project_id ? projNo.get(m.project_id) ?? "—" : "—"}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {m.performed_by ? (perfName.get(m.performed_by) ?? "—") : "—"}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary">{m.reference_type ?? "—"}</Badge>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+        {(movements ?? []).length === 0 ? (
+          <p className="py-6 text-center text-muted-foreground">No consumption recorded yet.</p>
+        ) : (
+          <>
+            <div className="hidden sm:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Lot</TableHead>
+                    <TableHead>Qty consumed</TableHead>
+                    <TableHead>Project</TableHead>
+                    <TableHead>By</TableHead>
+                    <TableHead>Via</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(movements ?? []).map((m) => (
+                    <TableRow key={m.id}>
+                      <TableCell className="text-muted-foreground">{formatDate(m.performed_at)}</TableCell>
+                      <TableCell className="font-mono text-xs">{lotCode.get(m.lot_id) ?? "—"}</TableCell>
+                      <TableCell className="font-semibold text-red-600">
+                        {formatNumber(Math.abs(Number(m.qty)))}{unitSuffix}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {m.project_id ? projNo.get(m.project_id) ?? "—" : "—"}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {m.performed_by ? (perfName.get(m.performed_by) ?? "—") : "—"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{m.reference_type ?? "—"}</Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="space-y-3 sm:hidden">
+              {(movements ?? []).map((m) => (
+                <MobileRowCard
+                  key={m.id}
+                  title={lotCode.get(m.lot_id) ?? "—"}
+                  subtitle={formatDate(m.performed_at)}
+                  badge={<Badge variant="secondary">{m.reference_type ?? "—"}</Badge>}
+                  fields={[
+                    { label: "Qty consumed", value: <span className="font-semibold text-red-600">{formatNumber(Math.abs(Number(m.qty)))}{unitSuffix}</span> },
+                    { label: "Project", value: m.project_id ? projNo.get(m.project_id) ?? "—" : "—" },
+                    { label: "By", value: m.performed_by ? (perfName.get(m.performed_by) ?? "—") : "—" },
+                  ]}
+                />
+              ))}
+            </div>
+          </>
+        )}
       </section>
     </div>
   );

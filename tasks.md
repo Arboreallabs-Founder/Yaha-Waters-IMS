@@ -152,7 +152,154 @@ node supabase/dump-migrations.mjs   # mirror applied migrations into supabase/mi
 
 ## 🎉 Full PRD roadmap (M1–M6) complete.
 
+## ✅ M7 — BOM / Component Overhaul (annotated format): DELIVERED
+Re-modelled masters around the real annotated BOM (`Context/BOM Master/Triton 3600 BR.xlsx`).
+- [x] **Schema (0018–0022)**: component attributes (grade/spec/OD/ID/thk/width/length/nominal/by-weight/
+  cut-from-plate/original-desc) + `is_assembly` + Job-Work (`is_job_work`, `raw_supplier_id`, `jw_vendor_id`,
+  `jw_rate`) + `tracking_mode` enum (`item`/`box`/`bulk`); `bom_template_lines` tree (`parent_line_id`,
+  `line_type`, `section`, `assembly_name`, `variant_group/variation`, `sort_order`); lot `jw_stage`
+  (`raw`/`completed`) + `parent_lot_id` + `container_no`, `grn_lines.target_lot_id`; **tracking-mode-aware
+  GRN lot trigger** (item→N QR lots, box→one box lot or add-to-existing, bulk→one measured lot);
+  `job_work_orders`/`job_work_lines` + `next_jw_no()` + `dispatch_job_work`/`receive_job_work` RPCs
+  (cost = raw + JW, QR lineage via `parent_lot_id`); `v_components_safe` re-masks `jw_rate`; hardened
+  write RPCs off `anon`. All mirrored to `supabase/migrations/`.
+- [x] **Wiped** old masters (582 components, 3 products/templates, 181 lines, 1 category, 993 stale seed
+  lots). **Kept** the 47 vendors.
+- [x] **Importer** (`src/lib/import/import-annotated-bom.ts`, `npm run import:bom`) — generic annotated-BOM
+  parser (add more model sheets to `SHEETS[]`). Imported **Triton 3600 BR**: 1 product, 79 components
+  (3 stockable sub-assemblies: Housing / SS Brush Frame / Drive Housing; 10 job-work), nested template
+  tree (70 lines, 3 variant-driven by Inlet Size 2/3/4/6"), Inlet Size + Micron params, 76 vendor tags
+  (fuzzy-matched to existing vendors; 3 new: A D Engineers, Metal Craft Engineers, Om Sai Fabicoats).
+- [x] **Masters UI**: components form (attributes, assembly, tracking-mode, job-work group); BOM template
+  editor renders the **section/sub-assembly tree** (indented, nest-under picker); product page unchanged.
+- [x] **Job Work** route (`/job-work`): create order → add lines (JW component + raw lot) → Dispatch →
+  Receive (rolls completed lot cost = raw + JW). "Raw stock awaiting job work" panel. Consuming a raw
+  JW lot is blocked (must finish first).
+- [x] **Lot / QR rework**: GRN receiver honours `tracking_mode` (item = one QR per piece; box = new box or
+  add-to-existing box; bulk = measured `piece_*`); lot detail shows stage/box/raw-lineage + add-to-box.
+- [x] **Verified**: import asserts (tree resolves, 0 orphan/variant-rule refs, JW vendors tagged);
+  live JW round-trip (raw 100 + JW 30 → 5 item-tracked completed lots @ ₹130, raw drawn to 0, order
+  received) then cleaned up; `next build` green (33 routes); advisors clean (only benign auth-RPC +
+  leaked-password warns); `verify:bom` PASS.
+
 ## Changelog
+- 2026-07-20 — **Mobile compatibility pass**, scoped to warehouse-floor flows (Scan-consume, GRN
+  receiving, Inventory, Requisitions) per explicit decision — back-office pages (Masters, BOM
+  templates, PO editor, Reconciliation, Project detail) were left untouched (verified they already
+  don't break on mobile, just aren't specially optimized). Investigated first via two Explore agents:
+  found the nav drawer/PWA/viewport/QR-scanner foundation already solid; confirmed two real gaps
+  (SVG-only PWA icons, 36px icon-only buttons below the ~44px touch guideline) and fixed both.
+  - **PWA icons**: generated real 192/512/apple-touch-icon PNGs from `public/yaha-logo.png` via macOS
+    `sips`; wired into `manifest.json` + `layout.tsx` metadata.
+  - **Safe areas**: `viewportFit: "cover"` + `env(safe-area-inset-*)` padding on the sticky header,
+    main content, and mobile drawer top bar (`app-shell.tsx`) for notched phones.
+  - **Touch targets**: `Button`'s `icon` size variant bumped from `h-9 w-9` (36px) to `size-11 sm:size-9`
+    (44px mobile / 36px desktop) — one change, propagates to every icon button app-wide; also bumped
+    the raw hamburger/close buttons in the drawer to match.
+  - **New shared primitive** `src/components/ui/mobile-row-card.tsx` — a `Card`-based row shell
+    (title/subtitle/badge/fields/actions) used as the `sm:hidden` companion to a `hidden sm:block`
+    `<Table>`, so wide tables read as a stacked card list on phones instead of horizontal-scrolling.
+    Pattern: wrap the whole `<Table>` (not just its className — `Table`'s wrapper div is hardcoded and
+    doesn't take a passthrough class) in an outer `hidden sm:block` div.
+  - Applied to: `inventory/page.tsx` (on-hand list), `inventory/[id]/page.tsx` (Open/Issued/Consumption
+    tables + un-collapsed the `grid-cols-3` summary cards to `grid-cols-1 sm:grid-cols-3`),
+    `inventory/lots/[id]/page.tsx` (ledger), `grn/[id]/grn-receiver.tsx` (both tables),
+    `requisitions/page.tsx` (list), `requisitions/[id]/requisition-editor.tsx` (lines).
+  - Fixed a cramped fixed-width input row in `scan-consume.tsx` (qty/reason/button squeezed
+    side-by-side) — now stacks full-width below `sm:` via `flex-col sm:flex-row`.
+  - No changes to `Table`/`Dialog`/`CrudManager` primitives or any out-of-scope page.
+  - Verified: `npm run typecheck` clean after every file; every touched route (`/inventory`,
+    `/inventory/[id]`, `/inventory/lots/[id]`, `/requisitions`, `/requisitions/[id]`, `/grn`)
+    compiles cleanly under `next dev` with no errors; manifest + all 3 new PNG icons serve 200 (no
+    404s). Not visually checked on a real device — recommend an actual phone/DevTools-emulation pass
+    before considering this "done done".
+- 2026-07-20 — **GRN manual-entry component picker now narrows to the vendor.** When a GRN has a
+  vendor (`grns.vendor_id`), the "Component" dropdown in the manual/extra-line entry form now shows
+  only components tagged to that vendor via `vendor_components` — not the full component list.
+  A small checkbox ("Showing only X's components — check to show all") lets the receiver override
+  this for anything not yet tagged, so it's never a dead end. No filter applied to untagged GRNs or
+  vendors with zero tagged components (falls back to showing everything). Verified against real data
+  (e.g. Nirav Tubes & Valves → 18 tagged components); route recompiles clean.
+- 2026-07-20 — **Removed PO invoice tracking** (`invoice_no`/`invoice_status`) entirely, per request.
+  Migration 0029: dropped `v_invoice_vs_po` (the "Invoice ≠ PO" reconciliation check it powered) and
+  the two columns from `purchase_orders`; `v_purchase_orders_safe` (a dependent, unused column-masked
+  view) recreated without them. Removed from: PO editor header form, PO list column, PO detail page,
+  `updatePO` action, the Action Center's "Invoice ≠ PO" card + section, the Dashboard's matching stat,
+  and the historical PO-status importer's invoice parsing/insert. `database.types.ts` regenerated.
+  Typecheck clean; full-repo grep confirms zero remaining references outside historical migration files.
+- 2026-07-17 — **Purchase Order printing**, matching the company's real historical PO template
+  (`Context/PO Template/YAHA PO.pdf` + logo). New `/purchase-orders/[id]/print` page — logo, "YAHA
+  water systems pvt. ltd." header + tagline, PO date/no./project, vendor vs. billing address blocks,
+  line-items table (component/qty/UOM/rate/amount), GSTIN/PAN, subtotal/GST/total, the standard
+  6-point terms & conditions, delivery address, delivery/payment/freight terms, and a 3-way
+  Prepared/Verified/Approved signature block (Prepared-by auto-fills the current user; the other two
+  are blank for physical sign-off). "Print PO" button added to the PO detail page.
+  - Migration 0028: `purchase_orders.delivery_terms` / `payment_terms` / `freight_terms` / `gst_percent`
+    (defaults match the template: Urgent / 30 Days / At Actual / 18%), editable in the PO editor header.
+  - Our company's billing/delivery address, GSTIN, PAN, and contact person are hardcoded from the real
+    template (not configurable yet — would need a settings table if this should vary).
+  - **Data gap surfaced, not fixed:** every vendor's `address`/`contact`/`gst_no` is empty (never
+    imported) — the Vendors master already has editable fields for these (no code needed), but they
+    need to be filled in per-vendor for the printed PO's "VENDOR NAME & ADDRESS" block to be complete.
+    The print page shows a "(no address on file)" placeholder when blank rather than failing.
+  - Logo copied to `public/yaha-logo.png`. Verified: route compiles clean under `next dev`, correct
+    auth redirect when signed out; not visually checked in a live authenticated browser session.
+- 2026-07-16 — **"Block stock for BOM"**: reserving inventory against an approved BOM, closing the gap
+  left by removing manual requisition-line entry. New **"Stock status & blocking"** section on the
+  project page (between BOM and Materials Issued) — per required component: Blocked (mine) / Available
+  (open) / Issued to another project (with which project + qty) / Out of stock, plus a **"Block stock
+  for BOM"** button (enabled once the BOM is approved). Clicking it creates a requisition, seeds its
+  lines from the approved `bom_lines` (aggregated by component), and reserves whatever's currently
+  on-hand. **`issue_requisition` RPC rewritten (0027)**: now best-effort/partial (blocks what it can,
+  reports the rest as short, instead of rolling back the whole transaction on any shortfall) and
+  re-runnable (nets off what's already reserved); also fixed a latent bug where it could silently grab
+  an `open` lot already earmarked for a *different* project via that project's own PO — now only
+  untagged or same-project open stock is reservable. Freeing stock blocked for another project is via
+  the existing `/inventory/[id]` "Issued inventory" section (Unissue button, admin/team_lead) — no new
+  code needed there, it already existed. Verified live: partial coverage, no double-reservation on
+  re-run, and the "don't steal another project's stock" fix, all against real data; then reverted the
+  test blocking so the demo project is untouched for manual testing.
+- 2026-07-16 — Removed the manual "Component / Qty / Add" form from the requisition detail page
+  (`requisition-editor.tsx`) and its now-unused `addReqLine` server action. **Requisitions can no
+  longer have lines added manually** — the only surviving line-adding path (`raiseRequisitionFromShortfall`)
+  is also dead code (not wired into any button). A requisition's line table is now display/remove-only;
+  new requisitions are created empty and have no way to gain lines until a line-adding flow is wired
+  up. Flagging this — likely needs a follow-up (e.g. wire up raise-from-shortfall, or a BOM-driven picker).
+- 2026-07-16 — **"Raise PO for shortfall" now raises one PO per supplier**, not one lump PO.
+  `raisePoFromShortfall` (`purchase-orders/actions.ts`) groups shortfall lines by each component's
+  `raw_supplier_id` and creates a separate `purchase_orders` row (with that vendor set) per group —
+  components with no supplier tagged fall into one "no supplier tagged" PO. Single-supplier shortfalls
+  keep the old UX (redirect straight to that PO); multi-supplier shortfalls stay on the project page
+  and list a link to each PO raised (`shortfall-panel.tsx`). Verified the grouping against real
+  vendor-tagged components (4 components → 4 distinct real suppliers → 4 correct groups). Note:
+  `convertRequisitionToPO` has the same single-vendor limitation but is dead code (not wired into any
+  UI) — removed (dead code, no callers).
+- 2026-07-16 — Project page: added a read-only **"Materials issued"** panel (`issued-panel.tsx`)
+  between BOM and Stock-check/shortfall — planned qty (from `bom_lines`) vs actually issued qty
+  (from `v_project_consumption`, i.e. real `stock_movements` issue records), for every component
+  either planned or issued. Anything issued that isn't in the BOM (e.g. scanned in as an extra, or a
+  sub-assembly's own part issued directly) is flagged "Not in plan" rather than hidden. Verified live
+  on `DEMO-SHORTFALL` (planned+issued Housing → "Fully issued"; issued MS Circle, which only exists in
+  Drive Housing's own sub-template, not this project's flat BOM → "Unplanned"), then cleaned up.
+- 2026-07-16 — Scan moved into Requisitions; issuing removed from the project page. Deleted the
+  standalone `/scan` nav item + route; scanning now lives inside a requisition (`scan-consume.tsx`,
+  reusable `QrScanner` camera/manual component) and always consumes for *that* requisition's project.
+  Stock (no-project) requisitions can still scan-consume but are **admin-only** and require a **reason**
+  (`stock_movements.note`, migration 0026) — `consumeLot` enforces both server-side, not just in the UI.
+  Removed the per-row "Issue" button + `quickIssueComponent` from the project Stock-check/shortfall
+  panel — issuing/consuming now only happens via Requisitions ("Issue from stock" bulk-FIFO or the new
+  scan-consume). "Raise PO for shortfall" stays on the project page (procurement, not issuing).
+- 2026-07-15 — Sub-assembly BOM templates + smart shortfall. `bom_templates` can now belong to a
+  product OR a sub-assembly component (0024); importer routes each sub-assembly's parts into its own
+  template; product template references them. BOM template editor shows sub-BOM parts as inline
+  collapsible dropdowns (read-only, pulled recursively) + "open sub-BOM" drill-down; components master
+  has a "Sub-assembly" parent dropdown (0023). **Smart recursive shortfall (0025):** `project_shortfall()`
+  fn + redefined `v_project_shortfall` — consumes a stocked sub-assembly, else explodes its BOM into
+  component shortfalls recursively, resolving variants per line item. Verified on demo project
+  `DEMO-SHORTFALL` (both branches). Demo project left in place for viewing.
+- 2026-07-14 — M7 BOM/component overhaul: annotated-BOM schema (0018–0022), masters wiped & re-imported
+  from `Triton 3600 BR.xlsx` (tree/sub-assemblies, attributes, vendor tags, Job Work, tracking modes),
+  new `/job-work` workflow, lot/QR rework. Vendors preserved. Build green; JW round-trip verified.
 - 2026-06-25 — M1 foundations delivered: full DB + RLS + triggers + views, auth, admin user mgmt,
   Masters CRUD, import scripts. Build green; auth/RLS verified end-to-end. Catalogue seeded.
 - 2026-06-25 — M2 delivered (Projects/Orders, variant→BOM engine, approval). Real Triton BOMs

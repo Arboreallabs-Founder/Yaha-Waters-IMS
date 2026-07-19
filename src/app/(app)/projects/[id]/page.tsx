@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { formatDate, formatINR } from "@/lib/utils";
 import { LineItemEditor, type VariantParam } from "./line-item-editor";
 import { BomPanel } from "./bom-panel";
+import { IssuedPanel } from "./issued-panel";
+import { StockStatusPanel, type StockStatusRow } from "./stock-status-panel";
 import { ShortfallPanel } from "./shortfall-panel";
 import { PhaseBanner } from "./phase-banner";
 import {
@@ -20,6 +22,7 @@ import {
   addManualBomLine,
   removeBomLine,
   updateProjectStatus,
+  blockStockForBom,
 } from "./actions";
 
 function variantText(sel: unknown): string {
@@ -100,6 +103,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   }));
 
   let bomLines: { id: string; component_label: string; required_qty: number; source: string; note: string | null }[] = [];
+  const plannedByComponent = new Map<string, number>();
   if (bom) {
     const { data: lines } = await supabase
       .from("bom_lines")
@@ -113,7 +117,90 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       source: l.source,
       note: l.note,
     }));
+    for (const l of lines ?? []) {
+      if (!l.component_id) continue;
+      plannedByComponent.set(l.component_id, (plannedByComponent.get(l.component_id) ?? 0) + Number(l.required_qty ?? 0));
+    }
   }
+
+  // Materials issued: actual consumption (stock_movements, via v_project_consumption) vs the
+  // planned BOM — surfaces anything scanned/issued that isn't even in the plan.
+  const { data: consumption } = await supabase
+    .from("v_project_consumption")
+    .select("component_id, consumed_qty")
+    .eq("project_id", id);
+  const issuedByComponent = new Map<string, number>();
+  for (const c of consumption ?? []) {
+    if (!c.component_id) continue;
+    issuedByComponent.set(c.component_id, Number(c.consumed_qty ?? 0));
+  }
+  const issuedComponentIds = new Set([...plannedByComponent.keys(), ...issuedByComponent.keys()]);
+  const issuedRows = [...issuedComponentIds]
+    .map((cid) => ({
+      component_id: cid,
+      component_label: componentLabel.get(cid) ?? "—",
+      planned: plannedByComponent.get(cid) ?? 0,
+      issued: issuedByComponent.get(cid) ?? 0,
+      in_plan: plannedByComponent.has(cid),
+    }))
+    .sort((a, b) => (a.in_plan === b.in_plan ? a.component_label.localeCompare(b.component_label) : a.in_plan ? 1 : -1));
+
+  // Stock status per BOM component: blocked (mine) / available (open, untagged
+  // or mine) / issued to another project / out of stock.
+  const plannedComponentIds = [...plannedByComponent.keys()];
+  const { data: statusLots } = plannedComponentIds.length
+    ? await supabase
+        .from("inventory_lots")
+        .select("component_id, qty_on_hand, status, project_id")
+        .in("component_id", plannedComponentIds)
+        .neq("status", "consumed")
+        .gt("qty_on_hand", 0)
+    : { data: [] };
+
+  const otherProjectIds = [...new Set((statusLots ?? [])
+    .filter((l) => l.project_id && l.project_id !== id)
+    .map((l) => l.project_id as string))];
+  const { data: otherProjects } = otherProjectIds.length
+    ? await supabase.from("projects").select("id, project_no").in("id", otherProjectIds)
+    : { data: [] };
+  const otherProjectNo = new Map((otherProjects ?? []).map((p) => [p.id, p.project_no]));
+
+  const stockStatusRows: StockStatusRow[] = plannedComponentIds
+    .map((cid) => {
+      const required = plannedByComponent.get(cid) ?? 0;
+      const lots = (statusLots ?? []).filter((l) => l.component_id === cid);
+      const blockedMine = lots
+        .filter((l) => l.status === "issued" && l.project_id === id)
+        .reduce((s, l) => s + Number(l.qty_on_hand ?? 0), 0);
+      const openAvailable = lots
+        .filter((l) => l.status === "open" && (l.project_id === null || l.project_id === id))
+        .reduce((s, l) => s + Number(l.qty_on_hand ?? 0), 0);
+      const elsewhereMap = new Map<string, number>();
+      for (const l of lots) {
+        if (l.status === "issued" && l.project_id && l.project_id !== id) {
+          const label = otherProjectNo.get(l.project_id) ?? "—";
+          elsewhereMap.set(label, (elsewhereMap.get(label) ?? 0) + Number(l.qty_on_hand ?? 0));
+        }
+      }
+      const elsewhere = [...elsewhereMap.entries()].map(([project_no, qty]) => ({ project_no, qty }));
+
+      let status: StockStatusRow["status"];
+      if (blockedMine >= required) status = "blocked";
+      else if (blockedMine + openAvailable >= required) status = "available";
+      else if (elsewhere.length > 0) status = "issued_elsewhere";
+      else status = "out_of_stock";
+
+      return {
+        component_id: cid,
+        component_label: componentLabel.get(cid) ?? "—",
+        required,
+        blocked_mine: blockedMine,
+        open_available: openAvailable,
+        elsewhere,
+        status,
+      };
+    })
+    .sort((a, b) => a.component_label.localeCompare(b.component_label));
 
   return (
     <div>
@@ -189,6 +276,27 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           addManualAction={addManualBomLine}
           removeLineAction={removeBomLine}
         />
+      </section>
+
+      <section id="stock-status" className="mt-10">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Stock status &amp; blocking
+        </h2>
+        <StockStatusPanel
+          projectId={id}
+          bomId={bom?.id ?? null}
+          bomApproved={bom?.status === "approved"}
+          rows={stockStatusRows}
+          canWrite={canWrite}
+          blockAction={blockStockForBom}
+        />
+      </section>
+
+      <section id="issued" className="mt-10">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Materials issued
+        </h2>
+        <IssuedPanel rows={issuedRows} />
       </section>
 
       <section id="shortfall" className="mt-10">

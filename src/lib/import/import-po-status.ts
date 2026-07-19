@@ -15,8 +15,6 @@ type PoRow = {
   uom: string | null;
   rate: number | null;
   poAmt: number | null;
-  invoiceNo: string | null;
-  invoiceStatus: string | null;
   project: string; // normalized project name ("" = stock/untagged)
 };
 
@@ -35,8 +33,6 @@ export async function importPoStatus(supa: SupabaseClient) {
     uom: col("UoM"),
     rate: col("Rate"),
     poAmt: col("PO Amt"),
-    invoiceNo: col("Invoice No"),
-    invoiceStatus: col("Invoice Status"),
     projectPo: col("Project Name as per PO"),
     projectInv: col("Project Name as per Invoice"),
   };
@@ -64,8 +60,6 @@ export async function importPoStatus(supa: SupabaseClient) {
       uom: norm(get(c.uom)) || null,
       rate: parseNum(get(c.rate)),
       poAmt: parseNum(get(c.poAmt)),
-      invoiceNo: norm(get(c.invoiceNo)) || null,
-      invoiceStatus: norm(get(c.invoiceStatus)) || null,
       project: projectOf(r),
     });
   }
@@ -198,8 +192,6 @@ async function upsertPurchaseOrders(
         status: "sent",
         source: "system",
         total_amount: total || null,
-        invoice_no: first.invoiceNo,
-        invoice_status: first.invoiceStatus,
       })
       .select("id")
       .single();

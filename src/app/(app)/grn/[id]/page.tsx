@@ -18,10 +18,10 @@ export default async function GrnDetailPage({ params }: { params: Promise<{ id: 
   const { data: grn } = await supabase.from("grns").select("*").eq("id", id).single();
   if (!grn) notFound();
 
-  const [{ data: grnLines }, { data: components }, { data: projects }, vendor, { data: poOpenLines }, { data: allOpenPoLines }] =
+  const [{ data: grnLines }, { data: components }, { data: projects }, vendor, { data: poOpenLines }, { data: allOpenPoLines }, { data: vendorComps }] =
     await Promise.all([
       supabase.from("grn_lines").select("*").eq("grn_id", id).order("created_at"),
-      supabase.from("components").select("id, component_no, name, quantity_type").order("component_no"),
+      supabase.from("components").select("id, component_no, name, quantity_type, tracking_mode").order("component_no"),
       supabase.from("projects").select("id, project_no").order("project_no"),
       grn.vendor_id ? supabase.from("vendors").select("name").eq("id", grn.vendor_id).maybeSingle() : Promise.resolve({ data: null }),
       grn.po_id
@@ -32,9 +32,28 @@ export default async function GrnDetailPage({ params }: { params: Promise<{ id: 
         .from("po_lines")
         .select("id, po_id, component_id, project_id, qty_ordered, qty_received, purchase_orders(po_no)")
         .in("line_status", ["pending", "partial"]),
+      // components tagged to this GRN's vendor (narrows the manual-entry picker)
+      grn.vendor_id
+        ? supabase.from("vendor_components").select("component_id").eq("vendor_id", grn.vendor_id)
+        : Promise.resolve({ data: [] }),
     ]);
+  const vendorComponentIds = (vendorComps ?? []).map((vc) => vc.component_id);
 
   const compLabel = new Map((components ?? []).map((c) => [c.id, `${c.component_no} — ${c.name}`]));
+
+  // existing open box lots (container_no set) — receivers can add pieces to a box
+  const { data: openBoxes } = await supabase
+    .from("inventory_lots")
+    .select("id, component_id, lot_code, qty_on_hand, container_no")
+    .eq("status", "open")
+    .not("container_no", "is", null)
+    .gt("qty_on_hand", 0);
+  const openBoxesByComponent: Record<string, { id: string; lot_code: string; qty_on_hand: number; container_no: string | null }[]> = {};
+  for (const b of openBoxes ?? []) {
+    (openBoxesByComponent[b.component_id] ??= []).push({
+      id: b.id, lot_code: b.lot_code, qty_on_hand: Number(b.qty_on_hand ?? 0), container_no: b.container_no,
+    });
+  }
 
   // lots created by this GRN's lines (for lot code display + sticker printing)
   const grnLineIds = (grnLines ?? []).map((l) => l.id);
@@ -99,12 +118,15 @@ export default async function GrnDetailPage({ params }: { params: Promise<{ id: 
         grnId={id}
         poLines={poLines}
         postedLines={postedLines}
-        components={(components ?? []).map((c) => ({ ...c, quantity_type: (c as { quantity_type?: string }).quantity_type ?? "nos" }))}
+        components={(components ?? []).map((c) => ({ ...c, quantity_type: (c as { quantity_type?: string }).quantity_type ?? "nos", tracking_mode: (c as { tracking_mode?: string }).tracking_mode ?? "box" }))}
         projects={projects ?? []}
         openPoByComponent={openPoByComponent}
+        openBoxesByComponent={openBoxesByComponent}
         lotIds={lotIds}
         canReceive={canReceive}
         canSeeFinancials={canSeeFinancials(role)}
+        vendorComponentIds={vendorComponentIds}
+        vendorName={vendor?.data?.name ?? null}
       />
     </div>
   );

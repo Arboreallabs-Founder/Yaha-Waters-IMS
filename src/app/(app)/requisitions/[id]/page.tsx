@@ -6,6 +6,7 @@ import { getProfile } from "@/lib/auth";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { RequisitionEditor } from "./requisition-editor";
+import { ScanConsume } from "./scan-consume";
 
 export default async function RequisitionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -33,6 +34,10 @@ export default async function RequisitionDetailPage({ params }: { params: Promis
     qty: l.qty,
   }));
 
+  // Scan-to-consume: any requester role on a project requisition; admin-only
+  // (with a mandatory reason) on a stock requisition — see `consumeLot`.
+  const canScan = req.project_id ? canRequest : role === "admin";
+
   return (
     <div>
       <Link href="/requisitions" className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
@@ -46,12 +51,24 @@ export default async function RequisitionDetailPage({ params }: { params: Promis
             requisitionId={id}
             status={req.status}
             lines={lineRows}
-            components={components ?? []}
             canProcure={canProcure}
             canRequest={canRequest}
           />
         </CardContent>
       </Card>
+
+      {canScan && (
+        <>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Receive &amp; consume
+          </h2>
+          <ScanConsume
+            projectId={req.project_id}
+            projectNo={project?.data?.project_no ?? null}
+            requireReason={!req.project_id}
+          />
+        </>
+      )}
     </div>
   );
 }

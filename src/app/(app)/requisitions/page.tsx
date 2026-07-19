@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { MobileRowCard } from "@/components/ui/mobile-row-card";
 import { formatDate, formatNumber } from "@/lib/utils";
 import { NewRequisitionButton } from "./new-requisition-button";
 
@@ -34,40 +35,57 @@ export default async function RequisitionsPage() {
         description="Indents — tracked demand, project-tagged or for stock."
         action={<NewRequisitionButton projects={projects ?? []} />}
       />
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Req No.</TableHead>
-            <TableHead>Project</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Lines</TableHead>
-            <TableHead>Created</TableHead>
-            <TableHead className="w-12" />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {(reqs ?? []).length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">No requisitions yet.</TableCell>
-            </TableRow>
-          ) : (
-            (reqs ?? []).map((r) => (
-              <TableRow key={r.id}>
-                <TableCell className="font-medium">{r.req_no}</TableCell>
-                <TableCell>{r.project_id ? projById.get(r.project_id) ?? "—" : <span className="text-muted-foreground">stock</span>}</TableCell>
-                <TableCell><Badge variant={STATUS_VARIANT[r.status] ?? "secondary"}>{r.status}</Badge></TableCell>
-                <TableCell>{formatNumber(lineCount.get(r.id) ?? 0)}</TableCell>
-                <TableCell className="text-muted-foreground">{formatDate(r.created_at)}</TableCell>
-                <TableCell className="text-right">
-                  <Link href={`/requisitions/${r.id}`} aria-label="Open" className={buttonVariants({ variant: "ghost", size: "icon" })}>
-                    <ArrowRight className="size-4" />
-                  </Link>
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+      {(reqs ?? []).length === 0 ? (
+        <p className="py-8 text-center text-muted-foreground">No requisitions yet.</p>
+      ) : (
+        <>
+          <div className="hidden sm:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Req No.</TableHead>
+                  <TableHead>Project</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Lines</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead className="w-12" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(reqs ?? []).map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell className="font-medium">{r.req_no}</TableCell>
+                    <TableCell>{r.project_id ? projById.get(r.project_id) ?? "—" : <span className="text-muted-foreground">stock</span>}</TableCell>
+                    <TableCell><Badge variant={STATUS_VARIANT[r.status] ?? "secondary"}>{r.status}</Badge></TableCell>
+                    <TableCell>{formatNumber(lineCount.get(r.id) ?? 0)}</TableCell>
+                    <TableCell className="text-muted-foreground">{formatDate(r.created_at)}</TableCell>
+                    <TableCell className="text-right">
+                      <Link href={`/requisitions/${r.id}`} aria-label="Open" className={buttonVariants({ variant: "ghost", size: "icon" })}>
+                        <ArrowRight className="size-4" />
+                      </Link>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <div className="space-y-3 sm:hidden">
+            {(reqs ?? []).map((r) => (
+              <Link key={r.id} href={`/requisitions/${r.id}`} className="block">
+                <MobileRowCard
+                  title={r.req_no}
+                  subtitle={r.project_id ? projById.get(r.project_id) ?? "—" : "stock"}
+                  badge={<Badge variant={STATUS_VARIANT[r.status] ?? "secondary"}>{r.status}</Badge>}
+                  fields={[
+                    { label: "Lines", value: formatNumber(lineCount.get(r.id) ?? 0) },
+                    { label: "Created", value: formatDate(r.created_at) },
+                  ]}
+                />
+              </Link>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

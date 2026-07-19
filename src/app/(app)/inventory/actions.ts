@@ -58,22 +58,37 @@ async function lotInfo(supabase: Awaited<ReturnType<typeof createClient>>, lotId
   return data;
 }
 
-/** Scan-to-consume: issue qty into a project. Writes an `issue` movement; trigger decrements the lot. */
+/** Scan-to-consume: issue qty into a project (or, admin-only, untagged stock with a reason). Writes an `issue` movement; trigger decrements the lot. */
 export async function consumeLot(fd: FormData): Promise<ActionResult> {
-  const p = await operator();
+  const p = await getProfile();
   if (!p) return { error: "Not authorized." };
   const lot_id = String(fd.get("lot_id"));
   const qty = Number(fd.get("qty") ?? 0) || 0;
   const project_id = String(fd.get("project_id") ?? "") || null;
+  const note = String(fd.get("note") ?? "").trim() || null;
   if (qty <= 0) return { error: "Enter a quantity to consume." };
+
+  if (project_id) {
+    if (!OPERATE.includes(p.role)) return { error: "Not authorized." };
+  } else {
+    // Untagged (stock) consumption — admin-only, and a reason is required (e.g. R&D, sample).
+    if (p.role !== "admin") return { error: "Only Admin can consume stock without a project." };
+    if (!note) return { error: "Enter a reason (e.g. R&D, sample) for stock consumption." };
+  }
 
   const supabase = await createClient();
   const { data: lotFull } = await supabase
     .from("inventory_lots")
-    .select("component_id, qty_on_hand, project_id, status")
+    .select("component_id, qty_on_hand, project_id, status, jw_stage")
     .eq("id", lot_id)
     .maybeSingle();
   if (!lotFull) return { error: "Lot not found." };
+
+  // Raw job-work stock can't be consumed — it must be sent for job work and
+  // received back as a completed part first.
+  if (lotFull.jw_stage === "raw") {
+    return { error: "This is a raw job-work lot — send it for job work and receive the completed part before consuming." };
+  }
 
   // 'issued' lots are exclusively reserved for their project.
   if (lotFull.status === "issued") {
@@ -94,7 +109,32 @@ export async function consumeLot(fd: FormData): Promise<ActionResult> {
     movement_type: "issue",
     qty: -qty,
     project_id,
-    reference_type: "scan",
+    reference_type: project_id ? "scan" : "scan-stock",
+    note,
+    performed_by: p.id,
+    created_by: p.id,
+  });
+  if (error) return { error: error.message };
+  revalidatePath(`/inventory/lots/${lot_id}`);
+  return { ok: true };
+}
+
+/** Add pieces into an existing box lot (box-tracked components) — writes a `receipt` movement. */
+export async function addToBox(fd: FormData): Promise<ActionResult> {
+  const p = await operator();
+  if (!p) return { error: "Not authorized." };
+  const lot_id = String(fd.get("lot_id"));
+  const qty = Number(fd.get("qty") ?? 0) || 0;
+  if (qty <= 0) return { error: "Enter a quantity to add." };
+  const supabase = await createClient();
+  const lot = await lotInfo(supabase, lot_id);
+  if (!lot) return { error: "Lot not found." };
+  const { error } = await supabase.from("stock_movements").insert({
+    lot_id,
+    component_id: lot.component_id,
+    movement_type: "receipt",
+    qty,
+    reference_type: "box-add",
     performed_by: p.id,
     created_by: p.id,
   });

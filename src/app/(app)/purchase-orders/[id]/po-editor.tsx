@@ -42,7 +42,10 @@ export function PoEditor({
   canSeeFinancials,
 }: {
   poId: string;
-  header: { vendor_id: string | null; po_date: string | null; status: string; invoice_no: string | null; invoice_status: string | null };
+  header: {
+    vendor_id: string | null; po_date: string | null; status: string;
+    delivery_terms: string; payment_terms: string; freight_terms: string; gst_percent: number;
+  };
   lines: Line[];
   components: { id: string; component_no: string; name: string }[];
   vendors: { id: string; name: string }[];
@@ -93,13 +96,23 @@ export function PoEditor({
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>Invoice No.</Label>
-            <Input name="invoice_no" defaultValue={header.invoice_no ?? ""} />
+            <Label>Delivery</Label>
+            <Input name="delivery_terms" defaultValue={header.delivery_terms} placeholder="Urgent" />
           </div>
           <div className="space-y-1.5">
-            <Label>Invoice status</Label>
-            <Input name="invoice_status" defaultValue={header.invoice_status ?? ""} placeholder="received / pending" />
+            <Label>Payment</Label>
+            <Input name="payment_terms" defaultValue={header.payment_terms} placeholder="30 Days" />
           </div>
+          <div className="space-y-1.5">
+            <Label>Freight</Label>
+            <Input name="freight_terms" defaultValue={header.freight_terms} placeholder="At Actual" />
+          </div>
+          {canSeeFinancials && (
+            <div className="space-y-1.5">
+              <Label>GST %</Label>
+              <Input name="gst_percent" type="number" step="any" defaultValue={header.gst_percent} />
+            </div>
+          )}
           <div className="sm:col-span-3">
             <Button type="submit" variant="secondary" disabled={busy}><Save className="size-4" /> Save header</Button>
           </div>

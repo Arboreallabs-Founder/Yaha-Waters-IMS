@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { QrCode } from "@/components/qr-code";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { MobileRowCard } from "@/components/ui/mobile-row-card";
 import { formatNumber, formatDate, formatINR } from "@/lib/utils";
 import { LotActions } from "./lot-actions";
 
@@ -26,14 +27,16 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
   const { data: lot } = await supabase.from("inventory_lots").select("*").eq("id", id).single();
   if (!lot) notFound();
 
-  const [{ data: comp }, { data: vendor }, { data: project }, { data: moves }, { data: projects }] =
+  const [{ data: comp }, { data: vendor }, { data: project }, { data: moves }, { data: projects }, { data: parentLot }] =
     await Promise.all([
       lot.component_id ? supabase.from("components").select("component_no, name").eq("id", lot.component_id).maybeSingle() : Promise.resolve({ data: null }),
       lot.vendor_id ? supabase.from("vendors").select("name").eq("id", lot.vendor_id).maybeSingle() : Promise.resolve({ data: null }),
       lot.project_id ? supabase.from("projects").select("project_no").eq("id", lot.project_id).maybeSingle() : Promise.resolve({ data: null }),
       supabase.from("stock_movements").select("*").eq("lot_id", id).order("performed_at", { ascending: false }),
       supabase.from("projects").select("id, project_no").order("project_no"),
+      lot.parent_lot_id ? supabase.from("inventory_lots").select("id, lot_code").eq("id", lot.parent_lot_id).maybeSingle() : Promise.resolve({ data: null }),
     ]);
+  const isBox = !!lot.container_no;
 
   const projNo = new Map((projects ?? []).map((p) => [p.id, p.project_no]));
 
@@ -58,6 +61,8 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
             <Info label="On hand" value={formatNumber(lot.qty_on_hand)} />
             <Info label="Initial" value={formatNumber(lot.qty_initial)} />
             <Info label="Status" value={lot.status} />
+            {lot.jw_stage && <Info label="Job-work stage" value={lot.jw_stage === "raw" ? "Raw (needs job work)" : "Completed"} />}
+            {isBox && <Info label="Box" value={lot.container_no} />}
             <Info label="Location" value={lot.location} />
             <Info label="Vendor" value={vendor?.name} />
             <Info label="Project" value={project?.project_no} />
@@ -73,38 +78,63 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
         </Card>
       </div>
 
+      {parentLot && (
+        <p className="mb-4 text-sm text-muted-foreground">
+          Completed via job work from raw lot{" "}
+          <Link href={`/inventory/lots/${parentLot.id}`} className="font-mono text-primary hover:underline">{parentLot.lot_code}</Link>.
+        </p>
+      )}
+
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Actions</h2>
       <Card className="mb-8"><CardContent className="p-5">
-        <LotActions lotId={id} qtyOnHand={Number(lot.qty_on_hand ?? 0)} projects={projects ?? []} canManage={canManage} />
+        <LotActions lotId={id} qtyOnHand={Number(lot.qty_on_hand ?? 0)} projects={projects ?? []} canManage={canManage} isBox={isBox} rawStage={lot.jw_stage === "raw"} />
       </CardContent></Card>
 
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Ledger (immutable)</h2>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>When</TableHead>
-            <TableHead>Movement</TableHead>
-            <TableHead>Qty</TableHead>
-            <TableHead>Project</TableHead>
-            <TableHead>Ref</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {(moves ?? []).length === 0 ? (
-            <TableRow><TableCell colSpan={5} className="py-6 text-center text-muted-foreground">No movements.</TableCell></TableRow>
-          ) : (
-            (moves ?? []).map((m) => (
-              <TableRow key={m.id}>
-                <TableCell className="text-muted-foreground">{formatDate(m.performed_at)}</TableCell>
-                <TableCell><Badge variant={m.movement_type === "issue" ? "warning" : "secondary"}>{MOVE_LABEL[m.movement_type] ?? m.movement_type}</Badge></TableCell>
-                <TableCell className={Number(m.qty) < 0 ? "text-red-600" : "text-green-700"}>{Number(m.qty) > 0 ? "+" : ""}{formatNumber(m.qty)}</TableCell>
-                <TableCell className="text-muted-foreground">{m.project_id ? projNo.get(m.project_id) ?? "—" : "—"}</TableCell>
-                <TableCell className="text-muted-foreground">{m.reference_type ?? "—"}</TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+      {(moves ?? []).length === 0 ? (
+        <p className="py-6 text-center text-muted-foreground">No movements.</p>
+      ) : (
+        <>
+          <div className="hidden sm:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>When</TableHead>
+                  <TableHead>Movement</TableHead>
+                  <TableHead>Qty</TableHead>
+                  <TableHead>Project</TableHead>
+                  <TableHead>Ref</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(moves ?? []).map((m) => (
+                  <TableRow key={m.id}>
+                    <TableCell className="text-muted-foreground">{formatDate(m.performed_at)}</TableCell>
+                    <TableCell><Badge variant={m.movement_type === "issue" ? "warning" : "secondary"}>{MOVE_LABEL[m.movement_type] ?? m.movement_type}</Badge></TableCell>
+                    <TableCell className={Number(m.qty) < 0 ? "text-red-600" : "text-green-700"}>{Number(m.qty) > 0 ? "+" : ""}{formatNumber(m.qty)}</TableCell>
+                    <TableCell className="text-muted-foreground">{m.project_id ? projNo.get(m.project_id) ?? "—" : "—"}</TableCell>
+                    <TableCell className="text-muted-foreground">{m.reference_type ?? "—"}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <div className="space-y-3 sm:hidden">
+            {(moves ?? []).map((m) => (
+              <MobileRowCard
+                key={m.id}
+                title={MOVE_LABEL[m.movement_type] ?? m.movement_type}
+                subtitle={formatDate(m.performed_at)}
+                badge={<Badge variant={m.movement_type === "issue" ? "warning" : "secondary"}>{m.reference_type ?? "—"}</Badge>}
+                fields={[
+                  { label: "Qty", value: <span className={Number(m.qty) < 0 ? "text-red-600" : "text-green-700"}>{Number(m.qty) > 0 ? "+" : ""}{formatNumber(m.qty)}</span> },
+                  { label: "Project", value: m.project_id ? projNo.get(m.project_id) ?? "—" : "—" },
+                ]}
+              />
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

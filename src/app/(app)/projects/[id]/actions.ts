@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getProfile, canWriteMasters } from "@/lib/auth";
 import { expandBomLines, type TemplateLine } from "@/lib/bom-engine";
 
-export type ActionResult = { ok?: true; error?: string; message?: string };
+export type ActionResult = { ok?: true; error?: string; message?: string; id?: string };
 
 async function planner() {
   const profile = await getProfile();
@@ -30,48 +30,60 @@ export async function updateProjectStatus(fd: FormData): Promise<ActionResult> {
   return { ok: true };
 }
 
-// ---------- quick-issue a single component from open stock ----------
-export async function quickIssueComponent(fd: FormData): Promise<ActionResult> {
+// ---------- block stock for the approved BOM ----------
+// Creates a requisition from the approved BOM's lines and reserves ("blocks")
+// whatever's currently on hand for it (best-effort — see issue_requisition).
+export async function blockStockForBom(fd: FormData): Promise<ActionResult> {
   const p = await planner();
-  if (!p) return { error: "Not authorized." };
+  if (!p) return { error: "Only Admin / Team Lead can block stock." };
   const project_id = String(fd.get("project_id") ?? "");
-  const component_id = String(fd.get("component_id") ?? "");
-  const qty = Number(fd.get("qty") ?? 0);
-  if (!project_id || !component_id || qty <= 0) return { error: "Invalid parameters." };
-
+  const bom_id = String(fd.get("bom_id") ?? "");
+  if (!project_id || !bom_id) return { error: "Missing project/BOM." };
   const supabase = await createClient();
 
-  // 1. Create a requisition for this project
+  const { data: bom } = await supabase.from("boms").select("status").eq("id", bom_id).maybeSingle();
+  if (!bom || bom.status !== "approved") return { error: "Approve the BOM before blocking stock." };
+
+  const { data: lines } = await supabase.from("bom_lines").select("component_id, required_qty").eq("bom_id", bom_id);
+  if (!lines || lines.length === 0) return { error: "BOM has no lines." };
+
+  const byComponent = new Map<string, number>();
+  for (const l of lines) {
+    if (!l.component_id) continue;
+    byComponent.set(l.component_id, (byComponent.get(l.component_id) ?? 0) + Number(l.required_qty ?? 0));
+  }
+  if (byComponent.size === 0) return { error: "BOM has no component lines to block stock for." };
+
+  const { data: reqNo } = await supabase.rpc("next_req_no");
   const { data: req, error: reqErr } = await supabase
     .from("requisitions")
-    .insert({ project_id, status: "open", created_by: p.id })
+    .insert({ req_no: reqNo, project_id, status: "open", requested_by: p.id, created_by: p.id })
     .select("id")
     .single();
   if (reqErr || !req) return { error: reqErr?.message ?? "Could not create requisition." };
 
-  // 2. Add the line
-  const { error: lineErr } = await supabase
-    .from("requisition_lines")
-    .insert({ requisition_id: req.id, component_id, qty_requested: qty, created_by: p.id });
-  if (lineErr) return { error: lineErr.message };
+  const reqLines = [...byComponent.entries()].map(([component_id, qty]) => ({
+    requisition_id: req.id,
+    component_id,
+    qty,
+    created_by: p.id,
+  }));
+  const { error: lErr } = await supabase.from("requisition_lines").insert(reqLines);
+  if (lErr) return { error: lErr.message };
 
-  // 3. Issue immediately via the atomic PL/pgSQL function
   const { data: result, error: issueErr } = await supabase.rpc("issue_requisition", {
     p_req_id: req.id,
     p_user_id: p.id,
   });
-  if (issueErr) {
-    const msg = (issueErr.message ?? "").replace(/^INSUFFICIENT_STOCK:\s*/i, "");
-    return { error: msg || issueErr.message };
-  }
-  const parsed = typeof result === "string" ? JSON.parse(result) : result;
-  if (parsed?.error) {
-    const msg = String(parsed.error).replace(/^INSUFFICIENT_STOCK:\s*/i, "");
-    return { error: msg };
-  }
+  if (issueErr) return { error: issueErr.message };
+  if ((result as { error?: string })?.error) return { error: (result as { error?: string }).error };
 
   revalidate(project_id);
-  return { ok: true };
+  const short = (result as { short?: { label: string; short_qty: number }[] })?.short ?? [];
+  const message = short.length
+    ? `Blocked what's available for ${byComponent.size} component(s). Still short: ${short.map((s) => `${s.label} (${s.short_qty})`).join(", ")}.`
+    : `Blocked all required stock for ${byComponent.size} component(s).`;
+  return { ok: true, id: req.id, message };
 }
 
 // ---------- line items ----------

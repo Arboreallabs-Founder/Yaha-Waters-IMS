@@ -9,6 +9,7 @@ import {
 
 const TEMPLATE_FIELDS = {
   product_id: "string",
+  component_id: "string",
   version: "number",
   is_active: "boolean",
 } as const;
@@ -34,6 +35,7 @@ export async function upsertTemplateLine(fd: FormData): Promise<ActionResult> {
     }
   }
   const isVariant = fd.get("is_variant_driven") !== null;
+  const isAssembly = fd.get("is_assembly") !== null;
   const payload = {
     bom_template_id: String(fd.get("bom_template_id") ?? ""),
     component_id: (fd.get("component_id") as string) || null,
@@ -41,6 +43,10 @@ export async function upsertTemplateLine(fd: FormData): Promise<ActionResult> {
     is_common: !isVariant, // common = not variant-driven
     is_variant_driven: isVariant,
     variant_rule,
+    parent_line_id: (fd.get("parent_line_id") as string) || null,
+    line_type: isAssembly ? "assembly" : "component",
+    section: String(fd.get("section") ?? "").trim() || null,
+    assembly_name: String(fd.get("assembly_name") ?? "").trim() || null,
     note: String(fd.get("note") ?? "").trim() || null,
   };
   if (!payload.component_id && !isVariant) {

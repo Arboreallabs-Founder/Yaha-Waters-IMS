@@ -54,22 +54,6 @@ export async function updateReqStatus(fd: FormData): Promise<ActionResult> {
   return { ok: true };
 }
 
-export async function addReqLine(fd: FormData): Promise<ActionResult> {
-  const p = await profileWith(REQUEST);
-  if (!p) return { error: "Not authorized." };
-  const requisition_id = String(fd.get("requisition_id"));
-  const component_id = String(fd.get("component_id") ?? "");
-  if (!component_id) return { error: "Pick a component." };
-  const qty = Number(fd.get("qty") ?? 0) || 0;
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("requisition_lines")
-    .insert({ requisition_id, component_id, qty, created_by: p.id });
-  if (error) return { error: error.message };
-  revalidatePath(`/requisitions/${requisition_id}`);
-  return { ok: true };
-}
-
 export async function issueRequisition(fd: FormData): Promise<ActionResult> {
   const p = await profileWith(PROCURE);
   if (!p) return { error: "Only Admin / Team Lead can issue requisitions." };

@@ -7,7 +7,7 @@ import {
   Menu, X, LogOut, ChevronsUpDown, Circle,
   LayoutDashboard, Boxes, Wrench, FolderTree, Truck, ListTree,
   FolderKanban, ClipboardList, ShoppingCart, PackageCheck, Warehouse,
-  ScanLine, Package, AlertTriangle, Gauge, UserCog, Users,
+  Package, AlertTriangle, Gauge, UserCog, Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -34,7 +34,6 @@ const ICONS: Record<string, LucideIcon> = {
   "/purchase-orders": ShoppingCart,
   "/grn": PackageCheck,
   "/inventory": Warehouse,
-  "/scan": ScanLine,
   "/finished-goods": Package,
   "/reconciliation": AlertTriangle,
   "/suppliers": Gauge,
@@ -95,14 +94,14 @@ export function AppShell({
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
           <aside className="absolute left-0 top-0 flex h-full w-72 flex-col bg-white shadow-xl">
-            <div className="flex h-16 shrink-0 items-center justify-between border-b border-border px-4">
+            <div className="flex h-16 shrink-0 items-center justify-between border-b border-border px-4 pt-[env(safe-area-inset-top)]">
               <span className="flex items-center gap-2 font-semibold">
                 <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
                   YW
                 </span>
                 YAHA Waters IMS
               </span>
-              <button onClick={() => setOpen(false)} aria-label="Close menu">
+              <button onClick={() => setOpen(false)} aria-label="Close menu" className="flex size-11 items-center justify-center -mr-2">
                 <X className="size-5" />
               </button>
             </div>
@@ -116,8 +115,8 @@ export function AppShell({
 
       {/* Content offset by collapsed rail width */}
       <div className="lg:pl-14 print:pl-0">
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-white px-4 lg:px-8 print:hidden">
-          <button className="lg:hidden" onClick={() => setOpen(true)} aria-label="Open menu">
+        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-white px-4 pt-[env(safe-area-inset-top)] lg:px-8 print:hidden">
+          <button className="flex size-11 items-center justify-center -ml-2 lg:hidden" onClick={() => setOpen(true)} aria-label="Open menu">
             <Menu className="size-5" />
           </button>
           <div className="ml-auto flex items-center gap-3 text-sm">
@@ -127,7 +126,7 @@ export function AppShell({
             </span>
           </div>
         </header>
-        <main className="p-4 lg:p-8 print:p-0">{children}</main>
+        <main className="p-4 mb-[env(safe-area-inset-bottom)] lg:p-8 print:p-0">{children}</main>
       </div>
     </div>
   );

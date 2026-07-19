@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Printer } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile, canSeeFinancials, canWriteMasters } from "@/lib/auth";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { buttonVariants } from "@/components/ui/button";
 import { PoEditor } from "./po-editor";
 
 export default async function PoDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -56,7 +57,14 @@ export default async function PoDetailPage({ params }: { params: Promise<{ id: s
       <PageHeader
         title={po.po_no}
         description={po.vendor_id ? vName.get(po.vendor_id) ?? undefined : "no vendor yet"}
-        action={<Badge variant="secondary">{po.status}</Badge>}
+        action={
+          <div className="flex items-center gap-3">
+            <Badge variant="secondary">{po.status}</Badge>
+            <Link href={`/purchase-orders/${id}/print`} className={buttonVariants({ variant: "outline" })}>
+              <Printer className="size-4" /> Print PO
+            </Link>
+          </div>
+        }
       />
 
       <Card>
@@ -67,8 +75,10 @@ export default async function PoDetailPage({ params }: { params: Promise<{ id: s
               vendor_id: po.vendor_id,
               po_date: po.po_date,
               status: po.status,
-              invoice_no: po.invoice_no,
-              invoice_status: po.invoice_status,
+              delivery_terms: po.delivery_terms,
+              payment_terms: po.payment_terms,
+              freight_terms: po.freight_terms,
+              gst_percent: Number(po.gst_percent ?? 18),
             }}
             lines={lineRows}
             components={components ?? []}

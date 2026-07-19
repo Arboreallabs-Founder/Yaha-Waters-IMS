@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { formatNumber, formatDate, formatINR } from "@/lib/utils";
+import { formatNumber, formatDate } from "@/lib/utils";
 import { UntaggedGrnTagger } from "./untagged-grn-tagger";
 
 export default async function ReconciliationPage() {
@@ -19,7 +19,6 @@ export default async function ReconciliationPage() {
     { data: missingPo },
     { data: stale },
     { data: overdue },
-    { data: invoice },
     { data: projects },
     { data: components },
   ] = await Promise.all([
@@ -28,14 +27,12 @@ export default async function ReconciliationPage() {
     supabase.from("v_missing_po").select("*"),
     supabase.from("v_stale_stock").select("*").order("age_days", { ascending: false }),
     supabase.from("v_po_overdue").select("*").order("days_overdue", { ascending: false }),
-    supabase.from("v_invoice_vs_po").select("*"),
     supabase.from("projects").select("id, project_no"),
     supabase.from("components").select("id, component_no, name"),
   ]);
 
   const projNo = new Map((projects ?? []).map((p) => [p.id, p.project_no]));
   const compLabel = new Map((components ?? []).map((c) => [c.id, `${c.component_no} — ${c.name}`]));
-  const invoiceIssues = (invoice ?? []).filter((r) => Math.abs(Number(r.amount_diff ?? 0)) > 0.01 || (!r.invoice_no && Number(r.total_amount ?? 0) > 0));
 
   const cards = [
     { label: "BOM variance", n: variance?.length ?? 0, href: "#bom-variance" },
@@ -43,7 +40,6 @@ export default async function ReconciliationPage() {
     { label: "Missing PO", n: missingPo?.length ?? 0, href: "#missing-po" },
     { label: "Stale stock", n: stale?.length ?? 0, href: "#stale" },
     { label: "PO overdue", n: overdue?.length ?? 0, href: "#overdue" },
-    { label: "Invoice ≠ PO", n: invoiceIssues.length, href: "#invoice" },
   ];
 
   return (
@@ -137,24 +133,6 @@ export default async function ReconciliationPage() {
                 <TableCell className="font-medium">{r.component_name ?? r.component_no}</TableCell>
                 <TableCell className="text-muted-foreground">{formatDate(r.expected_date)}</TableCell>
                 <TableCell><Badge variant="destructive">{r.days_overdue}</Badge></TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Check>
-
-      <Check id="invoice" title="Invoice vs PO mismatch" empty={invoiceIssues.length === 0}>
-        <Table>
-          <TableHeader><TableRow><TableHead>PO</TableHead><TableHead>Vendor</TableHead><TableHead>Invoice</TableHead><TableHead>PO total</TableHead><TableHead>Lines total</TableHead><TableHead>Diff</TableHead></TableRow></TableHeader>
-          <TableBody>
-            {invoiceIssues.slice(0, 100).map((r) => (
-              <TableRow key={r.po_id}>
-                <TableCell><Link href={`/purchase-orders/${r.po_id}`} className="text-primary hover:underline">{r.po_no}</Link></TableCell>
-                <TableCell>{r.vendor_name ?? "—"}</TableCell>
-                <TableCell className="text-muted-foreground">{r.invoice_no ?? <Badge variant="warning">none</Badge>}</TableCell>
-                <TableCell>{formatINR(r.total_amount)}</TableCell>
-                <TableCell>{formatINR(r.lines_amount)}</TableCell>
-                <TableCell><Badge variant="destructive">{formatINR(r.amount_diff)}</Badge></TableCell>
               </TableRow>
             ))}
           </TableBody>

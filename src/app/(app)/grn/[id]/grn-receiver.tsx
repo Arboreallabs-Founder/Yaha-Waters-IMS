@@ -10,13 +10,15 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { MobileRowCard } from "@/components/ui/mobile-row-card";
 import { formatNumber } from "@/lib/utils";
 import { addGrnLine, type ActionResult } from "../actions";
 
 type PoLine = { po_line_id: string; component_id: string; component_label: string; remaining: number; project_id: string | null };
 type Posted = { id: string; component_label: string; qty: number; is_untagged: boolean; lot_code: string | null; lot_id: string | null };
 type OpenPoEntry = { po_line_id: string; po_no: string; tag: string; remaining: number };
-type Component = { id: string; component_no: string; name: string; quantity_type: string };
+type Component = { id: string; component_no: string; name: string; quantity_type: string; tracking_mode: string };
+type OpenBox = { id: string; lot_code: string; qty_on_hand: number; container_no: string | null };
 
 function QtyHelperLabel({ qt }: { qt: string }) {
   if (qt === "length") return <span className="text-xs text-muted-foreground">Total = pieces × length/pc</span>;
@@ -31,9 +33,12 @@ export function GrnReceiver({
   components,
   projects,
   openPoByComponent,
+  openBoxesByComponent,
   lotIds,
   canReceive,
   canSeeFinancials,
+  vendorComponentIds,
+  vendorName,
 }: {
   grnId: string;
   poLines: PoLine[];
@@ -41,9 +46,13 @@ export function GrnReceiver({
   components: Component[];
   projects: { id: string; project_no: string }[];
   openPoByComponent: Record<string, OpenPoEntry[]>;
+  openBoxesByComponent: Record<string, OpenBox[]>;
   lotIds: string[];
   canReceive: boolean;
   canSeeFinancials: boolean;
+  /** Components tagged to this GRN's vendor (via vendor_components) — narrows the manual picker. */
+  vendorComponentIds: string[];
+  vendorName: string | null;
 }) {
   const router = useRouter();
   const [busy, setBusy] = React.useState<string | null>(null);
@@ -55,10 +64,21 @@ export function GrnReceiver({
   const [pieceCount, setPieceCount] = React.useState("");
   const [pieceLength, setPieceLength] = React.useState("");
   const [pieceWidth, setPieceWidth] = React.useState("");
+  const [targetLotId, setTargetLotId] = React.useState("");
+  const [showAllComponents, setShowAllComponents] = React.useState(false);
+
+  const hasVendorFilter = vendorComponentIds.length > 0;
+  const vendorCompSet = React.useMemo(() => new Set(vendorComponentIds), [vendorComponentIds]);
+  const pickerComponents = React.useMemo(
+    () => (hasVendorFilter && !showAllComponents ? components.filter((c) => vendorCompSet.has(c.id)) : components),
+    [components, hasVendorFilter, showAllComponents, vendorCompSet],
+  );
 
   const compMap = React.useMemo(() => new Map(components.map((c) => [c.id, c])), [components]);
   const selectedComp = manualComp ? compMap.get(manualComp) : undefined;
   const qt = selectedComp?.quantity_type ?? "nos";
+  const trackingMode = selectedComp?.tracking_mode ?? "box";
+  const boxesForComp = manualComp ? (openBoxesByComponent[manualComp] ?? []) : [];
 
   // Derived total qty for length/area
   const derivedQty = React.useMemo(() => {
@@ -75,6 +95,7 @@ export function GrnReceiver({
     setPieceCount("");
     setPieceLength("");
     setPieceWidth("");
+    setTargetLotId("");
   }, [manualComp]);
 
   const matchingPoLines = manualComp ? (openPoByComponent[manualComp] ?? []) : [];
@@ -105,11 +126,14 @@ export function GrnReceiver({
     if (selectedPoLineId) fd.set("po_line_id", selectedPoLineId);
     // For length/area, override qty_received with the computed total
     if (derivedQty !== null) fd.set("qty_received", String(derivedQty));
+    // Box mode: adding to an existing box vs a new box
+    if (trackingMode === "box" && targetLotId) fd.set("target_lot_id", targetLotId);
     run(fd, "manual", () => {
       form.reset();
       setManualComp("");
       setSelectedPoLineId("");
       setPieceCount(""); setPieceLength(""); setPieceWidth("");
+      setTargetLotId("");
     });
   }
 
@@ -121,33 +145,56 @@ export function GrnReceiver({
       {canReceive && poLines.length > 0 && (
         <section>
           <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Receive against PO</h3>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Component</TableHead>
-                <TableHead>Remaining</TableHead>
-                <TableHead className="w-32">Receive qty</TableHead>
-                <TableHead className="w-28" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {poLines.map((pl) => (
-                <TableRow key={pl.po_line_id}>
-                  <TableCell className="font-medium">{pl.component_label}</TableCell>
-                  <TableCell>{formatNumber(pl.remaining)}</TableCell>
-                  <TableCell>
-                    <Input type="number" step="any" value={qtys[pl.po_line_id] ?? ""} placeholder={String(pl.remaining)}
-                      onChange={(e) => setQtys((q) => ({ ...q, [pl.po_line_id]: e.target.value }))} />
-                  </TableCell>
-                  <TableCell>
+          <div className="hidden sm:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Component</TableHead>
+                  <TableHead>Remaining</TableHead>
+                  <TableHead className="w-32">Receive qty</TableHead>
+                  <TableHead className="w-28" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {poLines.map((pl) => (
+                  <TableRow key={pl.po_line_id}>
+                    <TableCell className="font-medium">{pl.component_label}</TableCell>
+                    <TableCell>{formatNumber(pl.remaining)}</TableCell>
+                    <TableCell>
+                      <Input type="number" step="any" value={qtys[pl.po_line_id] ?? ""} placeholder={String(pl.remaining)}
+                        onChange={(e) => setQtys((q) => ({ ...q, [pl.po_line_id]: e.target.value }))} />
+                    </TableCell>
+                    <TableCell>
+                      <Button size="sm" disabled={busy === pl.po_line_id} onClick={() => receivePoLine(pl)}>
+                        <PackageCheck className="size-4" /> Receive
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <div className="space-y-3 sm:hidden">
+            {poLines.map((pl) => (
+              <MobileRowCard
+                key={pl.po_line_id}
+                title={pl.component_label}
+                fields={[{ label: "Remaining", value: formatNumber(pl.remaining) }]}
+                actions={
+                  <div className="flex w-full items-end gap-2">
+                    <div className="flex-1 space-y-1">
+                      <Label className="text-xs">Receive qty</Label>
+                      <Input type="number" step="any" value={qtys[pl.po_line_id] ?? ""} placeholder={String(pl.remaining)}
+                        onChange={(e) => setQtys((q) => ({ ...q, [pl.po_line_id]: e.target.value }))} />
+                    </div>
                     <Button size="sm" disabled={busy === pl.po_line_id} onClick={() => receivePoLine(pl)}>
                       <PackageCheck className="size-4" /> Receive
                     </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                  </div>
+                }
+              />
+            ))}
+          </div>
         </section>
       )}
 
@@ -165,10 +212,23 @@ export function GrnReceiver({
                 <Label>Component</Label>
                 <Select name="component_id" required value={manualComp} onChange={(e) => setManualComp(e.target.value)}>
                   <option value="">— component —</option>
-                  {components.map((c) => (
+                  {pickerComponents.map((c) => (
                     <option key={c.id} value={c.id}>{c.component_no} — {c.name}</option>
                   ))}
                 </Select>
+                {hasVendorFilter && (
+                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={showAllComponents}
+                      onChange={(e) => setShowAllComponents(e.target.checked)}
+                      className="size-3.5 rounded border-input"
+                    />
+                    {showAllComponents
+                      ? "Showing all components"
+                      : `Showing only ${vendorName ?? "this vendor"}'s components (${pickerComponents.length}) — check to show all`}
+                  </label>
+                )}
               </div>
             </div>
 
@@ -183,15 +243,40 @@ export function GrnReceiver({
                 </div>
 
                 {qt === "nos" && (
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <div className="space-y-1.5">
-                      <Label>Qty received</Label>
-                      <Input name="qty_received" type="number" step="any" defaultValue="1" required />
-                    </div>
-                    {canSeeFinancials && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <div className="space-y-1.5">
-                        <Label>Unit cost (₹)</Label>
-                        <Input name="unit_cost" type="number" step="any" />
+                        <Label>Qty received{trackingMode === "box" && targetLotId ? " (pieces to add to box)" : ""}</Label>
+                        <Input name="qty_received" type="number" step="any" defaultValue="1" required />
+                      </div>
+                      {canSeeFinancials && (
+                        <div className="space-y-1.5">
+                          <Label>Unit cost (₹)</Label>
+                          <Input name="unit_cost" type="number" step="any" />
+                        </div>
+                      )}
+                    </div>
+
+                    {trackingMode === "item" && (
+                      <p className="rounded-md border border-border bg-background px-3 py-2 text-xs text-muted-foreground">
+                        <span className="font-medium text-foreground">Item-tracked:</span> one QR sticker is printed per piece — receiving N creates N lots.
+                      </p>
+                    )}
+
+                    {trackingMode === "box" && (
+                      <div className="space-y-1.5">
+                        <Label>Box (QR is on the box)</Label>
+                        <Select value={targetLotId} onChange={(e) => setTargetLotId(e.target.value)}>
+                          <option value="">— New box (new QR) —</option>
+                          {boxesForComp.map((b) => (
+                            <option key={b.id} value={b.id}>
+                              {b.container_no ?? b.lot_code} · {formatNumber(b.qty_on_hand)} in box
+                            </option>
+                          ))}
+                        </Select>
+                        <span className="text-xs text-muted-foreground">
+                          {targetLotId ? "Adds these pieces into the existing box (no new QR)." : "Creates a new box with its own QR."}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -338,38 +423,60 @@ export function GrnReceiver({
             </Link>
           )}
         </div>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Component</TableHead>
-              <TableHead>Qty</TableHead>
-              <TableHead>Tagged to</TableHead>
-              <TableHead>Lot (QR)</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {postedLines.length === 0 ? (
-              <TableRow><TableCell colSpan={4} className="py-6 text-center text-muted-foreground">Nothing received yet.</TableCell></TableRow>
-            ) : (
-              postedLines.map((l) => (
-                <TableRow key={l.id}>
-                  <TableCell className="font-medium">{l.component_label}</TableCell>
-                  <TableCell>{formatNumber(l.qty)}</TableCell>
-                  <TableCell>
-                    {l.is_untagged
-                      ? <Badge variant="warning">Untagged — flagged</Badge>
-                      : <Badge variant="secondary">PO</Badge>}
-                  </TableCell>
-                  <TableCell>
-                    {l.lot_code && l.lot_id
-                      ? <Link href={`/inventory/lots/${l.lot_id}`} className="font-mono text-xs text-primary hover:underline">{l.lot_code}</Link>
-                      : (l.lot_code ?? "—")}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+        {postedLines.length === 0 ? (
+          <p className="py-6 text-center text-muted-foreground">Nothing received yet.</p>
+        ) : (
+          <>
+            <div className="hidden sm:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Component</TableHead>
+                    <TableHead>Qty</TableHead>
+                    <TableHead>Tagged to</TableHead>
+                    <TableHead>Lot (QR)</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {postedLines.map((l) => (
+                    <TableRow key={l.id}>
+                      <TableCell className="font-medium">{l.component_label}</TableCell>
+                      <TableCell>{formatNumber(l.qty)}</TableCell>
+                      <TableCell>
+                        {l.is_untagged
+                          ? <Badge variant="warning">Untagged — flagged</Badge>
+                          : <Badge variant="secondary">PO</Badge>}
+                      </TableCell>
+                      <TableCell>
+                        {l.lot_code && l.lot_id
+                          ? <Link href={`/inventory/lots/${l.lot_id}`} className="font-mono text-xs text-primary hover:underline">{l.lot_code}</Link>
+                          : (l.lot_code ?? "—")}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="space-y-3 sm:hidden">
+              {postedLines.map((l) => (
+                <MobileRowCard
+                  key={l.id}
+                  title={l.component_label}
+                  badge={l.is_untagged ? <Badge variant="warning">Untagged</Badge> : <Badge variant="secondary">PO</Badge>}
+                  fields={[
+                    { label: "Qty", value: formatNumber(l.qty) },
+                    {
+                      label: "Lot (QR)",
+                      value: l.lot_code && l.lot_id
+                        ? <Link href={`/inventory/lots/${l.lot_id}`} className="font-mono text-xs text-primary hover:underline">{l.lot_code}</Link>
+                        : (l.lot_code ?? "—"),
+                    },
+                  ]}
+                />
+              ))}
+            </div>
+          </>
+        )}
       </section>
     </div>
   );

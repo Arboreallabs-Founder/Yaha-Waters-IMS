@@ -2,24 +2,30 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { MinusCircle, MoveRight, ClipboardCheck } from "lucide-react";
+import { MinusCircle, MoveRight, ClipboardCheck, PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { consumeLot, transferLot, adjustLot, type ActionResult } from "../../actions";
+import { consumeLot, transferLot, adjustLot, addToBox, type ActionResult } from "../../actions";
 
 export function LotActions({
   lotId,
   qtyOnHand,
   projects,
   canManage,
+  isBox = false,
+  rawStage = false,
   onDone,
 }: {
   lotId: string;
   qtyOnHand: number;
   projects: { id: string; project_no: string }[];
   canManage: boolean;
+  /** Box-tracked lot — allow adding pieces into the box. */
+  isBox?: boolean;
+  /** Raw job-work lot — can't be consumed until finished. */
+  rawStage?: boolean;
   /** Called after a successful action (e.g. scan screen re-resolves the lot). */
   onDone?: () => void;
 }) {
@@ -42,6 +48,25 @@ export function LotActions({
     <div className="space-y-4">
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
+      {rawStage && (
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          Raw job-work lot — send it for job work and receive the completed part before it can be consumed.
+        </p>
+      )}
+
+      {/* Add to box (box-tracked lots) */}
+      {isBox && (
+        <form onSubmit={(e) => { e.preventDefault(); run(addToBox, new FormData(e.currentTarget), "addbox", () => e.currentTarget.reset?.()); }}
+          className="flex flex-wrap items-end gap-2 rounded-lg border border-border p-3">
+          <div className="w-32">
+            <Label className="mb-1 block text-xs">Add to box: qty</Label>
+            <Input name="qty" type="number" step="any" min="0" />
+          </div>
+          <Button type="submit" variant="secondary" disabled={busy === "addbox"}><PlusCircle className="size-4" /> Add to box</Button>
+          <span className="text-xs text-muted-foreground">Adds pieces into this box — QR stays the same.</span>
+        </form>
+      )}
+
       {/* Consume */}
       <form onSubmit={(e) => { e.preventDefault(); run(consumeLot, new FormData(e.currentTarget), "consume", () => e.currentTarget.reset?.()); }}
         className="flex flex-wrap items-end gap-2 rounded-lg border border-border p-3">
@@ -56,7 +81,7 @@ export function LotActions({
           <Label className="mb-1 block text-xs">Qty</Label>
           <Input name="qty" type="number" step="any" min="0" max={qtyOnHand} placeholder={String(qtyOnHand)} />
         </div>
-        <Button type="submit" disabled={busy === "consume" || qtyOnHand <= 0}><MinusCircle className="size-4" /> Consume</Button>
+        <Button type="submit" disabled={busy === "consume" || qtyOnHand <= 0 || rawStage}><MinusCircle className="size-4" /> Consume</Button>
       </form>
 
       {/* Stock-take */}

@@ -58,14 +58,13 @@ export default async function PurchaseOrdersPage() {
             <TableHead>Vendor</TableHead>
             <TableHead>Date</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead>Invoice</TableHead>
             {finance && <TableHead>Total</TableHead>}
             <TableHead className="w-12" />
           </TableRow>
         </TableHeader>
         <TableBody>
           {(pos ?? []).length === 0 ? (
-            <TableRow><TableCell colSpan={finance ? 7 : 6} className="py-8 text-center text-muted-foreground">No purchase orders yet.</TableCell></TableRow>
+            <TableRow><TableCell colSpan={finance ? 6 : 5} className="py-8 text-center text-muted-foreground">No purchase orders yet.</TableCell></TableRow>
           ) : (
             (pos ?? []).map((po) => (
               <TableRow key={po.id}>
@@ -73,7 +72,6 @@ export default async function PurchaseOrdersPage() {
                 <TableCell>{po.vendor_id ? vName.get(po.vendor_id) ?? "—" : <span className="text-muted-foreground">—</span>}</TableCell>
                 <TableCell className="text-muted-foreground">{formatDate(po.po_date)}</TableCell>
                 <TableCell><Badge variant={STATUS_VARIANT[po.status] ?? "secondary"}>{po.status}</Badge></TableCell>
-                <TableCell className="text-muted-foreground">{po.invoice_no ?? "—"}</TableCell>
                 {finance && <TableCell>{formatINR(po.total_amount)}</TableCell>}
                 <TableCell className="text-right">
                   <Link href={`/purchase-orders/${po.id}`} aria-label="Open" className={buttonVariants({ variant: "ghost", size: "icon" })}>

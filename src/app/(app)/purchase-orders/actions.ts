@@ -5,7 +5,14 @@ import { createClient } from "@/lib/supabase/server";
 import { getProfile } from "@/lib/auth";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export type ActionResult = { ok?: true; error?: string; id?: string };
+export type ActionResult = {
+  ok?: true;
+  error?: string;
+  id?: string;
+  /** Set when raising a PO produces more than one (grouped by supplier). */
+  created?: { id: string; po_no: string; vendor_name: string | null }[];
+  message?: string;
+};
 
 const PROCURE = ["admin", "team_lead"];
 
@@ -58,8 +65,10 @@ export async function updatePO(fd: FormData): Promise<ActionResult> {
       vendor_id: String(fd.get("vendor_id") ?? "") || null,
       po_date: String(fd.get("po_date") ?? "") || null,
       status: String(fd.get("status") ?? "draft"),
-      invoice_no: String(fd.get("invoice_no") ?? "") || null,
-      invoice_status: String(fd.get("invoice_status") ?? "") || null,
+      delivery_terms: String(fd.get("delivery_terms") ?? "").trim() || "Urgent",
+      payment_terms: String(fd.get("payment_terms") ?? "").trim() || "30 Days",
+      freight_terms: String(fd.get("freight_terms") ?? "").trim() || "At Actual",
+      gst_percent: num(fd, "gst_percent") ?? 18,
     })
     .eq("id", id);
   if (error) return { error: error.message };
@@ -156,51 +165,7 @@ export async function backfillProjectTag(fd: FormData): Promise<ActionResult> {
   return { ok: true };
 }
 
-// ---- convert a requisition into a PO ----
-export async function convertRequisitionToPO(fd: FormData): Promise<ActionResult> {
-  const p = await procurer();
-  if (!p) return { error: "Only Admin / Team Lead can raise POs." };
-  const requisition_id = String(fd.get("requisition_id"));
-  const supabase = await createClient();
-
-  const { data: req } = await supabase
-    .from("requisitions")
-    .select("id, project_id")
-    .eq("id", requisition_id)
-    .single();
-  if (!req) return { error: "Requisition not found." };
-  const { data: lines } = await supabase
-    .from("requisition_lines")
-    .select("id, component_id, qty")
-    .eq("requisition_id", requisition_id);
-  if (!lines || lines.length === 0) return { error: "Requisition has no lines." };
-
-  const { data: poNo } = await supabase.rpc("next_po_no");
-  const { data: po, error } = await supabase
-    .from("purchase_orders")
-    .insert({ po_no: poNo, vendor_id: String(fd.get("vendor_id") ?? "") || null, status: "draft", source: "system", created_by: p.id })
-    .select("id")
-    .single();
-  if (error) return { error: error.message };
-
-  const poLines = lines.map((l) => ({
-    po_id: po.id,
-    component_id: l.component_id,
-    project_id: req.project_id,
-    requisition_line_id: l.id,
-    qty_ordered: l.qty,
-    created_by: p.id,
-  }));
-  const { error: lErr } = await supabase.from("po_lines").insert(poLines);
-  if (lErr) return { error: lErr.message };
-
-  await supabase.from("requisitions").update({ status: "ordered" }).eq("id", requisition_id);
-  revalidatePath(`/requisitions/${requisition_id}`);
-  revalidatePath("/purchase-orders");
-  return { ok: true, id: po.id };
-}
-
-// ---- raise a draft PO directly from a project's shortfall ----
+// ---- raise draft PO(s) directly from a project's shortfall — one per supplier ----
 export async function raisePoFromShortfall(fd: FormData): Promise<ActionResult> {
   const p = await procurer();
   if (!p) return { error: "Only Admin / Team Lead can raise POs." };
@@ -213,22 +178,53 @@ export async function raisePoFromShortfall(fd: FormData): Promise<ActionResult> 
     .gt("shortfall_qty", 0);
   if (!short || short.length === 0) return { error: "No shortfall to order." };
 
-  const { data: poNo } = await supabase.rpc("next_po_no");
-  const { data: po, error } = await supabase
-    .from("purchase_orders")
-    .insert({ po_no: poNo, status: "draft", source: "system", created_by: p.id })
-    .select("id")
-    .single();
-  if (error) return { error: error.message };
-  const poLines = short.map((s) => ({
-    po_id: po.id,
-    component_id: s.component_id,
-    project_id,
-    qty_ordered: s.shortfall_qty,
-    created_by: p.id,
-  }));
-  const { error: lErr } = await supabase.from("po_lines").insert(poLines);
-  if (lErr) return { error: lErr.message };
+  // Group shortfall lines by each component's raw supplier — a PO goes to one
+  // vendor, so components from different suppliers can't share a PO.
+  const componentIds = [...new Set(short.map((s) => s.component_id).filter((v): v is string => !!v))];
+  const { data: comps } = await supabase.from("components").select("id, raw_supplier_id").in("id", componentIds);
+  const supplierByComponent = new Map((comps ?? []).map((c) => [c.id, c.raw_supplier_id as string | null]));
+
+  const byVendor = new Map<string | null, { component_id: string; shortfall_qty: number }[]>();
+  for (const s of short) {
+    if (!s.component_id) continue;
+    const vendorId = supplierByComponent.get(s.component_id) ?? null;
+    const group = byVendor.get(vendorId) ?? [];
+    group.push({ component_id: s.component_id, shortfall_qty: s.shortfall_qty });
+    byVendor.set(vendorId, group);
+  }
+
+  const vendorIds = [...byVendor.keys()].filter((v): v is string => v !== null);
+  const { data: vendors } = vendorIds.length
+    ? await supabase.from("vendors").select("id, name").in("id", vendorIds)
+    : { data: [] };
+  const vendorName = new Map((vendors ?? []).map((v) => [v.id, v.name as string]));
+
+  const created: { id: string; po_no: string; vendor_name: string | null }[] = [];
+  for (const [vendorId, lines] of byVendor) {
+    const { data: poNo } = await supabase.rpc("next_po_no");
+    const { data: po, error } = await supabase
+      .from("purchase_orders")
+      .insert({ po_no: poNo, vendor_id: vendorId, status: "draft", source: "system", created_by: p.id })
+      .select("id")
+      .single();
+    if (error) return { error: error.message };
+    const poLines = lines.map((s) => ({
+      po_id: po.id,
+      component_id: s.component_id,
+      project_id,
+      qty_ordered: s.shortfall_qty,
+      created_by: p.id,
+    }));
+    const { error: lErr } = await supabase.from("po_lines").insert(poLines);
+    if (lErr) return { error: lErr.message };
+    created.push({ id: po.id, po_no: poNo, vendor_name: vendorId ? vendorName.get(vendorId) ?? null : null });
+  }
+
   revalidatePath("/purchase-orders");
-  return { ok: true, id: po.id };
+  if (created.length === 1) return { ok: true, id: created[0].id, created };
+  return {
+    ok: true,
+    created,
+    message: `Raised ${created.length} POs — one per supplier: ${created.map((c) => c.vendor_name ?? "no supplier tagged").join(", ")}.`,
+  };
 }

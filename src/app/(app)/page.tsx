@@ -12,7 +12,7 @@ export default async function DashboardPage() {
   const finance = canSeeFinancials(profile?.role);
   const supabase = await createClient();
 
-  const [activeP, openPo, overdue, untagged, missingPo, stale, variance, costingRes, onhandRes, invoiceRes] =
+  const [activeP, openPo, overdue, untagged, missingPo, stale, variance, costingRes, onhandRes] =
     await Promise.all([
       supabase.from("projects").select("*", { count: "exact", head: true }).neq("status", "closed"),
       supabase.from("po_lines").select("*", { count: "exact", head: true }).in("line_status", ["pending", "partial"]),
@@ -23,13 +23,9 @@ export default async function DashboardPage() {
       supabase.from("v_bom_variance").select("*", { count: "exact", head: true }).or("order_gap.gt.0,receive_gap.gt.0"),
       supabase.from("v_project_costing").select("*"),
       finance ? supabase.from("v_component_on_hand").select("stock_value") : Promise.resolve({ data: [] }),
-      supabase.from("v_invoice_vs_po").select("amount_diff, invoice_no, total_amount"),
     ]);
 
   const c = (r: { count: number | null }) => r.count ?? 0;
-  const invoiceIssues = (invoiceRes.data ?? []).filter(
-    (r) => Math.abs(Number(r.amount_diff ?? 0)) > 0.01 || (!r.invoice_no && Number(r.total_amount ?? 0) > 0),
-  ).length;
   const stockValue = finance ? (onhandRes.data ?? []).reduce((s, r) => s + Number((r as { stock_value?: number }).stock_value ?? 0), 0) : null;
 
   const stats: { label: string; value: string; tone?: string }[] = [
@@ -46,7 +42,6 @@ export default async function DashboardPage() {
     { label: "Missing PO", n: c(missingPo) },
     { label: "Stale stock", n: c(stale) },
     { label: "PO overdue", n: c(overdue) },
-    { label: "Invoice ≠ PO", n: invoiceIssues },
   ];
 
   const costingRows = (costingRes.data ?? [])
