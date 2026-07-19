@@ -183,6 +183,20 @@ Re-modelled masters around the real annotated BOM (`Context/BOM Master/Triton 36
   leaked-password warns); `verify:bom` PASS.
 
 ## Changelog
+- 2026-12-11 — **Critical security patch: Next.js 15.1.3 → 15.5.20.** Vercel's first production
+  build flagged CVE-2025-66478 (React2Shell, CVSS 10.0, actively-exploited RCE in the RSC protocol) —
+  patched to 15.1.11 first (the fix for the 15.1.x line), then, per explicit go-ahead, upgraded further
+  to 15.5.20 (Vercel's official 15.x "backport" release tag) to also close ~20 other historical
+  Next.js CVEs (image-optimization content injection, middleware bypass/SSRF, cache poisoning, DoS,
+  CSP-nonce XSS, etc.) that `npm audit` still showed at 15.1.11 — all resolved by 15.5.20 while
+  staying on major version 15 (no Next 16 jump). Verified: `npm run typecheck` clean at both stops;
+  fresh `next dev` on 15.5.20 starts cleanly and a broad route sample (login, dashboard, inventory,
+  requisitions, GRN, purchase-orders, masters, job-work, projects) compiles/responds correctly.
+  Remaining `npm audit` items are unrelated to this app's exposed surface: a `postcss` copy nested
+  inside Next's own build tooling (not runtime-exposed), and a pre-existing `xlsx` prototype-pollution/
+  ReDoS issue with no upstream fix (only reachable via manually-run import scripts, never an HTTP
+  route). **Not yet done:** rotate Supabase secrets if the app was live-and-unpatched before this fix
+  (Next's advisory explicitly recommends this) — flagged to the user, not something I can action myself.
 - 2026-07-20 — **Mobile compatibility pass**, scoped to warehouse-floor flows (Scan-consume, GRN
   receiving, Inventory, Requisitions) per explicit decision — back-office pages (Masters, BOM
   templates, PO editor, Reconciliation, Project detail) were left untouched (verified they already
