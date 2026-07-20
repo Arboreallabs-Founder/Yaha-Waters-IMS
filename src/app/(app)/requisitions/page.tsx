@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { MobileRowCard } from "@/components/ui/mobile-row-card";
-import { formatDate, formatNumber } from "@/lib/utils";
+import { formatDate, formatNumber, projectLabel } from "@/lib/utils";
 import { NewRequisitionButton } from "./new-requisition-button";
 
 const STATUS_VARIANT: Record<string, "secondary" | "warning" | "success"> = {
@@ -18,13 +18,16 @@ const STATUS_VARIANT: Record<string, "secondary" | "warning" | "success"> = {
 
 export default async function RequisitionsPage() {
   const supabase = await createClient();
-  const [{ data: reqs }, { data: projects }, { data: lines }] = await Promise.all([
+  const [{ data: reqs }, { data: projects }, { data: lines }, { data: customers }] = await Promise.all([
     supabase.from("requisitions").select("*").order("created_at", { ascending: false }),
-    supabase.from("projects").select("id, project_no").order("project_no"),
+    supabase.from("projects").select("id, project_no, customer_id").order("project_no"),
     supabase.from("requisition_lines").select("requisition_id"),
+    supabase.from("customers").select("id, name"),
   ]);
 
-  const projById = new Map((projects ?? []).map((p) => [p.id, p.project_no]));
+  const custName = new Map((customers ?? []).map((c) => [c.id, c.name]));
+  const projectsWithCustomer = (projects ?? []).map((p) => ({ ...p, customer_name: p.customer_id ? custName.get(p.customer_id) ?? null : null }));
+  const projById = new Map(projectsWithCustomer.map((p) => [p.id, projectLabel(p)]));
   const lineCount = new Map<string, number>();
   for (const l of lines ?? []) lineCount.set(l.requisition_id, (lineCount.get(l.requisition_id) ?? 0) + 1);
 
@@ -33,7 +36,7 @@ export default async function RequisitionsPage() {
       <PageHeader
         title="Requisitions"
         description="Indents — tracked demand, project-tagged or for stock."
-        action={<NewRequisitionButton projects={projects ?? []} />}
+        action={<NewRequisitionButton projects={projectsWithCustomer} />}
       />
       {(reqs ?? []).length === 0 ? (
         <p className="py-8 text-center text-muted-foreground">No requisitions yet.</p>

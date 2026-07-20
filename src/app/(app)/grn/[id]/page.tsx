@@ -18,15 +18,12 @@ export default async function GrnDetailPage({ params }: { params: Promise<{ id: 
   const { data: grn } = await supabase.from("grns").select("*").eq("id", id).single();
   if (!grn) notFound();
 
-  const [{ data: grnLines }, { data: components }, { data: projects }, vendor, { data: poOpenLines }, { data: allOpenPoLines }, { data: vendorComps }] =
+  const [{ data: grnLines }, { data: components }, { data: projects }, vendor, { data: allOpenPoLines }, { data: vendorComps }] =
     await Promise.all([
       supabase.from("grn_lines").select("*").eq("grn_id", id).order("created_at"),
       supabase.from("components").select("id, component_no, name, quantity_type, tracking_mode").order("component_no"),
       supabase.from("projects").select("id, project_no").order("project_no"),
       grn.vendor_id ? supabase.from("vendors").select("name").eq("id", grn.vendor_id).maybeSingle() : Promise.resolve({ data: null }),
-      grn.po_id
-        ? supabase.from("po_lines").select("*").eq("po_id", grn.po_id).in("line_status", ["pending", "partial"])
-        : Promise.resolve({ data: [] }),
       // All open PO lines system-wide for component lookup
       supabase
         .from("po_lines")
@@ -64,7 +61,7 @@ export default async function GrnDetailPage({ params }: { params: Promise<{ id: 
 
   // Build a per-component map of ALL open PO lines (for the lookup hint in manual entry)
   const projNo = new Map((projects ?? []).map((p) => [p.id, p.project_no]));
-  type OpenPoEntry = { po_line_id: string; po_no: string; tag: string; remaining: number };
+  type OpenPoEntry = { po_line_id: string; po_no: string; tag: string; project_id: string | null; remaining: number };
   const openPoByComponent: Record<string, OpenPoEntry[]> = {};
   for (const pl of allOpenPoLines ?? []) {
     if (!pl.component_id) continue;
@@ -75,18 +72,11 @@ export default async function GrnDetailPage({ params }: { params: Promise<{ id: 
       po_line_id: pl.id,
       po_no: po?.po_no ?? "—",
       tag: pl.project_id ? `Project: ${projNo.get(pl.project_id) ?? pl.project_id}` : "Stock",
+      project_id: pl.project_id ?? null,
       remaining,
     };
     (openPoByComponent[pl.component_id] ??= []).push(entry);
   }
-
-  const poLines = (poOpenLines ?? []).map((pl) => ({
-    po_line_id: pl.id,
-    component_id: pl.component_id as string,
-    component_label: pl.component_id ? compLabel.get(pl.component_id) ?? "—" : "—",
-    remaining: Number(pl.qty_ordered ?? 0) - Number(pl.qty_received ?? 0),
-    project_id: pl.project_id,
-  })).filter((p) => p.remaining > 0);
 
   const postedLines = (grnLines ?? []).map((l) => ({
     id: l.id,
@@ -109,14 +99,12 @@ export default async function GrnDetailPage({ params }: { params: Promise<{ id: 
         <CardContent className="grid grid-cols-2 gap-4 p-5 text-sm sm:grid-cols-4">
           <Info label="Challan" value={grn.challan_no} />
           <Info label="Received" value={formatDate(grn.received_at)} />
-          <Info label="Against PO" value={grn.po_id ? "yes" : "untagged"} />
           <Info label="Lines" value={String(postedLines.length)} />
         </CardContent>
       </Card>
 
       <GrnReceiver
         grnId={id}
-        poLines={poLines}
         postedLines={postedLines}
         components={(components ?? []).map((c) => ({ ...c, quantity_type: (c as { quantity_type?: string }).quantity_type ?? "nos", tracking_mode: (c as { tracking_mode?: string }).tracking_mode ?? "box" }))}
         projects={projects ?? []}

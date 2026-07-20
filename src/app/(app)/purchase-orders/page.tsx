@@ -24,17 +24,20 @@ export default async function PurchaseOrdersPage() {
   const canWrite = canWriteMasters(profile?.role); // admin / team_lead
   const supabase = await createClient();
 
-  const [{ data: pos }, { data: vendors }, { data: untagged }, { data: components }, { data: projects }] =
+  const [{ data: pos }, { data: vendors }, { data: untagged }, { data: components }, { data: projects }, { data: customers }] =
     await Promise.all([
       supabase.from("purchase_orders").select("*").order("created_at", { ascending: false }),
       supabase.from("vendors").select("id, name").eq("is_active", true).order("name"),
       supabase.from("po_lines").select("id, po_id, component_id, qty_ordered").is("project_id", null),
       supabase.from("components").select("id, component_no, name"),
-      supabase.from("projects").select("id, project_no").order("project_no"),
+      supabase.from("projects").select("id, project_no, customer_id").order("project_no"),
+      supabase.from("customers").select("id, name"),
     ]);
   const vName = new Map((vendors ?? []).map((v) => [v.id, v.name]));
   const poNoById = new Map((pos ?? []).map((po) => [po.id, po.po_no]));
   const compLabel = new Map((components ?? []).map((c) => [c.id, `${c.component_no} — ${c.name}`]));
+  const custName = new Map((customers ?? []).map((c) => [c.id, c.name]));
+  const projectsWithCustomer = (projects ?? []).map((p) => ({ ...p, customer_name: p.customer_id ? custName.get(p.customer_id) ?? null : null }));
   const untaggedLines = (untagged ?? []).map((l) => ({
     id: l.id,
     po_id: l.po_id,
@@ -50,7 +53,7 @@ export default async function PurchaseOrdersPage() {
         description="Orders to vendors. Batched across projects; project tags are back-fillable."
         action={canWrite ? <NewPoButton vendors={vendors ?? []} /> : undefined}
       />
-      <UntaggedWorklist lines={untaggedLines} projects={projects ?? []} canWrite={canWrite} />
+      <UntaggedWorklist lines={untaggedLines} projects={projectsWithCustomer} canWrite={canWrite} />
       <Table>
         <TableHeader>
           <TableRow>

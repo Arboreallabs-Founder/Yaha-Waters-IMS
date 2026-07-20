@@ -19,17 +19,20 @@ export default async function JobWorkPage() {
   const canWrite = canWriteMasters(profile?.role); // admin / team_lead
   const supabase = await createClient();
 
-  const [{ data: orders }, { data: vendors }, { data: projects }, { data: rawLots }, { data: comps }] =
+  const [{ data: orders }, { data: vendors }, { data: projects }, { data: rawLots }, { data: comps }, { data: customers }] =
     await Promise.all([
       supabase.from("job_work_orders").select("*").order("created_at", { ascending: false }),
       supabase.from("vendors").select("id, name").eq("is_active", true).order("name"),
-      supabase.from("projects").select("id, project_no").order("project_no"),
+      supabase.from("projects").select("id, project_no, customer_id").order("project_no"),
       supabase.from("inventory_lots").select("component_id, qty_on_hand").eq("jw_stage", "raw").eq("status", "open").gt("qty_on_hand", 0),
       supabase.from("components").select("id, component_no, name, jw_vendor_id"),
+      supabase.from("customers").select("id, name"),
     ]);
 
   const vName = new Map((vendors ?? []).map((v) => [v.id, v.name]));
   const compById = new Map((comps ?? []).map((c) => [c.id, c]));
+  const custName = new Map((customers ?? []).map((c) => [c.id, c.name]));
+  const projectsWithCustomer = (projects ?? []).map((p) => ({ ...p, customer_name: p.customer_id ? custName.get(p.customer_id) ?? null : null }));
 
   // raw stock awaiting job work, grouped by component
   const awaiting = new Map<string, number>();
@@ -40,7 +43,7 @@ export default async function JobWorkPage() {
       <PageHeader
         title="Job Work"
         description="Send raw components to a job-work vendor and receive the finished part back. The completed lot's cost = raw + job-work rate."
-        action={canWrite ? <NewJwButton vendors={vendors ?? []} projects={projects ?? []} /> : undefined}
+        action={canWrite ? <NewJwButton vendors={vendors ?? []} projects={projectsWithCustomer} /> : undefined}
       />
 
       {awaiting.size > 0 && (

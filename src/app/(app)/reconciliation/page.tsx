@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { formatNumber, formatDate } from "@/lib/utils";
+import { formatNumber, formatDate, projectLabel } from "@/lib/utils";
 import { UntaggedGrnTagger } from "./untagged-grn-tagger";
 
 export default async function ReconciliationPage() {
@@ -21,17 +21,21 @@ export default async function ReconciliationPage() {
     { data: overdue },
     { data: projects },
     { data: components },
+    { data: customers },
   ] = await Promise.all([
     supabase.from("v_bom_variance").select("*").or("order_gap.gt.0,receive_gap.gt.0"),
     supabase.from("v_untagged_receipts").select("*").order("received_at", { ascending: false }),
     supabase.from("v_missing_po").select("*"),
     supabase.from("v_stale_stock").select("*").order("age_days", { ascending: false }),
     supabase.from("v_po_overdue").select("*").order("days_overdue", { ascending: false }),
-    supabase.from("projects").select("id, project_no"),
+    supabase.from("projects").select("id, project_no, customer_id"),
     supabase.from("components").select("id, component_no, name"),
+    supabase.from("customers").select("id, name"),
   ]);
 
-  const projNo = new Map((projects ?? []).map((p) => [p.id, p.project_no]));
+  const custName = new Map((customers ?? []).map((c) => [c.id, c.name]));
+  const projectsWithCustomer = (projects ?? []).map((p) => ({ ...p, customer_name: p.customer_id ? custName.get(p.customer_id) ?? null : null }));
+  const projNo = new Map(projectsWithCustomer.map((p) => [p.id, projectLabel(p)]));
   const compLabel = new Map((components ?? []).map((c) => [c.id, `${c.component_no} — ${c.name}`]));
 
   const cards = [
@@ -84,7 +88,7 @@ export default async function ReconciliationPage() {
       <Check id="untagged" title="Untagged receipts (received with no PO)" empty={(untagged?.length ?? 0) === 0}>
         <UntaggedGrnTagger
           rows={(untagged ?? []).map((r) => ({ id: r.grn_line_id, grn_no: r.grn_no, component_label: r.component_name ?? r.component_no ?? "—", qty: r.qty_received, received_at: r.received_at, vendor_name: r.vendor_name }))}
-          projects={projects ?? []}
+          projects={projectsWithCustomer}
           canWrite={canWrite}
         />
       </Check>
@@ -124,11 +128,12 @@ export default async function ReconciliationPage() {
 
       <Check id="overdue" title="PO overdue (open lines past expected date)" empty={(overdue?.length ?? 0) === 0}>
         <Table>
-          <TableHeader><TableRow><TableHead>PO</TableHead><TableHead>Vendor</TableHead><TableHead>Component</TableHead><TableHead>Expected</TableHead><TableHead>Days overdue</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>PO</TableHead><TableHead>Project</TableHead><TableHead>Vendor</TableHead><TableHead>Component</TableHead><TableHead>Expected</TableHead><TableHead>Days overdue</TableHead></TableRow></TableHeader>
           <TableBody>
             {(overdue ?? []).slice(0, 100).map((r) => (
               <TableRow key={r.po_line_id}>
                 <TableCell><Link href={`/purchase-orders/${r.po_id}`} className="text-primary hover:underline">{r.po_no}</Link></TableCell>
+                <TableCell className="text-muted-foreground">{r.project_id ? projNo.get(r.project_id) ?? r.project_no : <span className="italic">stock</span>}</TableCell>
                 <TableCell>{r.vendor_name ?? "—"}</TableCell>
                 <TableCell className="font-medium">{r.component_name ?? r.component_no}</TableCell>
                 <TableCell className="text-muted-foreground">{formatDate(r.expected_date)}</TableCell>

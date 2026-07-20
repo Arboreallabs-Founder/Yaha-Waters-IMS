@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Select } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { formatNumber, formatDate } from "@/lib/utils";
+import { formatNumber, formatDate, projectLabel } from "@/lib/utils";
 import { backfillGrnProject } from "./actions";
 
 export type UntaggedRow = {
@@ -22,7 +22,7 @@ export function UntaggedGrnTagger({
   canWrite,
 }: {
   rows: UntaggedRow[];
-  projects: { id: string; project_no: string }[];
+  projects: { id: string; project_no: string; customer_name?: string | null }[];
   canWrite: boolean;
 }) {
   const router = useRouter();
@@ -64,7 +64,7 @@ export function UntaggedGrnTagger({
               {canWrite ? (
                 <Select defaultValue="" disabled={busy === r.id} onChange={(e) => tag(r.id, e.target.value)}>
                   <option value="">{busy === r.id ? "Tagging…" : "— pick project —"}</option>
-                  {projects.map((p) => <option key={p.id} value={p.id}>{p.project_no}</option>)}
+                  {projects.map((p) => <option key={p.id} value={p.id}>{projectLabel(p)}</option>)}
                 </Select>
               ) : <span className="text-muted-foreground">—</span>}
             </TableCell>

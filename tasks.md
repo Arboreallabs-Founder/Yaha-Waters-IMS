@@ -183,6 +183,25 @@ Re-modelled masters around the real annotated BOM (`Context/BOM Master/Triton 36
   leaked-password warns); `verify:bom` PASS.
 
 ## Changelog
+- 2026-07-20 — **GRN rework: always-open receiving + project-tagged reference display.** GRNs are
+  no longer created against a PO (`po_id` selector removed from the New GRN dialog and `createGrn`);
+  every receipt now goes through the vendor-scoped component picker + system-wide "Open PO lookup"
+  (unchanged), which is the only entry path. Removed the now-dead "Receive against PO" pre-listed
+  section from `grn-receiver.tsx` and its `poLines`/`poOpenLines` fetch in `grn/[id]/page.tsx`.
+  **Fixed a real bug**: selecting a project-tagged PO line via the manual-entry "Open PO lookup" was
+  only setting `po_line_id`, silently dropping `project_id` — the resulting lot never got tagged to
+  the project. `OpenPoEntry` now carries `project_id`, and `onManualSubmit` sets it from the selected
+  line. Added a prominent amber "stock received — N component(s) available but not yet blocked"
+  banner (exclamation icon) to the project's Stock-status panel, on top of the existing per-row badge.
+  Second half of the same request: components/POs/projects are now shown as ID **+ reference**
+  wherever they're listed — added `projectLabel()` (`src/lib/utils.ts`, `"PN-1234 — Acme Corp"`) and
+  wired it into every project dropdown/table that previously showed a bare `project_no` (PO editor,
+  untagged-PO worklist, untagged-GRN tagger, new-requisition/new-job-work dialogs, lot actions/ledger,
+  dashboard project-costing, "issued to another project" badges). Extended `v_po_overdue`
+  (migration 0030) to carry `project_id`/`project_no` so the reconciliation "PO overdue" table can
+  show which project (or "stock") each overdue PO line belongs to. Components already showed
+  `component_no — name` everywhere (verified via survey agent, no changes needed). Typecheck clean;
+  smoke-tested all touched routes on a fresh dev server with no compile/runtime errors.
 - 2026-12-11 — **Critical security patch: Next.js 15.1.3 → 15.5.20.** Vercel's first production
   build flagged CVE-2025-66478 (React2Shell, CVSS 10.0, actively-exploited RCE in the RSC protocol) —
   patched to 15.1.11 first (the fix for the 15.1.x line), then, per explicit go-ahead, upgraded further

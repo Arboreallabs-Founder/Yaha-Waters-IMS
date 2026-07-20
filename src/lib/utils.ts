@@ -28,3 +28,8 @@ export function formatDate(value: string | null | undefined) {
     year: "numeric",
   });
 }
+
+/** "PN-1234 — Acme Corp" (or just the project no. if no customer is tagged). */
+export function projectLabel(p: { project_no: string; customer_name?: string | null }) {
+  return p.customer_name ? `${p.project_no} — ${p.customer_name}` : p.project_no;
+}

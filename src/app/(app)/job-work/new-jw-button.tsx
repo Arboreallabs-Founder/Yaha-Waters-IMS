@@ -9,13 +9,14 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
 import { createJwOrder } from "./actions";
+import { projectLabel } from "@/lib/utils";
 
 export function NewJwButton({
   vendors,
   projects,
 }: {
   vendors: { id: string; name: string }[];
-  projects: { id: string; project_no: string }[];
+  projects: { id: string; project_no: string; customer_name?: string | null }[];
 }) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
@@ -52,7 +53,7 @@ export function NewJwButton({
             <Label>Project (optional)</Label>
             <Select name="project_id" defaultValue="">
               <option value="">— stock (no project) —</option>
-              {projects.map((p) => <option key={p.id} value={p.id}>{p.project_no}</option>)}
+              {projects.map((p) => <option key={p.id} value={p.id}>{projectLabel(p)}</option>)}
             </Select>
           </div>
           <div className="space-y-1.5">

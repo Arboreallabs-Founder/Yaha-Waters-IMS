@@ -10,7 +10,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { QrCode } from "@/components/qr-code";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { MobileRowCard } from "@/components/ui/mobile-row-card";
-import { formatNumber, formatDate, formatINR } from "@/lib/utils";
+import { formatNumber, formatDate, formatINR, projectLabel } from "@/lib/utils";
 import { LotActions } from "./lot-actions";
 
 const MOVE_LABEL: Record<string, string> = {
@@ -27,18 +27,22 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
   const { data: lot } = await supabase.from("inventory_lots").select("*").eq("id", id).single();
   if (!lot) notFound();
 
-  const [{ data: comp }, { data: vendor }, { data: project }, { data: moves }, { data: projects }, { data: parentLot }] =
+  const [{ data: comp }, { data: vendor }, { data: project }, { data: moves }, { data: projects }, { data: parentLot }, { data: customers }] =
     await Promise.all([
       lot.component_id ? supabase.from("components").select("component_no, name").eq("id", lot.component_id).maybeSingle() : Promise.resolve({ data: null }),
       lot.vendor_id ? supabase.from("vendors").select("name").eq("id", lot.vendor_id).maybeSingle() : Promise.resolve({ data: null }),
-      lot.project_id ? supabase.from("projects").select("project_no").eq("id", lot.project_id).maybeSingle() : Promise.resolve({ data: null }),
+      lot.project_id ? supabase.from("projects").select("project_no, customer_id").eq("id", lot.project_id).maybeSingle() : Promise.resolve({ data: null }),
       supabase.from("stock_movements").select("*").eq("lot_id", id).order("performed_at", { ascending: false }),
-      supabase.from("projects").select("id, project_no").order("project_no"),
+      supabase.from("projects").select("id, project_no, customer_id").order("project_no"),
       lot.parent_lot_id ? supabase.from("inventory_lots").select("id, lot_code").eq("id", lot.parent_lot_id).maybeSingle() : Promise.resolve({ data: null }),
+      supabase.from("customers").select("id, name"),
     ]);
   const isBox = !!lot.container_no;
 
-  const projNo = new Map((projects ?? []).map((p) => [p.id, p.project_no]));
+  const custName = new Map((customers ?? []).map((c) => [c.id, c.name]));
+  const projectsWithCustomer = (projects ?? []).map((p) => ({ ...p, customer_name: p.customer_id ? custName.get(p.customer_id) ?? null : null }));
+  const projNo = new Map(projectsWithCustomer.map((p) => [p.id, projectLabel(p)]));
+  const projectDisplay = project ? projectLabel({ project_no: project.project_no, customer_name: project.customer_id ? custName.get(project.customer_id) ?? null : null }) : undefined;
 
   return (
     <div>
@@ -65,7 +69,7 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
             {isBox && <Info label="Box" value={lot.container_no} />}
             <Info label="Location" value={lot.location} />
             <Info label="Vendor" value={vendor?.name} />
-            <Info label="Project" value={project?.project_no} />
+            <Info label="Project" value={projectDisplay} />
             {finance && <Info label="Unit cost" value={formatINR(lot.unit_cost)} />}
             <Info label="Received" value={formatDate(lot.created_at)} />
           </CardContent>
@@ -87,7 +91,7 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
 
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Actions</h2>
       <Card className="mb-8"><CardContent className="p-5">
-        <LotActions lotId={id} qtyOnHand={Number(lot.qty_on_hand ?? 0)} projects={projects ?? []} canManage={canManage} isBox={isBox} rawStage={lot.jw_stage === "raw"} />
+        <LotActions lotId={id} qtyOnHand={Number(lot.qty_on_hand ?? 0)} projects={projectsWithCustomer} canManage={canManage} isBox={isBox} rawStage={lot.jw_stage === "raw"} />
       </CardContent></Card>
 
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Ledger (immutable)</h2>

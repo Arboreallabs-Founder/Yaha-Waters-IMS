@@ -6,7 +6,7 @@ import { getProfile, canWriteMasters, canSeeFinancials } from "@/lib/auth";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatDate, formatINR } from "@/lib/utils";
+import { formatDate, formatINR, projectLabel } from "@/lib/utils";
 import { LineItemEditor, type VariantParam } from "./line-item-editor";
 import { BomPanel } from "./bom-panel";
 import { IssuedPanel } from "./issued-panel";
@@ -160,10 +160,17 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   const otherProjectIds = [...new Set((statusLots ?? [])
     .filter((l) => l.project_id && l.project_id !== id)
     .map((l) => l.project_id as string))];
-  const { data: otherProjects } = otherProjectIds.length
-    ? await supabase.from("projects").select("id, project_no").in("id", otherProjectIds)
-    : { data: [] };
-  const otherProjectNo = new Map((otherProjects ?? []).map((p) => [p.id, p.project_no]));
+  const [{ data: otherProjects }, { data: otherCustomers }] = otherProjectIds.length
+    ? await Promise.all([
+        supabase.from("projects").select("id, project_no, customer_id").in("id", otherProjectIds),
+        supabase.from("customers").select("id, name"),
+      ])
+    : [{ data: [] }, { data: [] }];
+  const otherCustName = new Map((otherCustomers ?? []).map((c) => [c.id, c.name]));
+  const otherProjectNo = new Map((otherProjects ?? []).map((p) => [
+    p.id,
+    projectLabel({ project_no: p.project_no, customer_name: p.customer_id ? otherCustName.get(p.customer_id) ?? null : null }),
+  ]));
 
   const stockStatusRows: StockStatusRow[] = plannedComponentIds
     .map((cid) => {

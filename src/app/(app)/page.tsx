@@ -12,7 +12,7 @@ export default async function DashboardPage() {
   const finance = canSeeFinancials(profile?.role);
   const supabase = await createClient();
 
-  const [activeP, openPo, overdue, untagged, missingPo, stale, variance, costingRes, onhandRes] =
+  const [activeP, openPo, overdue, untagged, missingPo, stale, variance, costingRes, onhandRes, projectsRes, customersRes] =
     await Promise.all([
       supabase.from("projects").select("*", { count: "exact", head: true }).neq("status", "closed"),
       supabase.from("po_lines").select("*", { count: "exact", head: true }).in("line_status", ["pending", "partial"]),
@@ -23,7 +23,12 @@ export default async function DashboardPage() {
       supabase.from("v_bom_variance").select("*", { count: "exact", head: true }).or("order_gap.gt.0,receive_gap.gt.0"),
       supabase.from("v_project_costing").select("*"),
       finance ? supabase.from("v_component_on_hand").select("stock_value") : Promise.resolve({ data: [] }),
+      supabase.from("projects").select("id, customer_id"),
+      supabase.from("customers").select("id, name"),
     ]);
+
+  const custName = new Map((customersRes.data ?? []).map((c) => [c.id, c.name]));
+  const custIdByProject = new Map((projectsRes.data ?? []).map((p) => [p.id, p.customer_id]));
 
   const c = (r: { count: number | null }) => r.count ?? 0;
   const stockValue = finance ? (onhandRes.data ?? []).reduce((s, r) => s + Number((r as { stock_value?: number }).stock_value ?? 0), 0) : null;
@@ -98,7 +103,12 @@ export default async function DashboardPage() {
                 <TableBody>
                   {costingRows.map((r) => (
                     <TableRow key={r.project_id}>
-                      <TableCell className="font-medium"><Link href={`/projects/${r.project_id}`} className="text-primary hover:underline">{r.project_no}</Link></TableCell>
+                      <TableCell className="font-medium">
+                        <Link href={`/projects/${r.project_id}`} className="text-primary hover:underline">{r.project_no}</Link>
+                        {custName.get(custIdByProject.get(r.project_id) ?? "") && (
+                          <span className="ml-1 text-xs font-normal text-muted-foreground">— {custName.get(custIdByProject.get(r.project_id) ?? "")}</span>
+                        )}
+                      </TableCell>
                       <TableCell>{formatINR(r.customer_po_value)}</TableCell>
                       <TableCell>{formatINR(r.ordered_value)}</TableCell>
                       <TableCell>{formatINR(r.consumed_value)}</TableCell>

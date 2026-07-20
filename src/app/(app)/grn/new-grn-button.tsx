@@ -11,10 +11,8 @@ import { Dialog } from "@/components/ui/dialog";
 import { createGrn } from "./actions";
 
 export function NewGrnButton({
-  openPos,
   vendors,
 }: {
-  openPos: { id: string; label: string }[];
   vendors: { id: string; name: string }[];
 }) {
   const router = useRouter();
@@ -39,17 +37,10 @@ export function NewGrnButton({
       <Button onClick={() => { setError(null); setOpen(true); }}>
         <Plus className="size-4" /> New GRN
       </Button>
-      <Dialog open={open} onClose={() => setOpen(false)} title="New goods receipt" description="Receive against a PO, or leave it blank to capture untagged (phone/no-PO) material.">
+      <Dialog open={open} onClose={() => setOpen(false)} title="New goods receipt" description="Every GRN is created open — attach each line to a project or PO as you receive it.">
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <Label>Against PO (optional)</Label>
-            <Select name="po_id" defaultValue="">
-              <option value="">— none / untagged —</option>
-              {openPos.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Vendor (optional — inherited from PO if blank)</Label>
+            <Label>Vendor (optional)</Label>
             <Select name="vendor_id" defaultValue="">
               <option value="">— none —</option>
               {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}

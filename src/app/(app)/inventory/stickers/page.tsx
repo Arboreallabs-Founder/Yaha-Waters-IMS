@@ -21,6 +21,10 @@ export default async function StickersPage({ searchParams }: { searchParams: Pro
 
   return (
     <div>
+      {/* One label = one physical sticker on a 50x50mm label printer: each
+          gets its own print page sized to match, no page margin. */}
+      <style>{"@page { size: 50mm 50mm; margin: 0; }"}</style>
+
       <div className="mb-4 flex items-center gap-3 print:hidden">
         <Link href="/inventory/lots" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="size-4" /> Inventory
@@ -32,14 +36,17 @@ export default async function StickersPage({ searchParams }: { searchParams: Pro
       {(lotRows ?? []).length === 0 ? (
         <p className="text-sm text-muted-foreground">No lots selected.</p>
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 print:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 print:block">
           {(lotRows ?? []).map((l) => {
             const c = l.component_id ? comp.get(l.component_id) : null;
             return (
-              <div key={l.id} className="flex flex-col items-center gap-2 rounded-lg border border-black/70 bg-white p-3 text-center">
-                <p className="text-xs font-bold leading-tight">{c?.name ?? "—"}</p>
+              <div
+                key={l.id}
+                className="flex flex-col items-center justify-center gap-1 rounded-lg border border-black/70 bg-white p-3 text-center print:h-[50mm] print:w-[50mm] print:gap-[1mm] print:break-after-page print:rounded-none print:border-0 print:p-[2mm] print:last:break-after-auto"
+              >
+                <p className="line-clamp-2 text-xs font-bold leading-tight">{c?.name ?? "—"}</p>
                 <p className="text-[11px] font-medium text-muted-foreground">{c?.component_no ?? ""}</p>
-                <QrCode value={l.lot_code} size={120} />
+                <QrCode value={l.lot_code} size={300} className="h-[120px] w-[120px] print:h-[28mm] print:w-[28mm]" />
                 <p className="font-mono text-[10px] tracking-tight text-muted-foreground">{l.lot_code}</p>
               </div>
             );

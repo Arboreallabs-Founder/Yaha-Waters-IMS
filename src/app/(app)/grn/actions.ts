@@ -17,14 +17,7 @@ export async function createGrn(fd: FormData): Promise<ActionResult> {
   const p = await receiver();
   if (!p) return { error: "Not authorized to receive goods." };
   const supabase = await createClient();
-  const po_id = String(fd.get("po_id") ?? "") || null;
-
-  // vendor: explicit, else inherit from the PO
-  let vendor_id = String(fd.get("vendor_id") ?? "") || null;
-  if (!vendor_id && po_id) {
-    const { data: po } = await supabase.from("purchase_orders").select("vendor_id").eq("id", po_id).maybeSingle();
-    vendor_id = po?.vendor_id ?? null;
-  }
+  const vendor_id = String(fd.get("vendor_id") ?? "") || null;
 
   const { data: grnNo } = await supabase.rpc("next_grn_no");
   const { data, error } = await supabase
@@ -33,7 +26,6 @@ export async function createGrn(fd: FormData): Promise<ActionResult> {
       grn_no: grnNo,
       vendor_id,
       challan_no: String(fd.get("challan_no") ?? "") || null,
-      po_id,
       received_by: p.id,
       created_by: p.id,
     })

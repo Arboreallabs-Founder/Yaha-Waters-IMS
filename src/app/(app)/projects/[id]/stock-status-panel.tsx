@@ -66,8 +66,25 @@ export function StockStatusPanel({
     return <p className="text-sm text-muted-foreground">Generate the BOM to see stock status.</p>;
   }
 
+  const availableRows = rows.filter((r) => r.status === "available");
+
   return (
     <div className="space-y-4">
+      {availableRows.length > 0 && (
+        <div className="flex items-start gap-2.5 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-600" />
+          <div>
+            <p className="font-medium">
+              Stock received — {availableRows.length} component{availableRows.length === 1 ? "" : "s"} available but not yet blocked for this project.
+            </p>
+            <p className="mt-0.5 text-amber-800">
+              {availableRows.map((r) => r.component_label).join(", ")}
+              {canWrite && bomApproved ? " — use “Block stock for BOM” below to reserve it." : ""}
+            </p>
+          </div>
+        </div>
+      )}
+
       {canWrite && (
         <div className="flex flex-wrap items-center gap-2">
           <Button disabled={busy || !bomApproved} onClick={onBlock}>

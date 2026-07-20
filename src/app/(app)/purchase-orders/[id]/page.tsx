@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { PoEditor } from "./po-editor";
+import { projectLabel } from "@/lib/utils";
 
 export default async function PoDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -19,17 +20,19 @@ export default async function PoDetailPage({ params }: { params: Promise<{ id: s
   const { data: po } = await supabase.from("purchase_orders").select("*").eq("id", id).single();
   if (!po) notFound();
 
-  const [{ data: lines }, { data: components }, { data: vendors }, { data: projects }, { data: vcs }] =
+  const [{ data: lines }, { data: components }, { data: vendors }, { data: projects }, { data: vcs }, { data: customers }] =
     await Promise.all([
       supabase.from("po_lines").select("*").eq("po_id", id).order("created_at"),
       supabase.from("components").select("id, component_no, name").order("component_no"),
       supabase.from("vendors").select("id, name").eq("is_active", true).order("name"),
-      supabase.from("projects").select("id, project_no").order("project_no"),
+      supabase.from("projects").select("id, project_no, customer_id").order("project_no"),
       supabase.from("vendor_components").select("component_id, price, vendor_id"),
+      supabase.from("customers").select("id, name"),
     ]);
 
   const compLabel = new Map((components ?? []).map((c) => [c.id, `${c.component_no} — ${c.name}`]));
   const vName = new Map((vendors ?? []).map((v) => [v.id, v.name]));
+  const custName = new Map((customers ?? []).map((c) => [c.id, c.name]));
 
   // vendor suggestions per component (who supplies it + price)
   const suggestions: Record<string, { vendor: string; price: number | null }[]> = {};
@@ -83,7 +86,7 @@ export default async function PoDetailPage({ params }: { params: Promise<{ id: s
             lines={lineRows}
             components={components ?? []}
             vendors={vendors ?? []}
-            projects={(projects ?? []).map((p) => ({ id: p.id, label: p.project_no }))}
+            projects={(projects ?? []).map((p) => ({ id: p.id, label: projectLabel({ project_no: p.project_no, customer_name: p.customer_id ? custName.get(p.customer_id) ?? null : null }) }))}
             suggestions={suggestions}
             canWrite={canWrite}
             canSeeFinancials={finance}

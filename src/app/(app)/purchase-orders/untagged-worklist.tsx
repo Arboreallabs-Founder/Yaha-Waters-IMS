@@ -7,7 +7,7 @@ import { AlertTriangle } from "lucide-react";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { formatNumber } from "@/lib/utils";
+import { formatNumber, projectLabel } from "@/lib/utils";
 import { backfillProjectTag } from "./actions";
 
 export type UntaggedLine = {
@@ -24,7 +24,7 @@ export function UntaggedWorklist({
   canWrite,
 }: {
   lines: UntaggedLine[];
-  projects: { id: string; project_no: string }[];
+  projects: { id: string; project_no: string; customer_name?: string | null }[];
   canWrite: boolean;
 }) {
   const router = useRouter();
@@ -74,7 +74,7 @@ export function UntaggedWorklist({
                 {canWrite ? (
                   <Select defaultValue="" disabled={busy === l.id} onChange={(e) => tag(l.id, e.target.value)}>
                     <option value="">{busy === l.id ? "Tagging…" : "— pick project —"}</option>
-                    {projects.map((p) => <option key={p.id} value={p.id}>{p.project_no}</option>)}
+                    {projects.map((p) => <option key={p.id} value={p.id}>{projectLabel(p)}</option>)}
                   </Select>
                 ) : (
                   <span className="text-muted-foreground">—</span>

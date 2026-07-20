@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Plus, PackageCheck, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Plus, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,9 +14,8 @@ import { MobileRowCard } from "@/components/ui/mobile-row-card";
 import { formatNumber } from "@/lib/utils";
 import { addGrnLine, type ActionResult } from "../actions";
 
-type PoLine = { po_line_id: string; component_id: string; component_label: string; remaining: number; project_id: string | null };
 type Posted = { id: string; component_label: string; qty: number; is_untagged: boolean; lot_code: string | null; lot_id: string | null };
-type OpenPoEntry = { po_line_id: string; po_no: string; tag: string; remaining: number };
+type OpenPoEntry = { po_line_id: string; po_no: string; tag: string; project_id: string | null; remaining: number };
 type Component = { id: string; component_no: string; name: string; quantity_type: string; tracking_mode: string };
 type OpenBox = { id: string; lot_code: string; qty_on_hand: number; container_no: string | null };
 
@@ -28,7 +27,6 @@ function QtyHelperLabel({ qt }: { qt: string }) {
 
 export function GrnReceiver({
   grnId,
-  poLines,
   postedLines,
   components,
   projects,
@@ -41,7 +39,6 @@ export function GrnReceiver({
   vendorName,
 }: {
   grnId: string;
-  poLines: PoLine[];
   postedLines: Posted[];
   components: Component[];
   projects: { id: string; project_no: string }[];
@@ -109,21 +106,15 @@ export function GrnReceiver({
     onOk?.(); router.refresh();
   }
 
-  function receivePoLine(pl: PoLine) {
-    const qty = qtys[pl.po_line_id] ?? String(pl.remaining);
-    const fd = new FormData();
-    fd.set("component_id", pl.component_id);
-    fd.set("qty_received", qty);
-    fd.set("po_line_id", pl.po_line_id);
-    if (pl.project_id) fd.set("project_id", pl.project_id);
-    run(fd, pl.po_line_id, () => setQtys((q) => ({ ...q, [pl.po_line_id]: "" })));
-  }
-
   function onManualSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = e.currentTarget;
     const fd = new FormData(form);
-    if (selectedPoLineId) fd.set("po_line_id", selectedPoLineId);
+    if (selectedPoLineId) {
+      fd.set("po_line_id", selectedPoLineId);
+      const selectedLine = matchingPoLines.find((pl) => pl.po_line_id === selectedPoLineId);
+      if (selectedLine?.project_id) fd.set("project_id", selectedLine.project_id);
+    }
     // For length/area, override qty_received with the computed total
     if (derivedQty !== null) fd.set("qty_received", String(derivedQty));
     // Box mode: adding to an existing box vs a new box
@@ -141,69 +132,10 @@ export function GrnReceiver({
     <div className="space-y-8">
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
-      {/* Receive against linked PO lines */}
-      {canReceive && poLines.length > 0 && (
-        <section>
-          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Receive against PO</h3>
-          <div className="hidden sm:block">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Component</TableHead>
-                  <TableHead>Remaining</TableHead>
-                  <TableHead className="w-32">Receive qty</TableHead>
-                  <TableHead className="w-28" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {poLines.map((pl) => (
-                  <TableRow key={pl.po_line_id}>
-                    <TableCell className="font-medium">{pl.component_label}</TableCell>
-                    <TableCell>{formatNumber(pl.remaining)}</TableCell>
-                    <TableCell>
-                      <Input type="number" step="any" value={qtys[pl.po_line_id] ?? ""} placeholder={String(pl.remaining)}
-                        onChange={(e) => setQtys((q) => ({ ...q, [pl.po_line_id]: e.target.value }))} />
-                    </TableCell>
-                    <TableCell>
-                      <Button size="sm" disabled={busy === pl.po_line_id} onClick={() => receivePoLine(pl)}>
-                        <PackageCheck className="size-4" /> Receive
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-          <div className="space-y-3 sm:hidden">
-            {poLines.map((pl) => (
-              <MobileRowCard
-                key={pl.po_line_id}
-                title={pl.component_label}
-                fields={[{ label: "Remaining", value: formatNumber(pl.remaining) }]}
-                actions={
-                  <div className="flex w-full items-end gap-2">
-                    <div className="flex-1 space-y-1">
-                      <Label className="text-xs">Receive qty</Label>
-                      <Input type="number" step="any" value={qtys[pl.po_line_id] ?? ""} placeholder={String(pl.remaining)}
-                        onChange={(e) => setQtys((q) => ({ ...q, [pl.po_line_id]: e.target.value }))} />
-                    </div>
-                    <Button size="sm" disabled={busy === pl.po_line_id} onClick={() => receivePoLine(pl)}>
-                      <PackageCheck className="size-4" /> Receive
-                    </Button>
-                  </div>
-                }
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Manual / extra line entry */}
+      {/* Line entry */}
       {canReceive && (
         <section>
-          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            {poLines.length > 0 ? "Add extra line" : "Enter received material"}
-          </h3>
+          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Enter received material</h3>
           <form onSubmit={onManualSubmit} className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
 
             {/* Component selector */}

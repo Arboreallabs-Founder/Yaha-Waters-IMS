@@ -8,8 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
 import { createRequisition } from "./actions";
+import { projectLabel } from "@/lib/utils";
 
-export function NewRequisitionButton({ projects }: { projects: { id: string; project_no: string }[] }) {
+export function NewRequisitionButton({ projects }: { projects: { id: string; project_no: string; customer_name?: string | null }[] }) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [pending, setPending] = React.useState(false);
@@ -42,7 +43,7 @@ export function NewRequisitionButton({ projects }: { projects: { id: string; pro
             <Select name="project_id" defaultValue="">
               <option value="">— stock (no project) —</option>
               {projects.map((p) => (
-                <option key={p.id} value={p.id}>{p.project_no}</option>
+                <option key={p.id} value={p.id}>{projectLabel(p)}</option>
               ))}
             </Select>
           </div>

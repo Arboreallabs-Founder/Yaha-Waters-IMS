@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { consumeLot, transferLot, adjustLot, addToBox, type ActionResult } from "../../actions";
+import { projectLabel } from "@/lib/utils";
 
 export function LotActions({
   lotId,
@@ -20,7 +21,7 @@ export function LotActions({
 }: {
   lotId: string;
   qtyOnHand: number;
-  projects: { id: string; project_no: string }[];
+  projects: { id: string; project_no: string; customer_name?: string | null }[];
   canManage: boolean;
   /** Box-tracked lot — allow adding pieces into the box. */
   isBox?: boolean;
@@ -74,7 +75,7 @@ export function LotActions({
           <Label className="mb-1 block text-xs">Consume into project</Label>
           <Select name="project_id" required>
             <option value="">— project —</option>
-            {projects.map((p) => <option key={p.id} value={p.id}>{p.project_no}</option>)}
+            {projects.map((p) => <option key={p.id} value={p.id}>{projectLabel(p)}</option>)}
           </Select>
         </div>
         <div className="w-24">
