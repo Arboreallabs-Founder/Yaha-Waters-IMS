@@ -183,6 +183,22 @@ Re-modelled masters around the real annotated BOM (`Context/BOM Master/Triton 36
   leaked-password warns); `verify:bom` PASS.
 
 ## Changelog
+- 2026-07-20 — **Requisition detail now shows what was scan-consumed in that run.** `ScanConsume`
+  previously wrote a `stock_movements` row tagged only with `project_id` — nothing linked it back to
+  the requisition that triggered it, so the requisition page had no way to show recent scan activity.
+  `consumeLot` now accepts a `requisition_id` and, when present, tags the movement
+  `reference_type='requisition'` / `reference_id=<requisition>` (a plain lot-detail consume, with no
+  requisition context, is unaffected). Requisition detail page now queries those tagged movements and
+  renders a "Consumed in this requisition" table/card list (component, qty, lot+QR link, when, note).
+  Bonus: the lot ledger's "Ref" column now links back to the requisition when a movement came from one.
+  Verified via a live insert/query/cleanup round-trip against real DB rows.
+- 2026-07-20 — **Full transactional data reset**, per explicit request: wiped Projects/Orders (3),
+  Purchase Orders (22)/PO lines (138), Requisitions (8)/lines (203), Job-work orders (2)/lines,
+  GRNs (5)/lines (20), Inventory lots (29), Stock movements (31), BOMs/BOM lines, project line items,
+  finished goods, and the (already-unused) project activities/documents tables — via a single
+  `TRUNCATE ... CASCADE` after confirming no Masters table has an FK into this set. Masters kept
+  untouched: 50 vendors, 79 components, 1 product, 5 customers, 4 BOM templates/70 template lines.
+  Confirmed scope with the user first (orders = both Projects and Purchase Orders; Masters preserved).
 - 2026-07-20 — **GRN rework: always-open receiving + project-tagged reference display.** GRNs are
   no longer created against a PO (`po_id` selector removed from the New GRN dialog and `createGrn`);
   every receipt now goes through the vendor-scoped component picker + system-wide "Open PO lookup"

@@ -117,7 +117,11 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
                     <TableCell><Badge variant={m.movement_type === "issue" ? "warning" : "secondary"}>{MOVE_LABEL[m.movement_type] ?? m.movement_type}</Badge></TableCell>
                     <TableCell className={Number(m.qty) < 0 ? "text-red-600" : "text-green-700"}>{Number(m.qty) > 0 ? "+" : ""}{formatNumber(m.qty)}</TableCell>
                     <TableCell className="text-muted-foreground">{m.project_id ? projNo.get(m.project_id) ?? "—" : "—"}</TableCell>
-                    <TableCell className="text-muted-foreground">{m.reference_type ?? "—"}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {m.reference_type === "requisition" && m.reference_id
+                        ? <Link href={`/requisitions/${m.reference_id}`} className="text-primary hover:underline">requisition</Link>
+                        : (m.reference_type ?? "—")}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

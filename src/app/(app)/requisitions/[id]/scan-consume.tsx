@@ -16,10 +16,12 @@ import { resolveLot, consumeLot, type ResolvedLot } from "../../inventory/action
  * admin-only and a reason is required — see `consumeLot`.
  */
 export function ScanConsume({
+  requisitionId,
   projectId,
   projectNo,
   requireReason,
 }: {
+  requisitionId: string;
   projectId: string | null;
   projectNo: string | null;
   requireReason: boolean;
@@ -51,6 +53,7 @@ export function ScanConsume({
     const fd = new FormData();
     fd.set("lot_id", lot.id);
     fd.set("qty", qty);
+    fd.set("requisition_id", requisitionId);
     if (projectId) fd.set("project_id", projectId);
     if (reason.trim()) fd.set("note", reason.trim());
     const res = await consumeLot(fd);

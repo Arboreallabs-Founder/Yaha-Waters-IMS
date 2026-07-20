@@ -66,6 +66,7 @@ export async function consumeLot(fd: FormData): Promise<ActionResult> {
   const qty = Number(fd.get("qty") ?? 0) || 0;
   const project_id = String(fd.get("project_id") ?? "") || null;
   const note = String(fd.get("note") ?? "").trim() || null;
+  const requisition_id = String(fd.get("requisition_id") ?? "") || null;
   if (qty <= 0) return { error: "Enter a quantity to consume." };
 
   if (project_id) {
@@ -109,13 +110,15 @@ export async function consumeLot(fd: FormData): Promise<ActionResult> {
     movement_type: "issue",
     qty: -qty,
     project_id,
-    reference_type: project_id ? "scan" : "scan-stock",
+    reference_type: requisition_id ? "requisition" : project_id ? "scan" : "scan-stock",
+    reference_id: requisition_id,
     note,
     performed_by: p.id,
     created_by: p.id,
   });
   if (error) return { error: error.message };
   revalidatePath(`/inventory/lots/${lot_id}`);
+  if (requisition_id) revalidatePath(`/requisitions/${requisition_id}`);
   return { ok: true };
 }
 
