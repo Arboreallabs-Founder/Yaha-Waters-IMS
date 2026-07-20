@@ -17,6 +17,7 @@ type Row = {
   required: number;
   ordered: number;
   on_hand: number;
+  consumed: number;
   shortfall: number;
 };
 
@@ -86,6 +87,7 @@ export function ShortfallPanel({ projectId, rows, canProcure }: { projectId: str
             <TableHead>Required</TableHead>
             <TableHead>On hand</TableHead>
             <TableHead>Ordered</TableHead>
+            <TableHead>Consumed</TableHead>
             <TableHead>Shortfall</TableHead>
             <TableHead>Status</TableHead>
           </TableRow>
@@ -97,15 +99,16 @@ export function ShortfallPanel({ projectId, rows, canProcure }: { projectId: str
               <TableCell>{formatNumber(r.required)}</TableCell>
               <TableCell>{formatNumber(r.on_hand)}</TableCell>
               <TableCell className="text-muted-foreground">{formatNumber(r.ordered)}</TableCell>
+              <TableCell className="text-muted-foreground">{formatNumber(r.consumed)}</TableCell>
               <TableCell>
                 {r.shortfall > 0
                   ? <Badge variant="destructive">{formatNumber(r.shortfall)}</Badge>
                   : <Badge variant="success">0</Badge>}
               </TableCell>
               <TableCell>
-                {r.shortfall <= 0 && r.on_hand >= r.required ? (
+                {r.shortfall <= 0 ? (
                   <span className="inline-flex items-center gap-1 text-xs text-green-700">
-                    <CheckCircle2 className="size-3.5" /> In stock
+                    <CheckCircle2 className="size-3.5" /> Covered{r.consumed > 0 && r.on_hand <= 0 ? " (consumed)" : ""}
                   </span>
                 ) : r.on_hand > 0 ? (
                   <span className="inline-flex items-center gap-1 text-xs text-amber-700">

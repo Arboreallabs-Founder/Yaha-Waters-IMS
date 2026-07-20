@@ -72,7 +72,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
 
   const { data: shortfall } = await supabase
     .from("v_project_shortfall")
-    .select("component_id, required_qty, ordered_qty, on_hand, shortfall_qty")
+    .select("component_id, required_qty, ordered_qty, on_hand, consumed_qty, shortfall_qty")
     .eq("project_id", id);
   const shortfallRows = (shortfall ?? [])
     .map((s) => ({
@@ -81,6 +81,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       required: Number(s.required_qty ?? 0),
       ordered: Number(s.ordered_qty ?? 0),
       on_hand: Number(s.on_hand ?? 0),
+      consumed: Number(s.consumed_qty ?? 0),
       shortfall: Number(s.shortfall_qty ?? 0),
     }))
     .sort((a, b) => b.shortfall - a.shortfall);

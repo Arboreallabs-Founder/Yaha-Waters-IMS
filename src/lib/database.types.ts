@@ -3173,6 +3173,8 @@ export type Database = {
           po_id: string | null
           po_line_id: string | null
           po_no: string | null
+          project_id: string | null
+          project_no: string | null
           qty_ordered: number | null
           qty_received: number | null
           vendor_id: string | null
@@ -3219,6 +3221,34 @@ export type Database = {
             columns: ["po_id"]
             isOneToOne: false
             referencedRelation: "v_purchase_orders_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "po_lines_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "po_lines_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "v_project_costing"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "po_lines_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "v_project_schedule"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "po_lines_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "v_projects_safe"
             referencedColumns: ["id"]
           },
           {
@@ -3334,6 +3364,7 @@ export type Database = {
       v_project_shortfall: {
         Row: {
           component_id: string | null
+          consumed_qty: number | null
           on_hand: number | null
           ordered_qty: number | null
           project_id: string | null
@@ -3723,6 +3754,7 @@ export type Database = {
         Args: { p_project: string }
         Returns: {
           component_id: string
+          consumed_qty: number
           on_hand: number
           ordered_qty: number
           project_id: string

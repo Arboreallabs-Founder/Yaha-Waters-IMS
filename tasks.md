@@ -183,6 +183,21 @@ Re-modelled masters around the real annotated BOM (`Context/BOM Master/Triton 36
   leaked-password warns); `verify:bom` PASS.
 
 ## Changelog
+- 2026-07-21 — **Fixed: consumed material kept showing as shortfall.** `project_shortfall()` computed
+  `shortfall = required - on_hand - ordered` — it had no notion of material already used, so scanning
+  out the last unit of a component (dropping its on-hand to 0, correctly) still left it flagged short
+  by the full required qty, since nothing credited the consumption against demand. Migration 0031 adds
+  a `consumed_qty` output column (from `stock_movements` issue rows tagged to the project) and nets it
+  into the shortfall calc — `required - (on_hand + consumed) - ordered`. Also fixes the same blind spot
+  one level up: a stocked sub-assembly that gets fully consumed (not just sitting on a shelf) no longer
+  gets wrongly re-exploded into its component parts during the recursive walk. Had to `drop ... cascade`
+  a leftover `v_project_schedule` view (dead, from the removed Production Schedule feature, no app code
+  references it) to change the function's return signature — recreated it identically rather than
+  silently dropping it. `shortfall-panel.tsx` now shows a "Consumed" column and its status badge no
+  longer says "No stock" for a component that's actually fully covered (just already used up).
+  Verified against the user's own live project (`AIS-000165`, Gear Box: required 1, consumed 1, on-hand
+  0 → shortfall correctly 0 now, was 1 before the fix) plus a synthetic partial-consumption case to
+  confirm genuine shortfalls still surface correctly.
 - 2026-07-20 — **Project page: raw-vs-completed job-work visibility + raise-JW-by-vendor + collapsible
   sections.** New "Job work" panel (`job-work-panel.tsx`) on the project page, for every `is_job_work`
   BOM component: required qty, raw stock not yet sent, stock sent to a vendor awaiting return,
