@@ -183,6 +183,11 @@ Re-modelled masters around the real annotated BOM (`Context/BOM Master/Triton 36
   leaked-password warns); `verify:bom` PASS.
 
 ## Changelog
+- 2026-07-21 — **Second full transactional data reset**, per explicit request. By this point real usage
+  had accumulated since the first reset (1 project — `AIS-000165`, the Gear Box project used to verify
+  the shortfall fix — 20 POs/67 lines, 1 requisition/50 lines, 1 GRN, 1 inventory lot). Confirmed scope
+  with the user first given the real data involved; same `TRUNCATE ... CASCADE` pattern as the first
+  reset. Masters untouched: 50 vendors, 79 components, 1 product, 5 customers, 4 BOM templates/70 lines.
 - 2026-07-21 — **Fixed: consumed material kept showing as shortfall.** `project_shortfall()` computed
   `shortfall = required - on_hand - ordered` — it had no notion of material already used, so scanning
   out the last unit of a component (dropping its on-hand to 0, correctly) still left it flagged short
