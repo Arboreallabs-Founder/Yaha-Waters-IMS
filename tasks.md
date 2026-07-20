@@ -183,6 +183,21 @@ Re-modelled masters around the real annotated BOM (`Context/BOM Master/Triton 36
   leaked-password warns); `verify:bom` PASS.
 
 ## Changelog
+- 2026-07-20 — **Project page: raw-vs-completed job-work visibility + raise-JW-by-vendor + collapsible
+  sections.** New "Job work" panel (`job-work-panel.tsx`) on the project page, for every `is_job_work`
+  BOM component: required qty, raw stock not yet sent, stock sent to a vendor awaiting return,
+  completed stock ready to consume, and a status (Ready / Needs job work / Awaiting return / No stock).
+  New "Send raw stock for job work" button (`raiseJobWorkFromProject` in `job-work/actions.ts`) —
+  mirrors `raisePoFromShortfall`'s one-PO-per-supplier pattern: for every JW component still short after
+  netting completed stock + stock already in flight, walks raw lots FIFO (open/issued, untagged or
+  already reserved for this project) and groups the resulting lines into one **draft** order per
+  `jw_vendor_id` (never auto-dispatches — same review step as before). `/job-work` list and the JW
+  order detail page now show which project (or "stock") each order is for — previously invisible.
+  Project detail page's long stack of panels (Line items/BOM/Stock status/Job work/Materials
+  issued/Shortfall) converted to collapsible `<details>` sections (new `collapsible-section.tsx`, no JS
+  — native HTML, which also auto-expands on the existing `#bom`/`#shortfall`/`#line-items` anchor links
+  from `phase-banner.tsx`, so those didn't need touching). Verified the whole raise→dispatch→receive
+  cycle live against real DB rows (FIFO lot selection, status flips at each stage), not just typecheck.
 - 2026-07-20 — **Requisition detail now shows what was scan-consumed in that run.** `ScanConsume`
   previously wrote a `stock_movements` row tagged only with `project_id` — nothing linked it back to
   the requisition that triggered it, so the requisition page had no way to show recent scan activity.

@@ -6,11 +6,13 @@ import { getProfile, canWriteMasters, canSeeFinancials } from "@/lib/auth";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { formatDate, formatINR, projectLabel } from "@/lib/utils";
 import { LineItemEditor, type VariantParam } from "./line-item-editor";
 import { BomPanel } from "./bom-panel";
 import { IssuedPanel } from "./issued-panel";
 import { StockStatusPanel, type StockStatusRow } from "./stock-status-panel";
+import { JobWorkPanel, type JwStockRow, type JwOrderRow } from "./job-work-panel";
 import { ShortfallPanel } from "./shortfall-panel";
 import { PhaseBanner } from "./phase-banner";
 import {
@@ -151,7 +153,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   const { data: statusLots } = plannedComponentIds.length
     ? await supabase
         .from("inventory_lots")
-        .select("component_id, qty_on_hand, status, project_id")
+        .select("component_id, qty_on_hand, status, project_id, jw_stage")
         .in("component_id", plannedComponentIds)
         .neq("status", "consumed")
         .gt("qty_on_hand", 0)
@@ -209,6 +211,72 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
     })
     .sort((a, b) => a.component_label.localeCompare(b.component_label));
 
+  // Job-work breakdown: for is_job_work BOM components, split on-hand stock into
+  // raw (not yet sent) vs completed (ready), and net off what's already been
+  // dispatched to a vendor and is awaiting return.
+  const { data: jwComps } = plannedComponentIds.length
+    ? await supabase.from("components").select("id, jw_vendor_id").in("id", plannedComponentIds).eq("is_job_work", true)
+    : { data: [] };
+  const jwComponentIds = new Set((jwComps ?? []).map((c) => c.id));
+
+  const { data: myJwOrders } = await supabase
+    .from("job_work_orders")
+    .select("id, jw_no, vendor_id, status, sent_date, expected_date")
+    .eq("project_id", id)
+    .order("created_at", { ascending: false });
+  const myJwOrderIds = (myJwOrders ?? []).map((o) => o.id);
+  const openJwOrderIds = new Set((myJwOrders ?? []).filter((o) => o.status === "sent" || o.status === "partial").map((o) => o.id));
+  const { data: myJwLines } = myJwOrderIds.length
+    ? await supabase.from("job_work_lines").select("jw_order_id, component_id, qty_sent, qty_returned").in("jw_order_id", myJwOrderIds)
+    : { data: [] };
+  const sentOutstanding = new Map<string, number>();
+  for (const l of myJwLines ?? []) {
+    if (!l.component_id || !openJwOrderIds.has(l.jw_order_id)) continue;
+    const out = Number(l.qty_sent ?? 0) - Number(l.qty_returned ?? 0);
+    sentOutstanding.set(l.component_id, (sentOutstanding.get(l.component_id) ?? 0) + out);
+  }
+  const jwVendorIds = [...new Set((jwComps ?? []).map((c) => c.jw_vendor_id).filter(Boolean))] as string[];
+  const jwOrderVendorIds = [...new Set((myJwOrders ?? []).map((o) => o.vendor_id).filter(Boolean))] as string[];
+  const { data: jwVendors } = (jwVendorIds.length || jwOrderVendorIds.length)
+    ? await supabase.from("vendors").select("id, name").in("id", [...new Set([...jwVendorIds, ...jwOrderVendorIds])])
+    : { data: [] };
+  const jwVendorName = new Map((jwVendors ?? []).map((v) => [v.id, v.name]));
+
+  const jwStockRows: JwStockRow[] = [...jwComponentIds]
+    .map((cid) => {
+      const required = plannedByComponent.get(cid) ?? 0;
+      const lots = (statusLots ?? []).filter((l) => l.component_id === cid && (!l.project_id || l.project_id === id));
+      const rawAvailable = lots.filter((l) => l.jw_stage === "raw").reduce((s, l) => s + Number(l.qty_on_hand ?? 0), 0);
+      const completedAvailable = lots.filter((l) => l.jw_stage === "completed").reduce((s, l) => s + Number(l.qty_on_hand ?? 0), 0);
+      const sent = sentOutstanding.get(cid) ?? 0;
+
+      let status: JwStockRow["status"];
+      if (completedAvailable >= required) status = "ready";
+      else if (sent > 0) status = "awaiting_return";
+      else if (rawAvailable > 0) status = "needs_job_work";
+      else status = "no_stock";
+
+      return {
+        component_id: cid,
+        component_label: componentLabel.get(cid) ?? "—",
+        required,
+        raw_available: rawAvailable,
+        sent_outstanding: sent,
+        completed_available: completedAvailable,
+        status,
+      };
+    })
+    .sort((a, b) => a.component_label.localeCompare(b.component_label));
+
+  const jwOrderRows: JwOrderRow[] = (myJwOrders ?? []).map((o) => ({
+    id: o.id,
+    jw_no: o.jw_no,
+    vendor_name: o.vendor_id ? jwVendorName.get(o.vendor_id) ?? null : null,
+    status: o.status,
+    sent_date: o.sent_date,
+    expected_date: o.expected_date,
+  }));
+
   return (
     <div>
       <Link href="/projects" className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
@@ -252,10 +320,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         </Card>
       )}
 
-      <section id="line-items" className="mb-10">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Line items (model + variant)
-        </h2>
+      <CollapsibleSection id="line-items" title="Line items (model + variant)" defaultOpen>
         <LineItemEditor
           projectId={id}
           products={products ?? []}
@@ -265,12 +330,9 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           addAction={addLineItem}
           removeAction={removeLineItem}
         />
-      </section>
+      </CollapsibleSection>
 
-      <section id="bom">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Bill of Materials
-        </h2>
+      <CollapsibleSection id="bom" title="Bill of Materials" defaultOpen>
         <BomPanel
           projectId={id}
           bom={bom ?? null}
@@ -283,12 +345,9 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           addManualAction={addManualBomLine}
           removeLineAction={removeBomLine}
         />
-      </section>
+      </CollapsibleSection>
 
-      <section id="stock-status" className="mt-10">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Stock status &amp; blocking
-        </h2>
+      <CollapsibleSection id="stock-status" title="Stock status & blocking" defaultOpen>
         <StockStatusPanel
           projectId={id}
           bomId={bom?.id ?? null}
@@ -297,21 +356,25 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           canWrite={canWrite}
           blockAction={blockStockForBom}
         />
-      </section>
+      </CollapsibleSection>
 
-      <section id="issued" className="mt-10">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Materials issued
-        </h2>
+      {jwStockRows.length > 0 && (
+        <CollapsibleSection
+          id="job-work"
+          title="Job work"
+          defaultOpen={jwStockRows.some((r) => r.status === "needs_job_work")}
+        >
+          <JobWorkPanel projectId={id} rows={jwStockRows} orders={jwOrderRows} canWrite={canWrite} />
+        </CollapsibleSection>
+      )}
+
+      <CollapsibleSection id="issued" title="Materials issued">
         <IssuedPanel rows={issuedRows} />
-      </section>
+      </CollapsibleSection>
 
-      <section id="shortfall" className="mt-10">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Stock check &amp; shortfall
-        </h2>
+      <CollapsibleSection id="shortfall" title="Stock check & shortfall" defaultOpen={shortfallRows.some((r) => r.shortfall > 0)}>
         <ShortfallPanel projectId={id} rows={shortfallRows} canProcure={canWrite} />
-      </section>
+      </CollapsibleSection>
     </div>
   );
 }

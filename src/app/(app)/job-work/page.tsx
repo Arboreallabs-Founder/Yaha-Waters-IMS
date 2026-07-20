@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { formatDate, formatNumber } from "@/lib/utils";
+import { formatDate, formatNumber, projectLabel } from "@/lib/utils";
 import { NewJwButton } from "./new-jw-button";
 
 const STATUS_VARIANT: Record<string, "secondary" | "warning" | "success" | "destructive"> = {
@@ -33,6 +33,7 @@ export default async function JobWorkPage() {
   const compById = new Map((comps ?? []).map((c) => [c.id, c]));
   const custName = new Map((customers ?? []).map((c) => [c.id, c.name]));
   const projectsWithCustomer = (projects ?? []).map((p) => ({ ...p, customer_name: p.customer_id ? custName.get(p.customer_id) ?? null : null }));
+  const projLabel = new Map(projectsWithCustomer.map((p) => [p.id, projectLabel(p)]));
 
   // raw stock awaiting job work, grouped by component
   const awaiting = new Map<string, number>();
@@ -72,6 +73,7 @@ export default async function JobWorkPage() {
         <TableHeader>
           <TableRow>
             <TableHead>JW No.</TableHead>
+            <TableHead>Project</TableHead>
             <TableHead>Vendor</TableHead>
             <TableHead>Sent</TableHead>
             <TableHead>Expected</TableHead>
@@ -81,11 +83,16 @@ export default async function JobWorkPage() {
         </TableHeader>
         <TableBody>
           {(orders ?? []).length === 0 ? (
-            <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">No job-work orders yet.</TableCell></TableRow>
+            <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">No job-work orders yet.</TableCell></TableRow>
           ) : (
             (orders ?? []).map((o) => (
               <TableRow key={o.id}>
                 <TableCell className="font-medium">{o.jw_no}</TableCell>
+                <TableCell>
+                  {o.project_id
+                    ? <Link href={`/projects/${o.project_id}`} className="text-primary hover:underline">{projLabel.get(o.project_id) ?? "—"}</Link>
+                    : <span className="text-muted-foreground">stock</span>}
+                </TableCell>
                 <TableCell>{o.vendor_id ? vName.get(o.vendor_id) ?? "—" : <span className="text-muted-foreground">—</span>}</TableCell>
                 <TableCell className="text-muted-foreground">{formatDate(o.sent_date)}</TableCell>
                 <TableCell className="text-muted-foreground">{formatDate(o.expected_date)}</TableCell>

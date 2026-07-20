@@ -6,6 +6,7 @@ import { getProfile, canWriteMasters, canSeeFinancials } from "@/lib/auth";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { projectLabel } from "@/lib/utils";
 import { JwManager, type JwLine, type RawLot, type JwComponent } from "./jw-manager";
 
 const STATUS_VARIANT: Record<string, "secondary" | "warning" | "success" | "destructive"> = {
@@ -22,12 +23,22 @@ export default async function JobWorkDetailPage({ params }: { params: Promise<{ 
   const { data: order } = await supabase.from("job_work_orders").select("*").eq("id", id).single();
   if (!order) notFound();
 
-  const [{ data: lines }, { data: comps }, { data: lots }, { data: vendor }] = await Promise.all([
+  const [{ data: lines }, { data: comps }, { data: lots }, { data: vendor }, project] = await Promise.all([
     supabase.from("job_work_lines").select("*").eq("jw_order_id", id).order("created_at"),
     supabase.from("components").select("id, component_no, name, jw_rate").eq("is_job_work", true).order("component_no"),
     supabase.from("inventory_lots").select("id, component_id, lot_code, qty_on_hand, unit_cost").eq("jw_stage", "raw").eq("status", "open").gt("qty_on_hand", 0),
     order.vendor_id ? supabase.from("vendors").select("name").eq("id", order.vendor_id).maybeSingle() : Promise.resolve({ data: null }),
+    order.project_id
+      ? supabase.from("projects").select("project_no, customer_id").eq("id", order.project_id).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
+  let projectDisplay: string | null = null;
+  if (project.data) {
+    const { data: cust } = project.data.customer_id
+      ? await supabase.from("customers").select("name").eq("id", project.data.customer_id).maybeSingle()
+      : { data: null };
+    projectDisplay = projectLabel({ project_no: project.data.project_no, customer_name: cust?.name ?? null });
+  }
 
   const compById = new Map((comps ?? []).map((c) => [c.id, c]));
   const lotById = new Map((lots ?? []).map((l) => [l.id, l]));
@@ -59,7 +70,7 @@ export default async function JobWorkDetailPage({ params }: { params: Promise<{ 
       </Link>
       <PageHeader
         title={order.jw_no}
-        description={`Job-work vendor: ${vendor?.name ?? "—"}`}
+        description={`Job-work vendor: ${vendor?.name ?? "—"} · ${order.project_id ? `Project ${projectDisplay ?? "—"}` : "Stock (no project)"}`}
         action={<Badge variant={STATUS_VARIANT[order.status] ?? "secondary"}>{order.status}</Badge>}
       />
 
