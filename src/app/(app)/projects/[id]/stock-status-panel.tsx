@@ -32,6 +32,7 @@ export function StockStatusPanel({
   bomId,
   bomApproved,
   rows,
+  allJobWork = false,
   canWrite,
   blockAction,
 }: {
@@ -39,6 +40,8 @@ export function StockStatusPanel({
   bomId: string | null;
   bomApproved: boolean;
   rows: StockStatusRow[];
+  /** True when every planned component is job-work — see the Job work section above instead. */
+  allJobWork?: boolean;
   canWrite: boolean;
   blockAction: (fd: FormData) => Promise<ActionResult>;
 }) {
@@ -63,7 +66,13 @@ export function StockStatusPanel({
   }
 
   if (rows.length === 0) {
-    return <p className="text-sm text-muted-foreground">Generate the BOM to see stock status.</p>;
+    return (
+      <p className="text-sm text-muted-foreground">
+        {allJobWork
+          ? "Every component in this BOM is job-work — see the Job work section above instead."
+          : "Generate the BOM to see stock status."}
+      </p>
+    );
   }
 
   const availableRows = rows.filter((r) => r.status === "available");

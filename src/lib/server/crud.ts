@@ -99,5 +99,7 @@ function friendlyError(msg: string, code?: string) {
   if (code === "23503" || (msg.includes("foreign key") && msg.includes("still referenced")))
     return "Can't delete — this record is referenced by other data.";
   if (msg.includes("violates row-level security")) return "Not authorized for this action.";
+  if (msg.includes("chk_components_irn_not_box"))
+    return "Box-tracked components can't have an inspection template attached — only Item or Bulk.";
   return msg;
 }

@@ -14,10 +14,19 @@ import { MobileRowCard } from "@/components/ui/mobile-row-card";
 import { formatNumber } from "@/lib/utils";
 import { addGrnLine, type ActionResult } from "../actions";
 
-type Posted = { id: string; component_label: string; qty: number; is_untagged: boolean; lot_code: string | null; lot_id: string | null };
+type Posted = { id: string; component_label: string; qty: number; is_untagged: boolean; lot_code: string | null; lot_id: string | null; blocked_project: string | null };
 type OpenPoEntry = { po_line_id: string; po_no: string; tag: string; project_id: string | null; remaining: number };
-type Component = { id: string; component_no: string; name: string; quantity_type: string; tracking_mode: string };
+type Component = { id: string; component_no: string; name: string; quantity_type: string; tracking_mode: string; inspection_template_id?: string | null };
 type OpenBox = { id: string; lot_code: string; qty_on_hand: number; container_no: string | null };
+type TemplateField = { id: string; label: string; field_type: string; options: string[] | null; is_required: boolean };
+type IrnRow = { id: string; irn_no: string; component_label: string; qty: number; status: string; generated_by: string; rejection_reason: string | null };
+type IrnActionResult = { ok?: true; error?: string; id?: string; irn_no?: string; status?: string };
+
+const IRN_STATUS_META: Record<string, { label: string; variant: "success" | "warning" | "destructive" | "secondary" }> = {
+  approved: { label: "Approved", variant: "success" },
+  pending_approval: { label: "Pending approval", variant: "warning" },
+  rejected: { label: "Rejected", variant: "destructive" },
+};
 
 function QtyHelperLabel({ qt }: { qt: string }) {
   if (qt === "length") return <span className="text-xs text-muted-foreground">Total = pieces × length/pc</span>;
@@ -37,6 +46,9 @@ export function GrnReceiver({
   canSeeFinancials,
   vendorComponentIds,
   vendorName,
+  templateFieldsByTemplate,
+  irnRows,
+  submitIrnAction,
 }: {
   grnId: string;
   postedLines: Posted[];
@@ -50,10 +62,14 @@ export function GrnReceiver({
   /** Components tagged to this GRN's vendor (via vendor_components) — narrows the manual picker. */
   vendorComponentIds: string[];
   vendorName: string | null;
+  templateFieldsByTemplate: Record<string, TemplateField[]>;
+  irnRows: IrnRow[];
+  submitIrnAction: (fd: FormData) => Promise<IrnActionResult>;
 }) {
   const router = useRouter();
   const [busy, setBusy] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [message, setMessage] = React.useState<string | null>(null);
   const [qtys, setQtys] = React.useState<Record<string, string>>({});
   const [manualComp, setManualComp] = React.useState("");
   const [selectedPoLineId, setSelectedPoLineId] = React.useState("");
@@ -63,6 +79,7 @@ export function GrnReceiver({
   const [pieceWidth, setPieceWidth] = React.useState("");
   const [targetLotId, setTargetLotId] = React.useState("");
   const [showAllComponents, setShowAllComponents] = React.useState(false);
+  const [answers, setAnswers] = React.useState<Record<string, string>>({});
 
   const hasVendorFilter = vendorComponentIds.length > 0;
   const vendorCompSet = React.useMemo(() => new Set(vendorComponentIds), [vendorComponentIds]);
@@ -76,6 +93,8 @@ export function GrnReceiver({
   const qt = selectedComp?.quantity_type ?? "nos";
   const trackingMode = selectedComp?.tracking_mode ?? "box";
   const boxesForComp = manualComp ? (openBoxesByComponent[manualComp] ?? []) : [];
+  const templateFields = selectedComp?.inspection_template_id ? (templateFieldsByTemplate[selectedComp.inspection_template_id] ?? []) : [];
+  const needsInspection = templateFields.length > 0;
 
   // Derived total qty for length/area
   const derivedQty = React.useMemo(() => {
@@ -93,16 +112,31 @@ export function GrnReceiver({
     setPieceLength("");
     setPieceWidth("");
     setTargetLotId("");
+    setAnswers({});
   }, [manualComp]);
 
   const matchingPoLines = manualComp ? (openPoByComponent[manualComp] ?? []) : [];
 
   async function run(fd: FormData, key: string, onOk?: () => void) {
-    setBusy(key); setError(null);
+    setBusy(key); setError(null); setMessage(null);
     fd.set("grn_id", grnId);
     const res: ActionResult = await addGrnLine(fd);
     setBusy(null);
     if (res?.error) { setError(res.error); return; }
+    onOk?.(); router.refresh();
+  }
+
+  async function runIrn(fd: FormData, onOk?: () => void) {
+    setBusy("manual"); setError(null); setMessage(null);
+    fd.set("grn_id", grnId);
+    const res = await submitIrnAction(fd);
+    setBusy(null);
+    if (res?.error) { setError(res.error); return; }
+    setMessage(
+      res.status === "approved"
+        ? `${res.irn_no} approved — QR generated.`
+        : `${res.irn_no} submitted — pending manager approval before a QR is generated.`,
+    );
     onOk?.(); router.refresh();
   }
 
@@ -117,6 +151,25 @@ export function GrnReceiver({
     }
     // For length/area, override qty_received with the computed total
     if (derivedQty !== null) fd.set("qty_received", String(derivedQty));
+
+    if (needsInspection) {
+      const missing = templateFields.filter((f) => f.is_required && !answers[f.id]?.trim());
+      if (missing.length > 0) {
+        setError(`Missing required field(s): ${missing.map((f) => f.label).join(", ")}`);
+        return;
+      }
+      fd.set("answers", JSON.stringify(templateFields.map((f) => ({ field_id: f.id, value: answers[f.id] ?? "" }))));
+      if (qt !== "nos") { fd.set("piece_count", pieceCount); fd.set("piece_length", pieceLength); fd.set("piece_width", pieceWidth); }
+      runIrn(fd, () => {
+        form.reset();
+        setManualComp("");
+        setSelectedPoLineId("");
+        setPieceCount(""); setPieceLength(""); setPieceWidth("");
+        setAnswers({});
+      });
+      return;
+    }
+
     // Box mode: adding to an existing box vs a new box
     if (trackingMode === "box" && targetLotId) fd.set("target_lot_id", targetLotId);
     run(fd, "manual", () => {
@@ -131,6 +184,7 @@ export function GrnReceiver({
   return (
     <div className="space-y-8">
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {message && <p className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">{message}</p>}
 
       {/* Line entry */}
       {canReceive && (
@@ -286,6 +340,39 @@ export function GrnReceiver({
               </div>
             )}
 
+            {/* Inspection (IRN) — this component has a template attached */}
+            {needsInspection && (
+              <div className="space-y-3 rounded-md border border-blue-200 bg-blue-50 p-3">
+                <p className="text-sm font-medium text-blue-900">
+                  Inspection required before a QR is generated — fill in the checklist below.
+                </p>
+                {templateFields.map((f) => (
+                  <div key={f.id} className="space-y-1.5">
+                    <Label>
+                      {f.label}
+                      {f.is_required && <span className="text-destructive"> *</span>}
+                    </Label>
+                    {f.field_type === "choice" ? (
+                      <Select
+                        value={answers[f.id] ?? ""}
+                        onChange={(e) => setAnswers((prev) => ({ ...prev, [f.id]: e.target.value }))}
+                      >
+                        <option value="">— choose —</option>
+                        {(f.options ?? []).map((o) => <option key={o} value={o}>{o}</option>)}
+                      </Select>
+                    ) : (
+                      <Input
+                        type={f.field_type === "number" ? "number" : "text"}
+                        step={f.field_type === "number" ? "any" : undefined}
+                        value={answers[f.id] ?? ""}
+                        onChange={(e) => setAnswers((prev) => ({ ...prev, [f.id]: e.target.value }))}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Open PO lookup */}
             {manualComp && (
               <div className={`rounded-md border px-4 py-3 text-sm ${matchingPoLines.length > 0 ? "border-green-200 bg-green-50" : "border-amber-200 bg-amber-50"}`}>
@@ -335,9 +422,9 @@ export function GrnReceiver({
             <div className="flex items-center gap-2">
               <Button type="submit" variant="secondary"
                 disabled={busy === "manual" || (qt !== "nos" && derivedQty === null)}>
-                <Plus className="size-4" /> Add line
+                <Plus className="size-4" /> {needsInspection ? "Submit for inspection" : "Add line"}
               </Button>
-              {!selectedPoLineId && manualComp && matchingPoLines.length === 0 && (
+              {!needsInspection && !selectedPoLineId && manualComp && matchingPoLines.length === 0 && (
                 <span className="text-xs text-amber-600">Will be flagged to manager</span>
               )}
             </div>
@@ -377,6 +464,8 @@ export function GrnReceiver({
                       <TableCell>
                         {l.is_untagged
                           ? <Badge variant="warning">Untagged — flagged</Badge>
+                          : l.blocked_project
+                          ? <Badge variant="success">Blocked — {l.blocked_project}</Badge>
                           : <Badge variant="secondary">PO</Badge>}
                       </TableCell>
                       <TableCell>
@@ -394,7 +483,13 @@ export function GrnReceiver({
                 <MobileRowCard
                   key={l.id}
                   title={l.component_label}
-                  badge={l.is_untagged ? <Badge variant="warning">Untagged</Badge> : <Badge variant="secondary">PO</Badge>}
+                  badge={
+                    l.is_untagged
+                      ? <Badge variant="warning">Untagged</Badge>
+                      : l.blocked_project
+                      ? <Badge variant="success">Blocked — {l.blocked_project}</Badge>
+                      : <Badge variant="secondary">PO</Badge>
+                  }
                   fields={[
                     { label: "Qty", value: formatNumber(l.qty) },
                     {
@@ -410,6 +505,43 @@ export function GrnReceiver({
           </>
         )}
       </section>
+
+      {/* Inspection (IRN) status for this GRN */}
+      {irnRows.length > 0 && (
+        <section>
+          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Inspections (IRN)</h3>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>IRN No.</TableHead>
+                <TableHead>Component</TableHead>
+                <TableHead>Qty</TableHead>
+                <TableHead>Generated by</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {irnRows.map((i) => {
+                const meta = IRN_STATUS_META[i.status] ?? { label: i.status, variant: "secondary" as const };
+                return (
+                  <TableRow key={i.id}>
+                    <TableCell className="font-mono text-xs">{i.irn_no}</TableCell>
+                    <TableCell>{i.component_label}</TableCell>
+                    <TableCell>{formatNumber(i.qty)}</TableCell>
+                    <TableCell>{i.generated_by}</TableCell>
+                    <TableCell>
+                      <Badge variant={meta.variant}>{meta.label}</Badge>
+                      {i.status === "rejected" && i.rejection_reason && (
+                        <p className="mt-1 text-xs text-muted-foreground">{i.rejection_reason}</p>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </section>
+      )}
     </div>
   );
 }

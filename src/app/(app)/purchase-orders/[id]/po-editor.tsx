@@ -47,7 +47,7 @@ export function PoEditor({
     delivery_terms: string; payment_terms: string; freight_terms: string; gst_percent: number;
   };
   lines: Line[];
-  components: { id: string; component_no: string; name: string }[];
+  components: { id: string; component_no: string; name: string; is_job_work?: boolean }[];
   vendors: { id: string; name: string }[];
   projects: Opt[];
   suggestions: Record<string, Suggestion[]>;
@@ -183,7 +183,7 @@ export function PoEditor({
               <Label>Component</Label>
               <Select name="component_id" required value={addComp} onChange={(e) => setAddComp(e.target.value)}>
                 <option value="">— component —</option>
-                {components.map((c) => <option key={c.id} value={c.id}>{c.component_no} — {c.name}</option>)}
+                {components.map((c) => <option key={c.id} value={c.id}>{c.component_no} — {c.name}{c.is_job_work ? " (raw)" : ""}</option>)}
               </Select>
               {addComp && suggestions[addComp]?.length > 0 && (
                 <p className="text-xs text-muted-foreground">

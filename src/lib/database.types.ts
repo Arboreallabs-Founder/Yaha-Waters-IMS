@@ -424,6 +424,7 @@ export type Database = {
           grade: string | null
           id: string
           id_mm: number | null
+          inspection_template_id: string | null
           is_assembly: boolean
           is_job_work: boolean
           is_serialized: boolean
@@ -458,6 +459,7 @@ export type Database = {
           grade?: string | null
           id?: string
           id_mm?: number | null
+          inspection_template_id?: string | null
           is_assembly?: boolean
           is_job_work?: boolean
           is_serialized?: boolean
@@ -492,6 +494,7 @@ export type Database = {
           grade?: string | null
           id?: string
           id_mm?: number | null
+          inspection_template_id?: string | null
           is_assembly?: boolean
           is_job_work?: boolean
           is_serialized?: boolean
@@ -522,6 +525,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "components_inspection_template_id_fkey"
+            columns: ["inspection_template_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_templates"
             referencedColumns: ["id"]
           },
           {
@@ -846,6 +856,7 @@ export type Database = {
           created_by: string | null
           grn_no: string
           id: string
+          invoice_no: string | null
           po_id: string | null
           received_at: string
           received_by: string | null
@@ -858,6 +869,7 @@ export type Database = {
           created_by?: string | null
           grn_no: string
           id?: string
+          invoice_no?: string | null
           po_id?: string | null
           received_at?: string
           received_by?: string | null
@@ -870,6 +882,7 @@ export type Database = {
           created_by?: string | null
           grn_no?: string
           id?: string
+          invoice_no?: string | null
           po_id?: string | null
           received_at?: string
           received_by?: string | null
@@ -917,6 +930,101 @@ export type Database = {
             columns: ["vendor_id"]
             isOneToOne: false
             referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inspection_template_fields: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          field_type: Database["public"]["Enums"]["irn_field_type"]
+          id: string
+          is_active: boolean
+          is_required: boolean
+          label: string
+          options: Json | null
+          sort_order: number
+          template_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          field_type: Database["public"]["Enums"]["irn_field_type"]
+          id?: string
+          is_active?: boolean
+          is_required?: boolean
+          label: string
+          options?: Json | null
+          sort_order?: number
+          template_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          field_type?: Database["public"]["Enums"]["irn_field_type"]
+          id?: string
+          is_active?: boolean
+          is_required?: boolean
+          label?: string
+          options?: Json | null
+          sort_order?: number
+          template_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspection_template_fields_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inspection_template_fields_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inspection_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspection_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1109,6 +1217,283 @@ export type Database = {
             columns: ["vendor_id"]
             isOneToOne: false
             referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      irn_answers: {
+        Row: {
+          choice_value: string | null
+          created_at: string
+          created_by: string | null
+          field_id: string
+          id: string
+          irn_id: string
+          number_value: number | null
+          text_value: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          choice_value?: string | null
+          created_at?: string
+          created_by?: string | null
+          field_id: string
+          id?: string
+          irn_id: string
+          number_value?: number | null
+          text_value?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          choice_value?: string | null
+          created_at?: string
+          created_by?: string | null
+          field_id?: string
+          id?: string
+          irn_id?: string
+          number_value?: number | null
+          text_value?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "irn_answers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "irn_answers_field_id_fkey"
+            columns: ["field_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_template_fields"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "irn_answers_irn_id_fkey"
+            columns: ["irn_id"]
+            isOneToOne: false
+            referencedRelation: "irns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      irns: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          component_id: string
+          created_at: string
+          created_by: string | null
+          generated_at: string
+          generated_by: string
+          grn_id: string
+          grn_line_id: string | null
+          id: string
+          irn_no: string
+          piece_count: number | null
+          piece_length: number | null
+          piece_width: number | null
+          po_line_id: string | null
+          project_id: string | null
+          qty: number
+          rejection_reason: string | null
+          status: Database["public"]["Enums"]["irn_status"]
+          supersedes_irn_id: string | null
+          template_id: string
+          unit_cost: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          component_id: string
+          created_at?: string
+          created_by?: string | null
+          generated_at?: string
+          generated_by: string
+          grn_id: string
+          grn_line_id?: string | null
+          id?: string
+          irn_no: string
+          piece_count?: number | null
+          piece_length?: number | null
+          piece_width?: number | null
+          po_line_id?: string | null
+          project_id?: string | null
+          qty: number
+          rejection_reason?: string | null
+          status?: Database["public"]["Enums"]["irn_status"]
+          supersedes_irn_id?: string | null
+          template_id: string
+          unit_cost?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          component_id?: string
+          created_at?: string
+          created_by?: string | null
+          generated_at?: string
+          generated_by?: string
+          grn_id?: string
+          grn_line_id?: string | null
+          id?: string
+          irn_no?: string
+          piece_count?: number | null
+          piece_length?: number | null
+          piece_width?: number | null
+          po_line_id?: string | null
+          project_id?: string | null
+          qty?: number
+          rejection_reason?: string | null
+          status?: Database["public"]["Enums"]["irn_status"]
+          supersedes_irn_id?: string | null
+          template_id?: string
+          unit_cost?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "irns_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "irns_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "components"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "irns_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "v_component_on_hand"
+            referencedColumns: ["component_id"]
+          },
+          {
+            foreignKeyName: "irns_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "v_component_on_hand_safe"
+            referencedColumns: ["component_id"]
+          },
+          {
+            foreignKeyName: "irns_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "v_components_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "irns_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "irns_generated_by_fkey"
+            columns: ["generated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "irns_grn_id_fkey"
+            columns: ["grn_id"]
+            isOneToOne: false
+            referencedRelation: "grns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "irns_grn_line_id_fkey"
+            columns: ["grn_line_id"]
+            isOneToOne: false
+            referencedRelation: "grn_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "irns_grn_line_id_fkey"
+            columns: ["grn_line_id"]
+            isOneToOne: false
+            referencedRelation: "v_grn_lines_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "irns_grn_line_id_fkey"
+            columns: ["grn_line_id"]
+            isOneToOne: false
+            referencedRelation: "v_untagged_receipts"
+            referencedColumns: ["grn_line_id"]
+          },
+          {
+            foreignKeyName: "irns_po_line_id_fkey"
+            columns: ["po_line_id"]
+            isOneToOne: false
+            referencedRelation: "po_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "irns_po_line_id_fkey"
+            columns: ["po_line_id"]
+            isOneToOne: false
+            referencedRelation: "v_po_lines_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "irns_po_line_id_fkey"
+            columns: ["po_line_id"]
+            isOneToOne: false
+            referencedRelation: "v_po_overdue"
+            referencedColumns: ["po_line_id"]
+          },
+          {
+            foreignKeyName: "irns_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "irns_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "v_project_costing"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "irns_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "v_project_schedule"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "irns_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "v_projects_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "irns_supersedes_irn_id_fkey"
+            columns: ["supersedes_irn_id"]
+            isOneToOne: false
+            referencedRelation: "irns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "irns_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -1325,6 +1710,105 @@ export type Database = {
             columns: ["vendor_id"]
             isOneToOne: false
             referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_reads: {
+        Row: {
+          notification_id: string
+          profile_id: string
+          read_at: string
+        }
+        Insert: {
+          notification_id: string
+          profile_id: string
+          read_at?: string
+        }
+        Update: {
+          notification_id?: string
+          profile_id?: string
+          read_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_reads_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_reads_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          link_path: string | null
+          message: string
+          project_id: string | null
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          link_path?: string | null
+          message: string
+          project_id?: string | null
+          type: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          link_path?: string | null
+          message?: string
+          project_id?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "v_project_costing"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "notifications_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "v_project_schedule"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "notifications_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "v_projects_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -2186,6 +2670,163 @@ export type Database = {
           },
         ]
       }
+      site_purchases: {
+        Row: {
+          bom_line_id: string | null
+          component_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          lot_id: string | null
+          note: string | null
+          project_id: string
+          purchase_no: string
+          purchased_at: string
+          qty: number
+          unit_cost: number | null
+          vendor_id: string | null
+          vendor_name: string | null
+        }
+        Insert: {
+          bom_line_id?: string | null
+          component_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lot_id?: string | null
+          note?: string | null
+          project_id: string
+          purchase_no: string
+          purchased_at?: string
+          qty: number
+          unit_cost?: number | null
+          vendor_id?: string | null
+          vendor_name?: string | null
+        }
+        Update: {
+          bom_line_id?: string | null
+          component_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lot_id?: string | null
+          note?: string | null
+          project_id?: string
+          purchase_no?: string
+          purchased_at?: string
+          qty?: number
+          unit_cost?: number | null
+          vendor_id?: string | null
+          vendor_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_purchases_bom_line_id_fkey"
+            columns: ["bom_line_id"]
+            isOneToOne: false
+            referencedRelation: "bom_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_purchases_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "components"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_purchases_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "v_component_on_hand"
+            referencedColumns: ["component_id"]
+          },
+          {
+            foreignKeyName: "site_purchases_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "v_component_on_hand_safe"
+            referencedColumns: ["component_id"]
+          },
+          {
+            foreignKeyName: "site_purchases_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "v_components_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_purchases_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_purchases_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_purchases_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "v_inventory_lots_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_purchases_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "v_stale_stock"
+            referencedColumns: ["lot_id"]
+          },
+          {
+            foreignKeyName: "site_purchases_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_purchases_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "v_project_costing"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "site_purchases_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "v_project_schedule"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "site_purchases_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "v_projects_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_purchases_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "v_supplier_kpi"
+            referencedColumns: ["vendor_id"]
+          },
+          {
+            foreignKeyName: "site_purchases_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stock_movements: {
         Row: {
           component_id: string | null
@@ -2545,6 +3186,7 @@ export type Database = {
           grade: string | null
           id: string | null
           id_mm: number | null
+          inspection_template_id: string | null
           is_assembly: boolean | null
           is_job_work: boolean | null
           is_serialized: boolean | null
@@ -2577,6 +3219,7 @@ export type Database = {
           grade?: string | null
           id?: string | null
           id_mm?: number | null
+          inspection_template_id?: string | null
           is_assembly?: boolean | null
           is_job_work?: boolean | null
           is_serialized?: boolean | null
@@ -2609,6 +3252,7 @@ export type Database = {
           grade?: string | null
           id?: string | null
           id_mm?: number | null
+          inspection_template_id?: string | null
           is_assembly?: boolean | null
           is_job_work?: boolean | null
           is_serialized?: boolean | null
@@ -2637,6 +3281,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "components_inspection_template_id_fkey"
+            columns: ["inspection_template_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_templates"
             referencedColumns: ["id"]
           },
           {
@@ -3369,6 +4020,7 @@ export type Database = {
           ordered_qty: number | null
           project_id: string | null
           required_qty: number | null
+          sent_to_jw_qty: number | null
           shortfall_qty: number | null
         }
         Relationships: []
@@ -3724,10 +4376,27 @@ export type Database = {
           team_id: string
         }[]
       }
+      approve_irn: {
+        Args: { p_approver_id: string; p_irn_id: string }
+        Returns: Json
+      }
       auth_can_access_project: { Args: { p: string }; Returns: boolean }
       auth_is_staff: { Args: never; Returns: boolean }
       auth_role: { Args: never; Returns: Database["public"]["Enums"]["role"] }
       auth_team_id: { Args: never; Returns: string }
+      create_site_purchase: {
+        Args: {
+          p_component: string
+          p_note: string
+          p_project: string
+          p_qty: number
+          p_unit_cost: number
+          p_user_id: string
+          p_vendor: string
+          p_vendor_name: string
+        }
+        Returns: Json
+      }
       dispatch_job_work: {
         Args: { p_order_id: string; p_user_id: string }
         Returns: Json
@@ -3741,15 +4410,18 @@ export type Database = {
         }[]
       }
       fiscal_year_label: { Args: { d?: string }; Returns: string }
+      get_lot_traceability: { Args: { p_lot_code: string }; Returns: Json }
       issue_requisition: {
         Args: { p_req_id: string; p_user_id: string }
         Returns: Json
       }
       next_fg_no: { Args: never; Returns: string }
       next_grn_no: { Args: never; Returns: string }
+      next_irn_no: { Args: never; Returns: string }
       next_jw_no: { Args: never; Returns: string }
       next_po_no: { Args: never; Returns: string }
       next_req_no: { Args: never; Returns: string }
+      next_site_purchase_no: { Args: never; Returns: string }
       project_shortfall: {
         Args: { p_project: string }
         Returns: {
@@ -3759,6 +4431,7 @@ export type Database = {
           ordered_qty: number
           project_id: string
           required_qty: number
+          sent_to_jw_qty: number
           shortfall_qty: number
         }[]
       }
@@ -3767,14 +4440,40 @@ export type Database = {
         Returns: Json
       }
       recompute_po_status: { Args: { p_po: string }; Returns: undefined }
+      reject_irn: {
+        Args: { p_approver_id: string; p_irn_id: string; p_reason: string }
+        Returns: Json
+      }
+      resubmit_irn: {
+        Args: { p_answers: Json; p_irn_id: string; p_submitter_id: string }
+        Returns: Json
+      }
+      submit_irn: {
+        Args: {
+          p_answers: Json
+          p_component_id: string
+          p_grn_id: string
+          p_piece_count: number
+          p_piece_length: number
+          p_piece_width: number
+          p_po_line_id: string
+          p_project_id: string
+          p_qty: number
+          p_submitter_id: string
+          p_unit_cost: number
+        }
+        Returns: Json
+      }
     }
     Enums: {
-      bom_line_source: "template" | "manual"
+      bom_line_source: "template" | "manual" | "site_purchase"
       bom_status: "draft" | "approved"
       doc_status: "pending" | "approved" | "rejected"
       doc_type: "qap" | "drawing" | "spec" | "other"
       fg_status: "in_production" | "ready" | "dispatched"
       input_type: "dropdown" | "number" | "text"
+      irn_field_type: "text" | "number" | "choice"
+      irn_status: "pending_approval" | "approved" | "rejected"
       jw_stage: "raw" | "completed"
       lot_status: "open" | "issued" | "consumed"
       movement_type: "receipt" | "issue" | "adjustment" | "transfer" | "return"
@@ -3920,12 +4619,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      bom_line_source: ["template", "manual"],
+      bom_line_source: ["template", "manual", "site_purchase"],
       bom_status: ["draft", "approved"],
       doc_status: ["pending", "approved", "rejected"],
       doc_type: ["qap", "drawing", "spec", "other"],
       fg_status: ["in_production", "ready", "dispatched"],
       input_type: ["dropdown", "number", "text"],
+      irn_field_type: ["text", "number", "choice"],
+      irn_status: ["pending_approval", "approved", "rejected"],
       jw_stage: ["raw", "completed"],
       lot_status: ["open", "issued", "consumed"],
       movement_type: ["receipt", "issue", "adjustment", "transfer", "return"],

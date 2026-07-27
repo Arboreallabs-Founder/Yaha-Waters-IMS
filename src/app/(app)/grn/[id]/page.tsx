@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatDate } from "@/lib/utils";
 import { GrnReceiver } from "./grn-receiver";
+import { submitIrn } from "../irn-actions";
 
 export default async function GrnDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -21,7 +22,7 @@ export default async function GrnDetailPage({ params }: { params: Promise<{ id: 
   const [{ data: grnLines }, { data: components }, { data: projects }, vendor, { data: allOpenPoLines }, { data: vendorComps }] =
     await Promise.all([
       supabase.from("grn_lines").select("*").eq("grn_id", id).order("created_at"),
-      supabase.from("components").select("id, component_no, name, quantity_type, tracking_mode").order("component_no"),
+      supabase.from("components").select("id, component_no, name, quantity_type, tracking_mode, inspection_template_id").order("component_no"),
       supabase.from("projects").select("id, project_no").order("project_no"),
       grn.vendor_id ? supabase.from("vendors").select("name").eq("id", grn.vendor_id).maybeSingle() : Promise.resolve({ data: null }),
       // All open PO lines system-wide for component lookup
@@ -37,6 +38,44 @@ export default async function GrnDetailPage({ params }: { params: Promise<{ id: 
   const vendorComponentIds = (vendorComps ?? []).map((vc) => vc.component_id);
 
   const compLabel = new Map((components ?? []).map((c) => [c.id, `${c.component_no} — ${c.name}`]));
+
+  // Inspection template fields for whichever components have one attached.
+  const templateIds = [...new Set((components ?? []).map((c) => c.inspection_template_id).filter(Boolean))] as string[];
+  const { data: templateFields } = templateIds.length
+    ? await supabase
+        .from("inspection_template_fields")
+        .select("id, template_id, label, field_type, options, is_required")
+        .in("template_id", templateIds)
+        .eq("is_active", true)
+        .order("sort_order")
+    : { data: [] };
+  const templateFieldsByTemplate: Record<string, { id: string; label: string; field_type: string; options: string[] | null; is_required: boolean }[]> = {};
+  for (const f of templateFields ?? []) {
+    (templateFieldsByTemplate[f.template_id] ??= []).push({
+      id: f.id, label: f.label, field_type: f.field_type, options: (f.options as string[] | null) ?? null, is_required: f.is_required,
+    });
+  }
+
+  // IRNs raised against this GRN (any status) — shown alongside posted lines.
+  const { data: irns } = await supabase
+    .from("irns")
+    .select("id, irn_no, component_id, qty, status, generated_by, rejection_reason")
+    .eq("grn_id", id)
+    .order("created_at", { ascending: false });
+  const irnGeneratorIds = [...new Set((irns ?? []).map((i) => i.generated_by))];
+  const { data: irnGenerators } = irnGeneratorIds.length
+    ? await supabase.from("profiles").select("id, full_name").in("id", irnGeneratorIds)
+    : { data: [] };
+  const generatorName = new Map((irnGenerators ?? []).map((p) => [p.id, p.full_name]));
+  const irnRows = (irns ?? []).map((i) => ({
+    id: i.id,
+    irn_no: i.irn_no,
+    component_label: i.component_id ? compLabel.get(i.component_id) ?? "—" : "—",
+    qty: i.qty,
+    status: i.status,
+    generated_by: i.generated_by ? generatorName.get(i.generated_by) ?? "—" : "—",
+    rejection_reason: i.rejection_reason,
+  }));
 
   // existing open box lots (container_no set) — receivers can add pieces to a box
   const { data: openBoxes } = await supabase
@@ -55,7 +94,7 @@ export default async function GrnDetailPage({ params }: { params: Promise<{ id: 
   // lots created by this GRN's lines (for lot code display + sticker printing)
   const grnLineIds = (grnLines ?? []).map((l) => l.id);
   const { data: lots } = grnLineIds.length
-    ? await supabase.from("inventory_lots").select("id, lot_code, grn_line_id").in("grn_line_id", grnLineIds)
+    ? await supabase.from("inventory_lots").select("id, lot_code, grn_line_id, status, project_id").in("grn_line_id", grnLineIds)
     : { data: [] };
   const lotByLine = new Map((lots ?? []).map((l) => [l.grn_line_id, l]));
 
@@ -78,14 +117,18 @@ export default async function GrnDetailPage({ params }: { params: Promise<{ id: 
     (openPoByComponent[pl.component_id] ??= []).push(entry);
   }
 
-  const postedLines = (grnLines ?? []).map((l) => ({
-    id: l.id,
-    component_label: l.component_id ? compLabel.get(l.component_id) ?? "—" : "—",
-    qty: l.qty_received,
-    is_untagged: l.is_untagged,
-    lot_code: lotByLine.get(l.id)?.lot_code ?? null,
-    lot_id: lotByLine.get(l.id)?.id ?? null,
-  }));
+  const postedLines = (grnLines ?? []).map((l) => {
+    const lot = lotByLine.get(l.id);
+    return {
+      id: l.id,
+      component_label: l.component_id ? compLabel.get(l.component_id) ?? "—" : "—",
+      qty: l.qty_received,
+      is_untagged: l.is_untagged,
+      lot_code: lot?.lot_code ?? null,
+      lot_id: lot?.id ?? null,
+      blocked_project: lot?.status === "issued" && lot.project_id ? projNo.get(lot.project_id) ?? null : null,
+    };
+  });
   const lotIds = (lots ?? []).map((l) => l.id);
 
   return (
@@ -98,6 +141,7 @@ export default async function GrnDetailPage({ params }: { params: Promise<{ id: 
       <Card className="mb-6">
         <CardContent className="grid grid-cols-2 gap-4 p-5 text-sm sm:grid-cols-4">
           <Info label="Challan" value={grn.challan_no} />
+          <Info label="Invoice" value={grn.invoice_no} />
           <Info label="Received" value={formatDate(grn.received_at)} />
           <Info label="Lines" value={String(postedLines.length)} />
         </CardContent>
@@ -115,6 +159,9 @@ export default async function GrnDetailPage({ params }: { params: Promise<{ id: 
         canSeeFinancials={canSeeFinancials(role)}
         vendorComponentIds={vendorComponentIds}
         vendorName={vendor?.data?.name ?? null}
+        templateFieldsByTemplate={templateFieldsByTemplate}
+        irnRows={irnRows}
+        submitIrnAction={submitIrn}
       />
     </div>
   );

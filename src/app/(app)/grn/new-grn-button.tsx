@@ -46,9 +46,15 @@ export function NewGrnButton({
               {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
             </Select>
           </div>
-          <div className="space-y-1.5">
-            <Label>Challan No.</Label>
-            <Input name="challan_no" placeholder="supplier challan / DC no." />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Challan No.</Label>
+              <Input name="challan_no" placeholder="supplier challan / DC no." />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Invoice No.</Label>
+              <Input name="invoice_no" placeholder="supplier tax invoice no." />
+            </div>
           </div>
           {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">

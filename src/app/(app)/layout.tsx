@@ -39,8 +39,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     );
   }
 
+  let notifications: { id: string; message: string; link_path: string | null; created_at: string }[] = [];
+  if (profile.role === "admin" || profile.role === "team_lead") {
+    const [{ data: notifs }, { data: reads }] = await Promise.all([
+      supabase.from("notifications").select("id, message, link_path, created_at").order("created_at", { ascending: false }).limit(50),
+      supabase.from("notification_reads").select("notification_id").eq("profile_id", profile.id),
+    ]);
+    const readSet = new Set((reads ?? []).map((r) => r.notification_id));
+    notifications = (notifs ?? []).filter((n) => !readSet.has(n.id));
+  }
+
   return (
-    <AppShell fullName={profile.full_name} email={user.email} role={profile.role}>
+    <AppShell fullName={profile.full_name} email={user.email} role={profile.role} notifications={notifications}>
       {children}
     </AppShell>
   );

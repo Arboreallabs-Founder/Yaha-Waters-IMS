@@ -183,6 +183,130 @@ Re-modelled masters around the real annotated BOM (`Context/BOM Master/Triton 36
   leaked-password warns); `verify:bom` PASS.
 
 ## Changelog
+- 2026-07-27 — **IRN (Inspection Release Note) module (new, major).** Quality-inspection gate on
+  GRN receiving, planned via /plan (3 Explore agents + a Plan-agent design review) and approved before
+  implementation. Migrations 0036 (schema) + 0037 (RPCs):
+  1. **Inspection Template master** (`/masters/inspection-templates`): a header (`inspection_templates`)
+     + multiple fields (`inspection_template_fields`: label, `field_type` text/number/choice, `options`
+     jsonb for choice, `is_required`) — mirrors the existing BOM-template header+lines editor pattern.
+     Fields are soft-deleted (`is_active=false`) only, never hard-deleted, so historical `irn_answers`
+     never orphan.
+  2. **`components.inspection_template_id`** — single nullable FK (not many-to-many), gated to
+     `item`/`bulk` tracking modes only via a CHECK constraint (`chk_components_irn_not_box`) — a "box"
+     shares one QR across many pieces, so one IRN's answers can't represent it. Confirmed live: assigning
+     a template to a box-tracked component is rejected with a friendly error.
+  3. **The key architectural call**: `grn_line_after_insert()` (the trigger that creates
+     `inventory_lots`/QR + `receipt` `stock_movements` on every `grn_lines` insert) is **completely
+     unmodified**. For a templated component, the real `grn_lines` row is only inserted at IRN-approval
+     time (immediately, in the same transaction, if the submitter is `admin`/`team_lead` — same
+     "manager" tier as every other approval gate in this app; otherwise deferred to the GRN page's new
+     Approval tab). This means PO fulfillment tracking (`rollup_po_line`) is correct for free — a PO
+     line never shows "received" while goods are still pending/failing QC — and no other reader of
+     `grn_lines` had to change.
+  4. **New RPCs**: `submit_irn(...)` (validates every required field has an answer, inserts the `irns`
+     header + `irn_answers`, auto-approves inline if the submitter is admin/team_lead by calling...),
+     `approve_irn(...)` (the one function that actually inserts the deferred `grn_lines` row, `for
+     update`-locked against double-approval races), `reject_irn(...)` (terminal, permanent record —
+     never creates a lot/movement to reverse), `resubmit_irn(...)` (clones a rejected IRN into a fresh
+     submission with `supersedes_irn_id` linking back, preserving the original as a permanent audit
+     record rather than mutating it), `get_lot_traceability(lot_code)` (one aggregator function, not
+     TypeScript joins, since the chain is genuinely recursive — job-work lineage via a recursive CTE on
+     `parent_lot_id`, then PO/vendor/GRN/IRN/consumption-ledger joins off the root lot).
+  5. **GRN page reworked into 3 tabs** (`/grn?tab=all|approval|register`, server-first via `searchParams`
+     links — no new Tabs UI primitive needed): All GRNs (unchanged), Pending Approval (admin/team_lead
+     only, Approve/Reject buttons), IRN Register (date-range + text filter, consolidated report showing
+     who generated vs. who approved each IRN — explicitly labels the auto-approve case "(auto-approved,
+     self)" so it isn't misread as independent review).
+  6. **GRN receiver form**: picking a component with a template attached (and non-box tracking) swaps
+     in the template's fields inline; submitting posts to `submit_irn` instead of the normal
+     `addGrnLine`, and shows whether it was auto-approved or sent for approval.
+  7. **New standalone "Traceability" scan tool** (`/traceability`, new sidebar entry) — scan/type a lot
+     code and see its full genealogy in one page: PO + who raised it + supplier, GRN receipt info,
+     job-work lineage chain, the IRN (template, who generated/approved, or "no inspection required"),
+     and the full consumption ledger.
+  Verified live end-to-end: CHECK constraint blocks box+template; team_member submission →
+  `pending_approval` with zero `grn_lines`/lot/movement created yet; `approve_irn` → correct lot count
+  for tracking mode (3 lots for item qty=3, 1 lot for bulk qty=50) and PO-line-style semantics hold;
+  admin submission auto-approves in the same call; missing-required-field validation correctly creates
+  no `irns` row at all (not even a rejected one); `reject_irn` → zero inventory impact; `resubmit_irn` →
+  new IRN with `supersedes_irn_id` linking back, itself approvable; `get_lot_traceability` resolves every
+  section correctly (PO/vendor, GRN, IRN, empty job-work array when none). All test data cleaned up
+  (including reverting a temporary role flip used to simulate a `team_member` submitter — no real
+  profiles were left altered). `next build` clean (34 routes) + a real authenticated session (via a
+  scripted Supabase-session cookie, same technique as prior sessions) confirmed all new/changed routes
+  render 200 with no server errors, and confirmed the GRN receiver's props correctly thread a real
+  component's `inspection_template_id` + its template's fields all the way from the server component
+  down to the client form (verified via the embedded RSC payload, not just types).
+
+- 2026-07-27 — **Site Purchase module (new).** One-step "buy it locally, use it now" entry point for
+  on-site staff, planned via /plan and approved before implementation. Migration 0035:
+  1. New `bom_line_source` enum value `'site_purchase'`, new `site_purchases` table (audit/log record:
+     vendor from master or free-text `vendor_name`, qty, unit cost, note, linked `lot_id`/`bom_line_id`).
+  2. New `notifications` + `notification_reads` tables — the app's first notification infra. Visible to
+     `admin`/`team_lead` only (RLS), per-user read-state via `notification_reads`, refreshed on page
+     load/nav like the rest of the app (no realtime/live-push).
+  3. New RPC `create_site_purchase(...)`, security definer, mirrors `grn_line_after_insert()`'s lot+
+     movement creation: requires the project's BOM to be `approved` (the "final BOM"); creates an
+     `inventory_lots` row then a `receipt` + `issue` `stock_movements` pair (net qty_on_hand = 0,
+     `reference_type='site_purchase'`) so the lot is `status='consumed'` the instant it's created — no
+     QR sticker ever gets printed for it, but it still feeds `v_project_consumption`/
+     `v_component_on_hand` for costing parity; finds-or-creates the matching `bom_lines` row
+     (`source='site_purchase'` only if none existed yet — reuses `required_qty` untouched otherwise,
+     since `project_shortfall()` floors at 0); inserts the `site_purchases` row and a `notifications` row.
+  4. UI: new "Site purchase" `CollapsibleSection` on the project page (`site-purchase-form.tsx`,
+     disabled with a message until the BOM is approved) and a new header notification bell
+     (`notification-bell.tsx`, visible only to admin/team_lead) with unread badge + per-item dismiss.
+     Any `team_member`/`team_lead`/`admin` can log a purchase — a deliberate carve-out since
+     `team_member` is normally blocked from writing masters/financials elsewhere.
+  Verified live via direct SQL: baseline shortfall → site purchase of 3 units → shortfall drops by
+  exactly 3 (consumed_qty picks it up correctly, `reference_type` filter only excludes `'job_work'`),
+  lot ends `status='consumed'`/`qty_on_hand=0`, both movements recorded, existing bom_line reused
+  untouched; a second purchase for a component not yet in the BOM correctly inserted a new
+  `source='site_purchase'` bom_line and drove shortfall to exactly 0; negative-qty/missing-component/
+  no-approved-BOM all correctly rejected. All test rows cleaned up. `npm run typecheck` and
+  `next build` both clean (33 routes incl. the new section). Logged in as the real seeded admin and
+  confirmed live: notification bell renders on `/projects`, the Site purchase form renders and is
+  populated correctly on real project pages with an approved BOM.
+
+- 2026-07-27 — **Job-work workflow redesign: raw-stock labeling, shortfall double-count fix, panel
+  reorder.** Three related changes to the project/order page's procurement flow, planned via /plan and
+  approved before implementation:
+  1. **Fixed a real bug**: `project_shortfall()` credited a job-work dispatch's stock-out movement as
+     "already accounted for" (correct while in transit), but that ledger row never expired — once
+     `receive_job_work()` created the new completed lot, its on-hand got credited a *second* time.
+     Net effect: after any JW component's raw→vendor→completed round trip, shortfall under-reported the
+     real gap. Migration 0034 splits the credit into genuine consumption (`reference_type IS DISTINCT
+     FROM 'job_work'`) and a new `sent_to_jw_qty` term derived live from `job_work_lines`/
+     `job_work_orders` (`qty_sent - qty_returned` for orders `sent`/`partial`), which self-corrects as
+     material comes back — no permanent ledger credit to go stale. New "Sent to JW" column in the
+     Shortfall panel.
+  2. **Component labels now show "(raw)"** in the BOM and Shortfall panels (project page) and on PO
+     lines/the add-line picker (PO detail page) whenever a job-work component's covering stock is raw
+     or in-transit, not completed — computed once from the existing `jwStockRows` data, no new queries.
+  3. **Stock-status panel now excludes job-work components** entirely (previously showed a misleading
+     green "Available"/"Blocked" badge for raw-only stock that can't actually be consumed) — the Job
+     Work panel is the dedicated, stage-aware view for them instead. Confirmed `blockStockForBom`
+     doesn't depend on the displayed rows, so blocking still works for JW components. Section order is
+     now Line items → BOM → **Job work** → Stock status → Materials issued → Shortfall, matching the
+     "raw stock first, then job-work POs, then remaining shortfall" workflow.
+  Verified live: full raw→dispatch→receive cycle plus a partial-return case against a throwaway
+  project, confirming `shortfall_qty` never drifts at any stage (the exact regression the old code had
+  after a full round trip) — then cleaned up.
+- 2026-07-21 — **GRN now captures Invoice No. alongside Challan No.** New GRN dialog had only one field;
+  goods often arrive with both a delivery challan and a separate tax invoice reference, and both need to
+  be recorded. Added `grns.invoice_no` (migration 0033), a second input in the New GRN dialog, and
+  surfaced it in the GRN list and detail info card the same way `challan_no` already was. Distinct from
+  the `invoice_no`/`invoice_status` fields removed from Purchase Orders earlier this session — that was
+  PO-vs-invoice-amount reconciliation tracking; this is just recording the receipt paperwork reference.
+- 2026-07-21 — **GRN receipt against a project-tagged PO now blocks the stock automatically.**
+  Previously the resulting lot was only *tagged* to the project (`project_id` set) but left
+  `status='open'` — "available, not yet blocked" — until someone manually clicked "Block stock for BOM"
+  on the project page. `grn_line_after_insert()` (migration 0032) now creates the lot as `status='issued'`
+  whenever the GRN line has a `project_id` (i.e. was received against a project's PO line); untagged
+  ("Stock"/no-PO) receipts are unaffected, still `open`. GRN's "Posted lines" table now shows a green
+  "Blocked — <project>" badge instead of a bare "PO" badge so this is visible right where it happens.
+  Verified live: receiving against a project-tagged PO line → lot comes in `status='issued'`; receiving
+  untagged → still `status='open'`, both confirmed then cleaned up.
 - 2026-07-21 — **Second full transactional data reset**, per explicit request. By this point real usage
   had accumulated since the first reset (1 project — `AIS-000165`, the Gear Box project used to verify
   the shortfall fix — 20 POs/67 lines, 1 requisition/50 lines, 1 GRN, 1 inventory lot). Confirmed scope

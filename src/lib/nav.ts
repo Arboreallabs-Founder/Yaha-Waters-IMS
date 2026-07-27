@@ -26,6 +26,7 @@ export const NAV: NavGroup[] = [
       { label: "Components", href: "/masters/components", status: "live" },
       { label: "Categories", href: "/masters/categories", status: "live" },
       { label: "BOM Templates", href: "/masters/bom-templates", status: "live" },
+      { label: "Inspection Templates", href: "/masters/inspection-templates", status: "live" },
     ],
   },
   {
@@ -44,6 +45,7 @@ export const NAV: NavGroup[] = [
       { label: "Job Work", href: "/job-work", status: "live" },
       { label: "Goods Receipt", href: "/grn", status: "live" },
       { label: "Inventory", href: "/inventory", status: "live" },
+      { label: "Traceability", href: "/traceability", status: "live" },
       { label: "Finished Goods", href: "/finished-goods", status: "live" },
     ],
   },

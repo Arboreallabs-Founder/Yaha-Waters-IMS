@@ -15,6 +15,7 @@ import { StockStatusPanel, type StockStatusRow } from "./stock-status-panel";
 import { JobWorkPanel, type JwStockRow, type JwOrderRow } from "./job-work-panel";
 import { ShortfallPanel } from "./shortfall-panel";
 import { PhaseBanner } from "./phase-banner";
+import { SitePurchaseForm } from "./site-purchase-form";
 import {
   addLineItem,
   removeLineItem,
@@ -26,6 +27,7 @@ import {
   updateProjectStatus,
   blockStockForBom,
 } from "./actions";
+import { logSitePurchase } from "../../site-purchases/actions";
 
 function variantText(sel: unknown): string {
   if (!sel || typeof sel !== "object") return "";
@@ -50,6 +52,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
     { data: lineItems },
     { data: bom },
     { data: components },
+    { data: vendors },
   ] = await Promise.all([
     project.customer_id
       ? supabase.from("customers").select("name").eq("id", project.customer_id).maybeSingle()
@@ -59,6 +62,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
     supabase.from("project_line_items").select("*").eq("project_id", id).order("created_at"),
     supabase.from("boms").select("id, status, approved_at").eq("project_id", id).maybeSingle(),
     supabase.from("components").select("id, component_no, name").order("component_no"),
+    supabase.from("vendors").select("id, name").eq("is_active", true).order("name"),
   ]);
 
   const productLabel = new Map((products ?? []).map((p) => [p.id, `${p.sku_code} — ${p.model_name}`]));
@@ -72,9 +76,9 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
 
   const { data: shortfall } = await supabase
     .from("v_project_shortfall")
-    .select("component_id, required_qty, ordered_qty, on_hand, consumed_qty, shortfall_qty")
+    .select("component_id, required_qty, ordered_qty, on_hand, consumed_qty, sent_to_jw_qty, shortfall_qty")
     .eq("project_id", id);
-  const shortfallRows = (shortfall ?? [])
+  let shortfallRows = (shortfall ?? [])
     .map((s) => ({
       component_id: s.component_id ?? "",
       component_label: s.component_id ? componentLabel.get(s.component_id) ?? "—" : "—",
@@ -82,6 +86,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       ordered: Number(s.ordered_qty ?? 0),
       on_hand: Number(s.on_hand ?? 0),
       consumed: Number(s.consumed_qty ?? 0),
+      sent_to_jw: Number(s.sent_to_jw_qty ?? 0),
       shortfall: Number(s.shortfall_qty ?? 0),
     }))
     .sort((a, b) => b.shortfall - a.shortfall);
@@ -105,7 +110,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
     quantity: li.quantity,
   }));
 
-  let bomLines: { id: string; component_label: string; required_qty: number; source: string; note: string | null }[] = [];
+  let bomLines: { id: string; component_id: string | null; component_label: string; required_qty: number; source: string; note: string | null }[] = [];
   const plannedByComponent = new Map<string, number>();
   if (bom) {
     const { data: lines } = await supabase
@@ -115,6 +120,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       .order("source");
     bomLines = (lines ?? []).map((l) => ({
       id: l.id,
+      component_id: l.component_id,
       component_label: l.component_id ? componentLabel.get(l.component_id) ?? "—" : "—",
       required_qty: l.required_qty,
       source: l.source,
@@ -148,9 +154,19 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
     }))
     .sort((a, b) => (a.in_plan === b.in_plan ? a.component_label.localeCompare(b.component_label) : a.in_plan ? 1 : -1));
 
+  const plannedComponentIds = [...plannedByComponent.keys()];
+
+  // Job-work component ids — needed before Stock status below, so JW
+  // components (which have their own dedicated, stage-aware panel) can be
+  // excluded from that table instead of showing a misleading "Available"/
+  // "Blocked" badge for stock that's still raw and can't actually be consumed.
+  const { data: jwComps } = plannedComponentIds.length
+    ? await supabase.from("components").select("id, jw_vendor_id").in("id", plannedComponentIds).eq("is_job_work", true)
+    : { data: [] };
+  const jwComponentIds = new Set((jwComps ?? []).map((c) => c.id));
+
   // Stock status per BOM component: blocked (mine) / available (open, untagged
   // or mine) / issued to another project / out of stock.
-  const plannedComponentIds = [...plannedByComponent.keys()];
   const { data: statusLots } = plannedComponentIds.length
     ? await supabase
         .from("inventory_lots")
@@ -176,6 +192,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   ]));
 
   const stockStatusRows: StockStatusRow[] = plannedComponentIds
+    .filter((cid) => !jwComponentIds.has(cid))
     .map((cid) => {
       const required = plannedByComponent.get(cid) ?? 0;
       const lots = (statusLots ?? []).filter((l) => l.component_id === cid);
@@ -212,14 +229,13 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
     })
     .sort((a, b) => a.component_label.localeCompare(b.component_label));
 
+  // True when every planned component is job-work (Stock status ends up empty
+  // not because there's no BOM, but because they all belong in Job work below).
+  const allJobWork = plannedComponentIds.length > 0 && stockStatusRows.length === 0 && jwComponentIds.size === plannedComponentIds.length;
+
   // Job-work breakdown: for is_job_work BOM components, split on-hand stock into
   // raw (not yet sent) vs completed (ready), and net off what's already been
   // dispatched to a vendor and is awaiting return.
-  const { data: jwComps } = plannedComponentIds.length
-    ? await supabase.from("components").select("id, jw_vendor_id").in("id", plannedComponentIds).eq("is_job_work", true)
-    : { data: [] };
-  const jwComponentIds = new Set((jwComps ?? []).map((c) => c.id));
-
   const { data: myJwOrders } = await supabase
     .from("job_work_orders")
     .select("id, jw_no, vendor_id, status, sent_date, expected_date")
@@ -277,6 +293,17 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
     sent_date: o.sent_date,
     expected_date: o.expected_date,
   }));
+
+  // Components whose covering stock right now is raw or in-transit-to-vendor,
+  // not completed — labeled "Name (raw)" in the BOM and shortfall panels.
+  const rawOnlyComponentIds = new Set(
+    jwStockRows
+      .filter((r) => r.completed_available <= 0 && (r.raw_available > 0 || r.sent_outstanding > 0))
+      .map((r) => r.component_id)
+  );
+  const withRaw = (cid: string | null, label: string) => (cid && rawOnlyComponentIds.has(cid) ? `${label} (raw)` : label);
+  bomLines = bomLines.map((l) => ({ ...l, component_label: withRaw(l.component_id, l.component_label) }));
+  shortfallRows = shortfallRows.map((r) => ({ ...r, component_label: withRaw(r.component_id, r.component_label) }));
 
   return (
     <div>
@@ -348,17 +375,6 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         />
       </CollapsibleSection>
 
-      <CollapsibleSection id="stock-status" title="Stock status & blocking" defaultOpen>
-        <StockStatusPanel
-          projectId={id}
-          bomId={bom?.id ?? null}
-          bomApproved={bom?.status === "approved"}
-          rows={stockStatusRows}
-          canWrite={canWrite}
-          blockAction={blockStockForBom}
-        />
-      </CollapsibleSection>
-
       {jwStockRows.length > 0 && (
         <CollapsibleSection
           id="job-work"
@@ -369,12 +385,35 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         </CollapsibleSection>
       )}
 
+      <CollapsibleSection id="stock-status" title="Stock status & blocking" defaultOpen>
+        <StockStatusPanel
+          projectId={id}
+          bomId={bom?.id ?? null}
+          bomApproved={bom?.status === "approved"}
+          rows={stockStatusRows}
+          allJobWork={allJobWork}
+          canWrite={canWrite}
+          blockAction={blockStockForBom}
+        />
+      </CollapsibleSection>
+
       <CollapsibleSection id="issued" title="Materials issued">
         <IssuedPanel rows={issuedRows} />
       </CollapsibleSection>
 
       <CollapsibleSection id="shortfall" title="Stock check & shortfall" defaultOpen={shortfallRows.some((r) => r.shortfall > 0)}>
         <ShortfallPanel projectId={id} rows={shortfallRows} canProcure={canWrite} />
+      </CollapsibleSection>
+
+      <CollapsibleSection id="site-purchase" title="Site purchase">
+        <SitePurchaseForm
+          projectId={id}
+          bomApproved={bom?.status === "approved"}
+          components={components ?? []}
+          vendors={vendors ?? []}
+          showUnitCost={canSeeFinancials(profile?.role)}
+          action={logSitePurchase}
+        />
       </CollapsibleSection>
     </div>
   );

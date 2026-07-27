@@ -23,14 +23,14 @@ export default async function PoDetailPage({ params }: { params: Promise<{ id: s
   const [{ data: lines }, { data: components }, { data: vendors }, { data: projects }, { data: vcs }, { data: customers }] =
     await Promise.all([
       supabase.from("po_lines").select("*").eq("po_id", id).order("created_at"),
-      supabase.from("components").select("id, component_no, name").order("component_no"),
+      supabase.from("components").select("id, component_no, name, is_job_work").order("component_no"),
       supabase.from("vendors").select("id, name").eq("is_active", true).order("name"),
       supabase.from("projects").select("id, project_no, customer_id").order("project_no"),
       supabase.from("vendor_components").select("component_id, price, vendor_id"),
       supabase.from("customers").select("id, name"),
     ]);
 
-  const compLabel = new Map((components ?? []).map((c) => [c.id, `${c.component_no} — ${c.name}`]));
+  const compLabel = new Map((components ?? []).map((c) => [c.id, `${c.component_no} — ${c.name}${c.is_job_work ? " (raw)" : ""}`]));
   const vName = new Map((vendors ?? []).map((v) => [v.id, v.name]));
   const custName = new Map((customers ?? []).map((c) => [c.id, c.name]));
 

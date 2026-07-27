@@ -7,7 +7,7 @@ import {
   Menu, X, LogOut, ChevronsUpDown, Circle,
   LayoutDashboard, Boxes, Wrench, FolderTree, Truck, ListTree,
   FolderKanban, ClipboardList, ShoppingCart, PackageCheck, Warehouse,
-  Package, AlertTriangle, Gauge, UserCog, Users,
+  Package, AlertTriangle, Gauge, UserCog, Users, ClipboardCheck, ScanLine,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -19,6 +19,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { NotificationBell, type NotificationItem } from "@/components/notification-bell";
 import { logout } from "@/app/(app)/actions";
 
 const ICONS: Record<string, LucideIcon> = {
@@ -29,11 +30,13 @@ const ICONS: Record<string, LucideIcon> = {
   "/masters/vendors": Truck,
   "/masters/customers": Users,
   "/masters/bom-templates": ListTree,
+  "/masters/inspection-templates": ClipboardCheck,
   "/projects": FolderKanban,
   "/requisitions": ClipboardList,
   "/purchase-orders": ShoppingCart,
   "/grn": PackageCheck,
   "/inventory": Warehouse,
+  "/traceability": ScanLine,
   "/finished-goods": Package,
   "/reconciliation": AlertTriangle,
   "/suppliers": Gauge,
@@ -44,11 +47,13 @@ export function AppShell({
   fullName,
   email,
   role,
+  notifications = [],
   children,
 }: {
   fullName: string | null;
   email: string | undefined;
   role: Role;
+  notifications?: NotificationItem[];
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -120,6 +125,7 @@ export function AppShell({
             <Menu className="size-5" />
           </button>
           <div className="ml-auto flex items-center gap-3 text-sm">
+            {(role === "admin" || role === "team_lead") && <NotificationBell notifications={notifications} />}
             <span className="hidden text-muted-foreground sm:inline">{fullName ?? email}</span>
             <span className="rounded-full bg-accent px-2.5 py-0.5 text-xs font-medium text-accent-foreground">
               {ROLE_LABELS[role]}

@@ -31,6 +31,7 @@ const FIELDS = {
   raw_supplier_id: "string",
   jw_vendor_id: "string",
   jw_rate: "number",
+  inspection_template_id: "string",
 } as const;
 
 export async function upsert(fd: FormData): Promise<ActionResult> {

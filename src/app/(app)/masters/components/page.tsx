@@ -11,19 +11,24 @@ export default async function ComponentsPage() {
 
   // team_member reads the column-masked safe view (no standard_cost / jw_rate)
   const source = finance ? "components" : "v_components_safe";
-  const [{ data }, { data: vendors }, { data: assemblies }] = await Promise.all([
+  const [{ data }, { data: vendors }, { data: assemblies }, { data: templates }] = await Promise.all([
     supabase.from(source as "components").select("*").order("component_no"),
     supabase.from("vendors").select("id, name").order("name"),
     supabase.from(source as "components").select("id, component_no, name").eq("is_assembly", true).order("component_no"),
+    supabase.from("inspection_templates").select("id, name").eq("is_active", true).order("name"),
   ]);
   const vendorOptions = (vendors ?? []).map((v) => ({ value: v.id, label: v.name }));
   const assemblyOptions = (assemblies ?? []).map((a) => ({ value: a.id, label: `${a.component_no} — ${a.name}` }));
   const assemblyLabel = new Map((assemblies ?? []).map((a) => [a.id, `${a.component_no} — ${a.name}`]));
+  const templateOptions = (templates ?? []).map((t) => ({ value: t.id, label: t.name }));
+
+  const templateLabel = new Map((templates ?? []).map((t) => [t.id, t.name]));
 
   // enrich rows with a readable sub-assembly label for the list column
   const rows = (data ?? []).map((r) => ({
     ...r,
     parent_assembly_label: r.parent_assembly_id ? assemblyLabel.get(r.parent_assembly_id) ?? "—" : "—",
+    inspection_template_label: r.inspection_template_id ? templateLabel.get(r.inspection_template_id) ?? "—" : "—",
   }));
 
   const columns: Column[] = [
@@ -35,6 +40,7 @@ export default async function ComponentsPage() {
     { key: "parent_assembly_label", label: "Sub-assembly" },
     { key: "is_assembly", label: "Assembly", format: "bool" },
     { key: "is_job_work", label: "Job Work", format: "bool" },
+    { key: "inspection_template_label", label: "Inspection" },
     { key: "uom", label: "UoM" },
     { key: "standard_cost", label: "Std Cost", format: "inr", financial: true },
   ];
@@ -88,6 +94,13 @@ export default async function ComponentsPage() {
     { name: "raw_supplier_id", label: "Raw supplier", type: "select", options: vendorOptions, help: "Vendor the raw form is bought from." },
     { name: "jw_vendor_id", label: "Job-work vendor", type: "select", options: vendorOptions, help: "Vendor that finishes the raw into the completed part." },
     { name: "jw_rate", label: "Job-work rate (₹ / unit)", type: "number", step: "any", financial: true },
+    {
+      name: "inspection_template_id",
+      label: "Inspection template",
+      type: "select",
+      options: templateOptions,
+      help: "Requires an IRN (inspection) before goods received at GRN become stock. Item/Bulk tracking only — not Box.",
+    },
     { name: "description", label: "Description", type: "textarea" },
   ];
 

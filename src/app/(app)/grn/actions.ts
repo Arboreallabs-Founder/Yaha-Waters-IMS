@@ -26,6 +26,7 @@ export async function createGrn(fd: FormData): Promise<ActionResult> {
       grn_no: grnNo,
       vendor_id,
       challan_no: String(fd.get("challan_no") ?? "") || null,
+      invoice_no: String(fd.get("invoice_no") ?? "") || null,
       received_by: p.id,
       created_by: p.id,
     })
