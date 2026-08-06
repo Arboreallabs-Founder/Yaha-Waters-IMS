@@ -1,8 +1,26 @@
+import { revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile, canWriteMasters } from "@/lib/auth";
+import { MASTER_TAGS } from "@/lib/masters-data";
 
 export type ParseType = "string" | "number" | "boolean";
 export type ActionResult = { ok?: true; error?: string; redirect?: string };
+
+// Tables backed by a cached getter in src/lib/masters-data.ts — invalidate on
+// every successful write so the cache never serves stale data past this
+// request. `components` backs both the full and financial-masked cache
+// entries (v_components_safe is a view over it), so a write there must
+// invalidate both.
+const TABLE_TAGS: Record<string, readonly string[]> = {
+  vendors: [MASTER_TAGS.vendors],
+  customers: [MASTER_TAGS.customers],
+  categories: [MASTER_TAGS.categories],
+  components: [MASTER_TAGS.componentsFull, MASTER_TAGS.componentsSafe],
+};
+
+function invalidateMasterCache(table: string) {
+  for (const tag of TABLE_TAGS[table] ?? []) revalidateTag(tag);
+}
 
 /**
  * Generic upsert for master tables. Parses FormData by field spec, enforces
@@ -43,6 +61,7 @@ export async function upsertRecord(
     resp = await tbl.insert(payload);
   }
   if (resp.error) return { error: friendlyError(resp.error.message, resp.error.code) };
+  invalidateMasterCache(table);
   return { ok: true };
 }
 
@@ -64,6 +83,7 @@ export async function upsertRaw(
   if (id) resp = await tbl.update(payload).eq("id", id);
   else resp = await tbl.insert({ ...payload, created_by: profile!.id });
   if (resp.error) return { error: friendlyError(resp.error.message, resp.error.code) };
+  invalidateMasterCache(table);
   return { ok: true };
 }
 
@@ -91,6 +111,7 @@ export async function deleteRecord(table: string, fd: FormData): Promise<ActionR
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const resp = await (supabase.from(table as any) as any).delete().eq("id", String(id));
   if (resp.error) return { error: friendlyError(resp.error.message, resp.error.code) };
+  invalidateMasterCache(table);
   return { ok: true };
 }
 

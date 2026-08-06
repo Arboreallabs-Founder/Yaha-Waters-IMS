@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile, canWriteMasters, canSeeFinancials } from "@/lib/auth";
+import { getVendors, getComponentsFull } from "@/lib/masters-data";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,18 +21,20 @@ export default async function JobWorkDetailPage({ params }: { params: Promise<{ 
   const finance = canSeeFinancials(profile?.role);
   const supabase = await createClient();
 
-  const { data: order } = await supabase.from("job_work_orders").select("*").eq("id", id).single();
-  if (!order) notFound();
-
-  const [{ data: lines }, { data: comps }, { data: lots }, { data: vendor }, project] = await Promise.all([
+  const [{ data: order }, { data: lines }, componentsAll, { data: lots }, vendorsAll] = await Promise.all([
+    supabase.from("job_work_orders").select("*").eq("id", id).single(),
     supabase.from("job_work_lines").select("*").eq("jw_order_id", id).order("created_at"),
-    supabase.from("components").select("id, component_no, name, jw_rate").eq("is_job_work", true).order("component_no"),
+    getComponentsFull(),
     supabase.from("inventory_lots").select("id, component_id, lot_code, qty_on_hand, unit_cost").eq("jw_stage", "raw").eq("status", "open").gt("qty_on_hand", 0),
-    order.vendor_id ? supabase.from("vendors").select("name").eq("id", order.vendor_id).maybeSingle() : Promise.resolve({ data: null }),
-    order.project_id
-      ? supabase.from("projects").select("project_no, customer_id").eq("id", order.project_id).maybeSingle()
-      : Promise.resolve({ data: null }),
+    getVendors(),
   ]);
+  if (!order) notFound();
+  const comps = componentsAll.filter((c) => c.is_job_work);
+  const vendor = order.vendor_id ? vendorsAll.find((v) => v.id === order.vendor_id) ?? null : null;
+
+  const project = order.project_id
+    ? await supabase.from("projects").select("project_no, customer_id").eq("id", order.project_id).maybeSingle()
+    : { data: null };
   let projectDisplay: string | null = null;
   if (project.data) {
     const { data: cust } = project.data.customer_id

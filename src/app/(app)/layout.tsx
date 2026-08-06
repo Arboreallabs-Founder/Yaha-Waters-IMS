@@ -1,21 +1,15 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser, getProfile } from "@/lib/auth";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { logout } from "./actions";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
+  const profile = await getProfile();
 
   if (!profile || !profile.is_active) {
     return (
@@ -41,6 +35,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   let notifications: { id: string; message: string; link_path: string | null; created_at: string }[] = [];
   if (profile.role === "admin" || profile.role === "team_lead") {
+    const supabase = await createClient();
     const [{ data: notifs }, { data: reads }] = await Promise.all([
       supabase.from("notifications").select("id, message, link_path, created_at").order("created_at", { ascending: false }).limit(50),
       supabase.from("notification_reads").select("notification_id").eq("profile_id", profile.id),

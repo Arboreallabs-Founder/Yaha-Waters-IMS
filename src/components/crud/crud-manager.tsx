@@ -56,6 +56,7 @@ export function CrudManager({
   searchKeys,
   detailBase,
   hiddenValues,
+  dialogClassName,
 }: {
   title: string;
   entityName: string;
@@ -71,6 +72,8 @@ export function CrudManager({
   detailBase?: string;
   /** Hidden fixed values injected into every create/edit form (e.g. parent FK). */
   hiddenValues?: Record<string, string>;
+  /** Override the create/edit dialog's width (e.g. "max-w-2xl") for field-heavy masters. */
+  dialogClassName?: string;
 }) {
   const router = useRouter();
   const [query, setQuery] = React.useState("");
@@ -223,6 +226,7 @@ export function CrudManager({
         open={creating || editing !== null}
         onClose={close}
         title={`${editing ? "Edit" : "Add"} ${entityName}`}
+        className={dialogClassName}
       >
         <form onSubmit={onSubmit} className="space-y-4">
           {editing && <input type="hidden" name="id" value={editing.id} />}

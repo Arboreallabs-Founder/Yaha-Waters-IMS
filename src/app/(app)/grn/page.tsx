@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile, canWriteMasters } from "@/lib/auth";
+import { getVendors } from "@/lib/masters-data";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -58,16 +59,15 @@ export default async function GrnPage({
 }
 
 async function activeVendors() {
-  const supabase = await createClient();
-  const { data } = await supabase.from("vendors").select("id, name").eq("is_active", true).order("name");
-  return data ?? [];
+  const vendors = await getVendors();
+  return vendors.filter((v) => v.is_active).map((v) => ({ id: v.id, name: v.name }));
 }
 
 async function AllGrnsTab() {
   const supabase = await createClient();
-  const [{ data: grns }, { data: vendors }, { data: lines }] = await Promise.all([
+  const [{ data: grns }, vendors, { data: lines }] = await Promise.all([
     supabase.from("grns").select("*").order("received_at", { ascending: false }),
-    supabase.from("vendors").select("id, name").eq("is_active", true).order("name"),
+    activeVendors(),
     supabase.from("grn_lines").select("grn_id"),
   ]);
 

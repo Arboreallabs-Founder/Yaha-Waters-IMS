@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile, canWriteMasters, canSeeFinancials } from "@/lib/auth";
+import { getVendors, getComponentsFull, getCustomers } from "@/lib/masters-data";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -42,42 +43,53 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   const canWrite = canWriteMasters(profile?.role);
   const supabase = await createClient();
 
-  const { data: project } = await supabase.from("projects").select("*").eq("id", id).single();
-  if (!project) notFound();
-
+  // Wave 1 (parallel): everything that only needs the route `id`, not any
+  // other query's result — includes what used to be separate sequential
+  // awaits (costing/shortfall/consumption/myJwOrders) purely because they
+  // were written after earlier `await`s, not because they depended on them.
   const [
-    { data: customer },
+    { data: project },
     { data: products },
     { data: vparams },
     { data: lineItems },
     { data: bom },
-    { data: components },
-    { data: vendors },
+    components,
+    vendorsAll,
+    customersAll,
+    { data: costing },
+    { data: shortfall },
+    { data: consumption },
+    { data: myJwOrders },
   ] = await Promise.all([
-    project.customer_id
-      ? supabase.from("customers").select("name").eq("id", project.customer_id).maybeSingle()
-      : Promise.resolve({ data: null }),
+    supabase.from("projects").select("*").eq("id", id).single(),
     supabase.from("products").select("id, sku_code, model_name").order("sku_code"),
     supabase.from("product_variant_params").select("*").order("sort_order"),
     supabase.from("project_line_items").select("*").eq("project_id", id).order("created_at"),
     supabase.from("boms").select("id, status, approved_at").eq("project_id", id).maybeSingle(),
-    supabase.from("components").select("id, component_no, name").order("component_no"),
-    supabase.from("vendors").select("id, name").eq("is_active", true).order("name"),
+    getComponentsFull(),
+    getVendors(),
+    getCustomers(),
+    supabase.from("v_project_costing")
+      .select("customer_po_value, ordered_value, received_value, consumed_value")
+      .eq("project_id", id)
+      .maybeSingle(),
+    supabase.from("v_project_shortfall")
+      .select("component_id, required_qty, ordered_qty, on_hand, consumed_qty, sent_to_jw_qty, shortfall_qty")
+      .eq("project_id", id),
+    supabase.from("v_project_consumption").select("component_id, consumed_qty").eq("project_id", id),
+    supabase.from("job_work_orders")
+      .select("id, jw_no, vendor_id, status, sent_date, expected_date")
+      .eq("project_id", id)
+      .order("created_at", { ascending: false }),
   ]);
+  if (!project) notFound();
+  const vendors = vendorsAll.filter((v) => v.is_active);
+  // In-memory lookup against the wave-1 customer list — no query needed.
+  const customer = project.customer_id ? customersAll.find((c) => c.id === project.customer_id) ?? null : null;
 
   const productLabel = new Map((products ?? []).map((p) => [p.id, `${p.sku_code} — ${p.model_name}`]));
   const componentLabel = new Map((components ?? []).map((c) => [c.id, `${c.component_no} — ${c.name}`]));
 
-  const { data: costing } = await supabase
-    .from("v_project_costing")
-    .select("customer_po_value, ordered_value, received_value, consumed_value")
-    .eq("project_id", id)
-    .maybeSingle();
-
-  const { data: shortfall } = await supabase
-    .from("v_project_shortfall")
-    .select("component_id, required_qty, ordered_qty, on_hand, consumed_qty, sent_to_jw_qty, shortfall_qty")
-    .eq("project_id", id);
   let shortfallRows = (shortfall ?? [])
     .map((s) => ({
       component_id: s.component_id ?? "",
@@ -110,15 +122,25 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
     quantity: li.quantity,
   }));
 
+  // myJwOrders already fetched in wave 1 — derive the ids wave 2 needs.
+  const myJwOrderIds = (myJwOrders ?? []).map((o) => o.id);
+  const openJwOrderIds = new Set((myJwOrders ?? []).filter((o) => o.status === "sent" || o.status === "partial").map((o) => o.id));
+
+  // Wave 2 (parallel, needs wave 1's bom.id / myJwOrderIds) — these two
+  // queries don't depend on each other, only on wave 1's results.
+  const [{ data: rawBomLines }, { data: myJwLines }] = await Promise.all([
+    bom
+      ? supabase.from("bom_lines").select("id, component_id, required_qty, source, note").eq("bom_id", bom.id).order("source")
+      : Promise.resolve({ data: null }),
+    myJwOrderIds.length
+      ? supabase.from("job_work_lines").select("jw_order_id, component_id, qty_sent, qty_returned").in("jw_order_id", myJwOrderIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
   let bomLines: { id: string; component_id: string | null; component_label: string; required_qty: number; source: string; note: string | null }[] = [];
   const plannedByComponent = new Map<string, number>();
-  if (bom) {
-    const { data: lines } = await supabase
-      .from("bom_lines")
-      .select("id, component_id, required_qty, source, note")
-      .eq("bom_id", bom.id)
-      .order("source");
-    bomLines = (lines ?? []).map((l) => ({
+  if (bom && rawBomLines) {
+    bomLines = rawBomLines.map((l) => ({
       id: l.id,
       component_id: l.component_id,
       component_label: l.component_id ? componentLabel.get(l.component_id) ?? "—" : "—",
@@ -126,18 +148,21 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       source: l.source,
       note: l.note,
     }));
-    for (const l of lines ?? []) {
+    for (const l of rawBomLines) {
       if (!l.component_id) continue;
       plannedByComponent.set(l.component_id, (plannedByComponent.get(l.component_id) ?? 0) + Number(l.required_qty ?? 0));
     }
   }
 
-  // Materials issued: actual consumption (stock_movements, via v_project_consumption) vs the
+  const sentOutstanding = new Map<string, number>();
+  for (const l of myJwLines ?? []) {
+    if (!l.component_id || !openJwOrderIds.has(l.jw_order_id)) continue;
+    const out = Number(l.qty_sent ?? 0) - Number(l.qty_returned ?? 0);
+    sentOutstanding.set(l.component_id, (sentOutstanding.get(l.component_id) ?? 0) + out);
+  }
+
+  // Materials issued: actual consumption (from wave 1's v_project_consumption) vs the
   // planned BOM — surfaces anything scanned/issued that isn't even in the plan.
-  const { data: consumption } = await supabase
-    .from("v_project_consumption")
-    .select("component_id, consumed_qty")
-    .eq("project_id", id);
   const issuedByComponent = new Map<string, number>();
   for (const c of consumption ?? []) {
     if (!c.component_id) continue;
@@ -156,36 +181,35 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
 
   const plannedComponentIds = [...plannedByComponent.keys()];
 
-  // Job-work component ids — needed before Stock status below, so JW
-  // components (which have their own dedicated, stage-aware panel) can be
-  // excluded from that table instead of showing a misleading "Available"/
-  // "Blocked" badge for stock that's still raw and can't actually be consumed.
-  const { data: jwComps } = plannedComponentIds.length
-    ? await supabase.from("components").select("id, jw_vendor_id").in("id", plannedComponentIds).eq("is_job_work", true)
-    : { data: [] };
+  // Wave 3 (parallel, needs wave 2's plannedComponentIds). Job-work component
+  // ids — needed before Stock status below, so JW components (which have
+  // their own dedicated, stage-aware panel) can be excluded from that table
+  // instead of showing a misleading "Available"/"Blocked" badge for stock
+  // that's still raw and can't actually be consumed — and stock-status lots.
+  const [{ data: jwComps }, { data: statusLots }] = await Promise.all([
+    plannedComponentIds.length
+      ? supabase.from("components").select("id, jw_vendor_id").in("id", plannedComponentIds).eq("is_job_work", true)
+      : Promise.resolve({ data: [] }),
+    plannedComponentIds.length
+      ? supabase
+          .from("inventory_lots")
+          .select("component_id, qty_on_hand, status, project_id, jw_stage")
+          .in("component_id", plannedComponentIds)
+          .neq("status", "consumed")
+          .gt("qty_on_hand", 0)
+      : Promise.resolve({ data: [] }),
+  ]);
   const jwComponentIds = new Set((jwComps ?? []).map((c) => c.id));
-
-  // Stock status per BOM component: blocked (mine) / available (open, untagged
-  // or mine) / issued to another project / out of stock.
-  const { data: statusLots } = plannedComponentIds.length
-    ? await supabase
-        .from("inventory_lots")
-        .select("component_id, qty_on_hand, status, project_id, jw_stage")
-        .in("component_id", plannedComponentIds)
-        .neq("status", "consumed")
-        .gt("qty_on_hand", 0)
-    : { data: [] };
 
   const otherProjectIds = [...new Set((statusLots ?? [])
     .filter((l) => l.project_id && l.project_id !== id)
     .map((l) => l.project_id as string))];
-  const [{ data: otherProjects }, { data: otherCustomers }] = otherProjectIds.length
-    ? await Promise.all([
-        supabase.from("projects").select("id, project_no, customer_id").in("id", otherProjectIds),
-        supabase.from("customers").select("id, name"),
-      ])
-    : [{ data: [] }, { data: [] }];
-  const otherCustName = new Map((otherCustomers ?? []).map((c) => [c.id, c.name]));
+  // Wave 4 (needs wave 3's otherProjectIds). otherCustomers is no longer its
+  // own query — reuses wave 1's full customer list.
+  const { data: otherProjects } = otherProjectIds.length
+    ? await supabase.from("projects").select("id, project_no, customer_id").in("id", otherProjectIds)
+    : { data: [] };
+  const otherCustName = new Map((customersAll ?? []).map((c) => [c.id, c.name]));
   const otherProjectNo = new Map((otherProjects ?? []).map((p) => [
     p.id,
     projectLabel({ project_no: p.project_no, customer_name: p.customer_id ? otherCustName.get(p.customer_id) ?? null : null }),
@@ -233,30 +257,12 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   // not because there's no BOM, but because they all belong in Job work below).
   const allJobWork = plannedComponentIds.length > 0 && stockStatusRows.length === 0 && jwComponentIds.size === plannedComponentIds.length;
 
-  // Job-work breakdown: for is_job_work BOM components, split on-hand stock into
-  // raw (not yet sent) vs completed (ready), and net off what's already been
-  // dispatched to a vendor and is awaiting return.
-  const { data: myJwOrders } = await supabase
-    .from("job_work_orders")
-    .select("id, jw_no, vendor_id, status, sent_date, expected_date")
-    .eq("project_id", id)
-    .order("created_at", { ascending: false });
-  const myJwOrderIds = (myJwOrders ?? []).map((o) => o.id);
-  const openJwOrderIds = new Set((myJwOrders ?? []).filter((o) => o.status === "sent" || o.status === "partial").map((o) => o.id));
-  const { data: myJwLines } = myJwOrderIds.length
-    ? await supabase.from("job_work_lines").select("jw_order_id, component_id, qty_sent, qty_returned").in("jw_order_id", myJwOrderIds)
-    : { data: [] };
-  const sentOutstanding = new Map<string, number>();
-  for (const l of myJwLines ?? []) {
-    if (!l.component_id || !openJwOrderIds.has(l.jw_order_id)) continue;
-    const out = Number(l.qty_sent ?? 0) - Number(l.qty_returned ?? 0);
-    sentOutstanding.set(l.component_id, (sentOutstanding.get(l.component_id) ?? 0) + out);
-  }
+  // Job-work vendor breakdown — myJwOrders/myJwLines/sentOutstanding were
+  // already computed above (wave 1 / wave 2).
   const jwVendorIds = [...new Set((jwComps ?? []).map((c) => c.jw_vendor_id).filter(Boolean))] as string[];
   const jwOrderVendorIds = [...new Set((myJwOrders ?? []).map((o) => o.vendor_id).filter(Boolean))] as string[];
-  const { data: jwVendors } = (jwVendorIds.length || jwOrderVendorIds.length)
-    ? await supabase.from("vendors").select("id, name").in("id", [...new Set([...jwVendorIds, ...jwOrderVendorIds])])
-    : { data: [] };
+  const jwVendorIdSet = new Set([...jwVendorIds, ...jwOrderVendorIds]);
+  const jwVendors = vendorsAll.filter((v) => jwVendorIdSet.has(v.id));
   const jwVendorName = new Map((jwVendors ?? []).map((v) => [v.id, v.name]));
 
   const jwStockRows: JwStockRow[] = [...jwComponentIds]

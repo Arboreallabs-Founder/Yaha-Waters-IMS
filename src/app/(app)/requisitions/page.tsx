@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getCustomers } from "@/lib/masters-data";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -18,11 +19,11 @@ const STATUS_VARIANT: Record<string, "secondary" | "warning" | "success"> = {
 
 export default async function RequisitionsPage() {
   const supabase = await createClient();
-  const [{ data: reqs }, { data: projects }, { data: lines }, { data: customers }] = await Promise.all([
+  const [{ data: reqs }, { data: projects }, { data: lines }, customers] = await Promise.all([
     supabase.from("requisitions").select("*").order("created_at", { ascending: false }),
     supabase.from("projects").select("id, project_no, customer_id").order("project_no"),
     supabase.from("requisition_lines").select("requisition_id"),
-    supabase.from("customers").select("id, name"),
+    getCustomers(),
   ]);
 
   const custName = new Map((customers ?? []).map((c) => [c.id, c.name]));

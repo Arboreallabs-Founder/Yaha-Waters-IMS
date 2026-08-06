@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, Hammer } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile, canWriteMasters } from "@/lib/auth";
+import { getVendors, getComponentsFull, getCustomers } from "@/lib/masters-data";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,15 +20,16 @@ export default async function JobWorkPage() {
   const canWrite = canWriteMasters(profile?.role); // admin / team_lead
   const supabase = await createClient();
 
-  const [{ data: orders }, { data: vendors }, { data: projects }, { data: rawLots }, { data: comps }, { data: customers }] =
+  const [{ data: orders }, vendorsAll, { data: projects }, { data: rawLots }, comps, customers] =
     await Promise.all([
       supabase.from("job_work_orders").select("*").order("created_at", { ascending: false }),
-      supabase.from("vendors").select("id, name").eq("is_active", true).order("name"),
+      getVendors(),
       supabase.from("projects").select("id, project_no, customer_id").order("project_no"),
       supabase.from("inventory_lots").select("component_id, qty_on_hand").eq("jw_stage", "raw").eq("status", "open").gt("qty_on_hand", 0),
-      supabase.from("components").select("id, component_no, name, jw_vendor_id"),
-      supabase.from("customers").select("id, name"),
+      getComponentsFull(),
+      getCustomers(),
     ]);
+  const vendors = vendorsAll.filter((v) => v.is_active);
 
   const vName = new Map((vendors ?? []).map((v) => [v.id, v.name]));
   const compById = new Map((comps ?? []).map((c) => [c.id, c]));

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Printer } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile, canSeeFinancials, canWriteMasters } from "@/lib/auth";
+import { getVendors, getComponentsFull, getCustomers } from "@/lib/masters-data";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,15 +21,16 @@ export default async function PoDetailPage({ params }: { params: Promise<{ id: s
   const { data: po } = await supabase.from("purchase_orders").select("*").eq("id", id).single();
   if (!po) notFound();
 
-  const [{ data: lines }, { data: components }, { data: vendors }, { data: projects }, { data: vcs }, { data: customers }] =
+  const [{ data: lines }, components, vendorsAll, { data: projects }, { data: vcs }, customers] =
     await Promise.all([
       supabase.from("po_lines").select("*").eq("po_id", id).order("created_at"),
-      supabase.from("components").select("id, component_no, name, is_job_work").order("component_no"),
-      supabase.from("vendors").select("id, name").eq("is_active", true).order("name"),
+      getComponentsFull(),
+      getVendors(),
       supabase.from("projects").select("id, project_no, customer_id").order("project_no"),
       supabase.from("vendor_components").select("component_id, price, vendor_id"),
-      supabase.from("customers").select("id, name"),
+      getCustomers(),
     ]);
+  const vendors = vendorsAll.filter((v) => v.is_active);
 
   const compLabel = new Map((components ?? []).map((c) => [c.id, `${c.component_no} — ${c.name}${c.is_job_work ? " (raw)" : ""}`]));
   const vName = new Map((vendors ?? []).map((v) => [v.id, v.name]));

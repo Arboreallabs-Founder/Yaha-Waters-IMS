@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile, canSeeFinancials, canWriteMasters } from "@/lib/auth";
+import { getVendors, getComponentsFull, getCustomers } from "@/lib/masters-data";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -24,15 +25,16 @@ export default async function PurchaseOrdersPage() {
   const canWrite = canWriteMasters(profile?.role); // admin / team_lead
   const supabase = await createClient();
 
-  const [{ data: pos }, { data: vendors }, { data: untagged }, { data: components }, { data: projects }, { data: customers }] =
+  const [{ data: pos }, vendorsAll, { data: untagged }, components, { data: projects }, customers] =
     await Promise.all([
       supabase.from("purchase_orders").select("*").order("created_at", { ascending: false }),
-      supabase.from("vendors").select("id, name").eq("is_active", true).order("name"),
+      getVendors(),
       supabase.from("po_lines").select("id, po_id, component_id, qty_ordered").is("project_id", null),
-      supabase.from("components").select("id, component_no, name"),
+      getComponentsFull(),
       supabase.from("projects").select("id, project_no, customer_id").order("project_no"),
-      supabase.from("customers").select("id, name"),
+      getCustomers(),
     ]);
+  const vendors = vendorsAll.filter((v) => v.is_active);
   const vName = new Map((vendors ?? []).map((v) => [v.id, v.name]));
   const poNoById = new Map((pos ?? []).map((po) => [po.id, po.po_no]));
   const compLabel = new Map((components ?? []).map((c) => [c.id, `${c.component_no} — ${c.name}`]));

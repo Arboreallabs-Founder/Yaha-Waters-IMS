@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getProfile, canWriteMasters, canSeeFinancials } from "@/lib/auth";
+import { getVendors, getComponents } from "@/lib/masters-data";
 import { PageHeader } from "@/components/page-header";
 import { CrudManager, type Column, type Field } from "@/components/crud/crud-manager";
 import { upsert, remove } from "./actions";
@@ -10,13 +11,12 @@ export default async function ComponentsPage() {
   const supabase = await createClient();
 
   // team_member reads the column-masked safe view (no standard_cost / jw_rate)
-  const source = finance ? "components" : "v_components_safe";
-  const [{ data }, { data: vendors }, { data: assemblies }, { data: templates }] = await Promise.all([
-    supabase.from(source as "components").select("*").order("component_no"),
-    supabase.from("vendors").select("id, name").order("name"),
-    supabase.from(source as "components").select("id, component_no, name").eq("is_assembly", true).order("component_no"),
+  const [data, vendors, { data: templates }] = await Promise.all([
+    getComponents(finance),
+    getVendors(),
     supabase.from("inspection_templates").select("id, name").eq("is_active", true).order("name"),
   ]);
+  const assemblies = data.filter((c) => c.is_assembly);
   const vendorOptions = (vendors ?? []).map((v) => ({ value: v.id, label: v.name }));
   const assemblyOptions = (assemblies ?? []).map((a) => ({ value: a.id, label: `${a.component_no} — ${a.name}` }));
   const assemblyLabel = new Map((assemblies ?? []).map((a) => [a.id, `${a.component_no} — ${a.name}`]));
@@ -121,6 +121,7 @@ export default async function ComponentsPage() {
         canWrite={canWriteMasters(profile?.role)}
         canSeeFinancials={finance}
         searchKeys={["component_no", "name", "type", "grade"]}
+        dialogClassName="max-w-2xl"
       />
     </div>
   );
