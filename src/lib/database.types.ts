@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.15"
   }
   public: {
     Tables: {
@@ -598,9 +598,14 @@ export type Database = {
           contact: string | null
           created_at: string
           created_by: string | null
+          delivery_address: string | null
+          email: string | null
           gst_no: string | null
           id: string
           name: string
+          phone_country_code: string | null
+          phone_number: string | null
+          registered_address: string | null
           updated_at: string | null
         }
         Insert: {
@@ -608,9 +613,14 @@ export type Database = {
           contact?: string | null
           created_at?: string
           created_by?: string | null
+          delivery_address?: string | null
+          email?: string | null
           gst_no?: string | null
           id?: string
           name: string
+          phone_country_code?: string | null
+          phone_number?: string | null
+          registered_address?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -618,9 +628,14 @@ export type Database = {
           contact?: string | null
           created_at?: string
           created_by?: string | null
+          delivery_address?: string | null
+          email?: string | null
           gst_no?: string | null
           id?: string
           name?: string
+          phone_country_code?: string | null
+          phone_number?: string | null
+          registered_address?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -4422,6 +4437,10 @@ export type Database = {
       next_po_no: { Args: never; Returns: string }
       next_req_no: { Args: never; Returns: string }
       next_site_purchase_no: { Args: never; Returns: string }
+      notify_grn_missing_invoice: {
+        Args: { p_grn_id: string; p_user_id: string }
+        Returns: undefined
+      }
       project_shortfall: {
         Args: { p_project: string }
         Returns: {
