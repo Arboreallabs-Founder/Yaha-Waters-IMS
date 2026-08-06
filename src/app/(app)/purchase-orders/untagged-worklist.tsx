@@ -42,10 +42,16 @@ export function UntaggedWorklist({
     else router.refresh();
   }
 
-  if (lines.length === 0) return null;
+  if (lines.length === 0) {
+    return (
+      <div className="rounded-lg border border-border bg-muted/30 py-10 text-center text-sm text-muted-foreground">
+        Nothing untagged — every PO line is tied to a project.
+      </div>
+    );
+  }
 
   return (
-    <div className="mb-8 rounded-lg border border-amber-200 bg-amber-50/50 p-4">
+    <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-4">
       <div className="mb-3 flex items-center gap-2">
         <AlertTriangle className="size-4 text-amber-600" />
         <h2 className="text-sm font-semibold text-amber-800">
