@@ -5,9 +5,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Menu, X, LogOut, ChevronsUpDown, Circle,
-  LayoutDashboard, Boxes, Wrench, FolderTree, Truck, ListTree,
+  LayoutDashboard, Database,
   FolderKanban, ClipboardList, ShoppingCart, PackageCheck, Warehouse,
-  Package, AlertTriangle, Gauge, UserCog, Users, ClipboardCheck, ScanLine,
+  Package, AlertTriangle, Gauge, UserCog, ScanLine,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -24,13 +24,7 @@ import { logout } from "@/app/(app)/actions";
 
 const ICONS: Record<string, LucideIcon> = {
   "/": LayoutDashboard,
-  "/masters/products": Boxes,
-  "/masters/components": Wrench,
-  "/masters/categories": FolderTree,
-  "/masters/vendors": Truck,
-  "/masters/customers": Users,
-  "/masters/bom-templates": ListTree,
-  "/masters/inspection-templates": ClipboardCheck,
+  "/masters": Database,
   "/projects": FolderKanban,
   "/requisitions": ClipboardList,
   "/purchase-orders": ShoppingCart,

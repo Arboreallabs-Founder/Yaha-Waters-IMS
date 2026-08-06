@@ -17,23 +17,9 @@ export type NavGroup = {
 export const NAV: NavGroup[] = [
   {
     title: "Overview",
-    items: [{ label: "Dashboard", href: "/", status: "live" }],
-  },
-  {
-    title: "Catalogue",
     items: [
-      { label: "Products", href: "/masters/products", status: "live" },
-      { label: "Components", href: "/masters/components", status: "live" },
-      { label: "Categories", href: "/masters/categories", status: "live" },
-      { label: "BOM Templates", href: "/masters/bom-templates", status: "live" },
-      { label: "Inspection Templates", href: "/masters/inspection-templates", status: "live" },
-    ],
-  },
-  {
-    title: "Partners",
-    items: [
-      { label: "Vendors", href: "/masters/vendors", status: "live" },
-      { label: "Customers", href: "/masters/customers", status: "live" },
+      { label: "Dashboard", href: "/", status: "live" },
+      { label: "Master Data", href: "/masters", status: "live" },
     ],
   },
   {

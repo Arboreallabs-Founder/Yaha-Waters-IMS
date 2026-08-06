@@ -36,20 +36,22 @@ export function Dialog({
         role="dialog"
         aria-modal="true"
         className={cn(
-          "relative z-10 my-8 w-full max-w-lg rounded-lg border border-border bg-card p-6 shadow-xl",
+          "relative z-10 my-8 flex max-h-[85vh] w-full max-w-lg flex-col rounded-lg border border-border bg-card shadow-xl",
           className,
         )}
       >
-        <button
-          onClick={onClose}
-          className="absolute right-4 top-4 text-muted-foreground hover:text-foreground"
-          aria-label="Close"
-        >
-          <X className="size-5" />
-        </button>
-        <h2 className="text-lg font-semibold">{title}</h2>
-        {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
-        <div className="mt-4">{children}</div>
+        <div className="shrink-0 p-6 pb-0">
+          <button
+            onClick={onClose}
+            className="absolute right-4 top-4 text-muted-foreground hover:text-foreground"
+            aria-label="Close"
+          >
+            <X className="size-5" />
+          </button>
+          <h2 className="text-lg font-semibold">{title}</h2>
+          {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
+        </div>
+        <div className="mt-4 overflow-y-auto p-6 pt-0">{children}</div>
       </div>
     </div>
   );
