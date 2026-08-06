@@ -14,6 +14,32 @@ import * as path from "node:path";
 import * as XLSX from "xlsx";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+// ---- column indices (0-based) in the annotated sheet -------------------------
+// Different source files lay these out slightly differently (extra/missing
+// columns), so each SHEETS entry carries its own map.
+const C_3600 = {
+  lineId: 0, model: 1, type: 2, section: 3, srno: 4, level: 5, assembly: 6,
+  origDesc: 7, component: 8, grade: 9, spec: 10, od: 11, id: 12, thk: 13,
+  width: 14, length: 15, nominal: 16, variantOpt: 17, variantGroup: 18,
+  variation: 19, qty: 20, uom: 21, byWeight: 22, weightUom: 23, cutFromPlate: 24,
+  supplier: 25, jobWork: 26, jwVendor: 27, jwVendor2: 28 as number | undefined,
+} as const;
+
+// Triton 7200 BR inserts an extra "Pcs" column (24, unused — no existing DB
+// slot for it) between Weight UOM and Cut from Plate, and has only one Job
+// Work Vendor column (no duplicate), so everything from Cut from Plate
+// onward shifts by +1 versus C_3600, with no jwVendor2.
+const C_7200 = {
+  lineId: 0, model: 1, type: 2, section: 3, srno: 4, level: 5, assembly: 6,
+  origDesc: 7, component: 8, grade: 9, spec: 10, od: 11, id: 12, thk: 13,
+  width: 14, length: 15, nominal: 16, variantOpt: 17, variantGroup: 18,
+  variation: 19, qty: 20, uom: 21, byWeight: 22, weightUom: 23,
+  cutFromPlate: 25, supplier: 26, jobWork: 27, jwVendor: 28,
+  jwVendor2: undefined as number | undefined,
+} as const;
+
+type ColumnMap = Record<Exclude<keyof typeof C_3600, "jwVendor2">, number> & { jwVendor2: number | undefined };
+
 // ---- config: one entry per annotated sheet to import -------------------------
 const SHEETS = [
   {
@@ -24,17 +50,19 @@ const SHEETS = [
     modelFilter: 3600, // only rows whose Model column == this (drops stray carryover)
     category: "Triton",
     cnoPrefix: "BR3600",
+    columns: C_3600,
+  },
+  {
+    file: "BOM Master/Triton 7200 BR.xlsx",
+    sku: "TRITON-7200-BR",
+    modelName: "Triton 7200",
+    modelType: "Brush",
+    modelFilter: 7200,
+    category: "Triton",
+    cnoPrefix: "BR7200",
+    columns: C_7200,
   },
 ];
-
-// ---- column indices (0-based) in the annotated sheet ------------------------
-const C = {
-  lineId: 0, model: 1, type: 2, section: 3, srno: 4, level: 5, assembly: 6,
-  origDesc: 7, component: 8, grade: 9, spec: 10, od: 11, id: 12, thk: 13,
-  width: 14, length: 15, nominal: 16, variantOpt: 17, variantGroup: 18,
-  variation: 19, qty: 20, uom: 21, byWeight: 22, weightUom: 23, cutFromPlate: 24,
-  supplier: 25, jobWork: 26, jwVendor: 27, jwVendor2: 28,
-} as const;
 
 // ---- cell helpers -----------------------------------------------------------
 const str = (v: unknown): string => (v == null ? "" : String(v).trim());
@@ -94,7 +122,7 @@ type Row = {
   supplier: string; isJw: boolean; jwVendor: string;
 };
 
-function parseRows(ws: XLSX.WorkSheet, modelFilter: number): Row[] {
+function parseRows(ws: XLSX.WorkSheet, modelFilter: number, C: ColumnMap): Row[] {
   const aoa = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, raw: true, defval: null });
   const rows: Row[] = [];
   for (let i = 1; i < aoa.length; i++) {
@@ -104,7 +132,7 @@ function parseRows(ws: XLSX.WorkSheet, modelFilter: number): Row[] {
     const srno = str(r[C.srno]);
     const variantGroup = str(r[C.variantGroup]);
     if (!srno && !variantGroup) continue; // blank/decorative row
-    const jwVendor = str(r[C.jwVendor]) || str(r[C.jwVendor2]);
+    const jwVendor = str(r[C.jwVendor]) || (C.jwVendor2 != null ? str(r[C.jwVendor2]) : "");
     rows.push({
       section: str(r[C.section]), srno, level: str(r[C.level]).toLowerCase(),
       assembly: str(r[C.assembly]), origDesc: str(r[C.origDesc]),
@@ -165,7 +193,7 @@ type CompRow = Record<string, unknown> & { component_no: string };
 async function importSheet(supa: SupabaseClient, cfg: (typeof SHEETS)[number]) {
   console.log(`\n▶ ${cfg.file}`);
   const wb = XLSX.readFile(path.join(CONTEXT_DIR, cfg.file), { cellDates: true });
-  const rows = parseRows(wb.Sheets[wb.SheetNames[0]], cfg.modelFilter);
+  const rows = parseRows(wb.Sheets[wb.SheetNames[0]], cfg.modelFilter, cfg.columns);
   console.log(`  parsed ${rows.length} data rows (model ${cfg.modelFilter})`);
 
   // ---- 1. vendors: resolve Excel names -> vendor ids (match existing / create)
