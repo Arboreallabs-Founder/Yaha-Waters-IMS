@@ -187,6 +187,15 @@ const sizeLabel = (r: Row): string => {
   return /^[0-9.]+$/.test(k) ? `${k}"` : k;
 };
 
+// ---- physical-part identity (dedup a component across product sheets) -------
+const normName = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+const dimKey = (n: number | null) => (n == null ? "" : String(n));
+/** Same normalized name + spec + nominal size + every dim => same physical part. */
+const partSig = (
+  name: string, spec: string | null, nominal: string | null,
+  od: number | null, id: number | null, thk: number | null, width: number | null, length: number | null,
+) => [normName(name), normName(spec ?? ""), normName(nominal ?? ""), dimKey(od), dimKey(id), dimKey(thk), dimKey(width), dimKey(length)].join("|");
+
 // ---- main -------------------------------------------------------------------
 type CompRow = Record<string, unknown> & { component_no: string };
 
@@ -254,6 +263,36 @@ async function importSheet(supa: SupabaseClient, cfg: (typeof SHEETS)[number]) {
   const cnoOf = (srno: string) => `${cfg.cnoPrefix}-${srno.replace(/\./g, "-")}`.toUpperCase();
   const variantCnoOf = (anchorSrno: string, r: Row) => `${cfg.cnoPrefix}-${anchorSrno.replace(/\./g, "-")}-${slug(sizeKey(r)).toUpperCase() || "V"}`.toUpperCase();
 
+  // Reuse an existing (any product's, non-assembly) component instead of minting a new
+  // one when name+spec+dims match exactly. Queried once per sheet. resolvedCno redirects
+  // a row's natural (per-product) component_no wherever it's re-derived below (section 4/4b).
+  // Known limitations (deliberately not handled here): (a) parent_assembly_id is a single
+  // FK, not a join table, so a shared part under genuinely different structural parents
+  // across products would have the later import silently overwrite the earlier one's tag;
+  // (b) attributes outside the match key (is_job_work, jw_vendor_id, uom, tracking_mode,
+  // etc.) are not merged onto a reused component — whichever product created it first wins.
+  const { data: existingParts } = await supa
+    .from("components")
+    .select("id, component_no, name, spec, nominal_size, od_mm, id_mm, thk_mm, width_mm, length_mm")
+    .eq("is_assembly", false);
+  const resolvedBySig = new Map<string, { id: string | null; component_no: string }>();
+  for (const c of existingParts ?? []) {
+    resolvedBySig.set(
+      partSig(c.name as string, c.spec as string | null, c.nominal_size as string | null, num(c.od_mm), num(c.id_mm), num(c.thk_mm), num(c.width_mm), num(c.length_mm)),
+      { id: c.id as string, component_no: c.component_no as string },
+    );
+  }
+  const resolvedCno = new Map<string, string>(); // natural component_no -> reused component_no
+  const resolveCno = (natural: string) => resolvedCno.get(natural) ?? natural;
+  const resolveNonAssembly = (natural: string, name: string, r: Row, rawSupplierId: string | null, jwVendorId: string | null): string => {
+    const sig = partSig(name, r.spec, r.nominal, r.od, r.id, r.thk, r.width, r.length);
+    const match = resolvedBySig.get(sig);
+    if (match) { resolvedCno.set(natural, match.component_no); return match.component_no; }
+    resolvedBySig.set(sig, { id: null, component_no: natural }); // claim this sig for the rest of this run
+    pushComp({ component_no: natural, name, ...attrs(r, false, rawSupplierId, jwVendorId) });
+    return natural;
+  };
+
   // 3a. synth section-assembly nodes for non-flat sections without a header row
   const sections = [...new Set(rows.map((r) => r.section).filter(Boolean))];
   const sectionNodeCno = new Map<string, string>();     // section -> component_no
@@ -273,15 +312,20 @@ async function importSheet(supa: SupabaseClient, cfg: (typeof SHEETS)[number]) {
   }
 
   // 3b. one component per row (variant rows -> sized components)
+  const vendorTagCandidates: { component_no: string; raw_supplier_id: string | null }[] = [];
   for (const r of rows) {
     const rawSupplierId = r.supplier ? vendorCache.get(r.supplier.toLowerCase()) ?? null : null;
     const jwVendorId = r.isJw && r.jwVendor ? vendorCache.get(r.jwVendor.toLowerCase()) ?? null : null;
     const isAssembly = r.level === "assembly" || isSectionHeader(r.srno);
     if (r.variantGroup) {
       const anchor = anchorSrnoOf.get(r.variantGroup)!;
-      pushComp({ component_no: variantCnoOf(anchor, r), name: `${r.component} ${sizeLabel(r)}`.trim(), ...attrs(r, false, rawSupplierId, jwVendorId) });
+      const cno = resolveNonAssembly(variantCnoOf(anchor, r), `${r.component} ${sizeLabel(r)}`.trim(), r, rawSupplierId, jwVendorId);
+      vendorTagCandidates.push({ component_no: cno, raw_supplier_id: rawSupplierId });
+    } else if (isAssembly) {
+      pushComp({ component_no: cnoOf(r.srno), name: r.component, ...attrs(r, true, null, jwVendorId) });
     } else {
-      pushComp({ component_no: cnoOf(r.srno), name: r.component, ...attrs(r, isAssembly, isAssembly ? null : rawSupplierId, jwVendorId) });
+      const cno = resolveNonAssembly(cnoOf(r.srno), r.component, r, rawSupplierId, jwVendorId);
+      vendorTagCandidates.push({ component_no: cno, raw_supplier_id: rawSupplierId });
     }
   }
 
@@ -289,7 +333,8 @@ async function importSheet(supa: SupabaseClient, cfg: (typeof SHEETS)[number]) {
   if (cErr) throw new Error(`components: ${cErr.message}`);
   const { data: compIds } = await supa.from("components").select("id, component_no").in("component_no", comps.map((c) => c.component_no));
   const compIdByNo = new Map((compIds ?? []).map((c) => [String(c.component_no), c.id as string]));
-  console.log(`  components: ${comps.length} (${comps.filter((c) => c.is_assembly).length} assemblies, ${comps.filter((c) => c.is_job_work).length} job-work)`);
+  for (const { id, component_no } of resolvedBySig.values()) if (id) compIdByNo.set(component_no, id); // ids of reused existing parts (never in `comps`)
+  console.log(`  components: ${comps.length} new/updated, ${resolvedCno.size} reused from existing parts (${comps.filter((c) => c.is_assembly).length} assemblies, ${comps.filter((c) => c.is_job_work).length} job-work)`);
 
   // ---- 4. bom_templates: product template + one per sub-assembly ------------
   // Build line specs; each carries the key of its parent node (assembly or top-level).
@@ -323,14 +368,14 @@ async function importSheet(supa: SupabaseClient, cfg: (typeof SHEETS)[number]) {
       const grpRows = groups.get(r.variantGroup)!;
       const anchor = grpRows.find((x) => x.srno) ?? grpRows[0];
       const map: Record<string, { component_no: string; qty: number }> = {};
-      for (const gr of grpRows) map[sizeKey(gr)] = { component_no: variantCnoOf(anchor.srno, gr), qty: gr.qty };
+      for (const gr of grpRows) map[sizeKey(gr)] = { component_no: resolveCno(variantCnoOf(anchor.srno, gr)), qty: gr.qty };
       const parentKey = flat ? null : (parentSrno(anchor.srno) ?? `SECNODE:${anchor.section}`);
       specs.push({ key: anchor.srno, parentKey, component_no: null, quantity: anchor.qty, line_type: "component", section: anchor.section, assembly_name: anchor.assembly || null, is_variant_driven: true, variant_rule: { param: "Inlet Size", map }, variant_group: r.variantGroup, variation: anchor.variation || null, sort_order: order++ });
       continue;
     }
 
     const parentKey = flat ? null : (parentSrno(r.srno) ?? `SECNODE:${r.section}`);
-    specs.push({ key: r.srno, parentKey, component_no: cnoOf(r.srno), quantity: r.qty, line_type: r.level === "assembly" ? "assembly" : "component", section: r.section, assembly_name: r.assembly || null, is_variant_driven: false, variant_rule: null, variant_group: null, variation: null, sort_order: order++ });
+    specs.push({ key: r.srno, parentKey, component_no: resolveCno(cnoOf(r.srno)), quantity: r.qty, line_type: r.level === "assembly" ? "assembly" : "component", section: r.section, assembly_name: r.assembly || null, is_variant_driven: false, variant_rule: null, variant_group: null, variation: null, sort_order: order++ });
   }
 
   // resolve SECNODE:<section> parent keys to the section header/synth key
@@ -411,10 +456,12 @@ async function importSheet(supa: SupabaseClient, cfg: (typeof SHEETS)[number]) {
   console.log(`  variant params: Inlet Size [${inletOptions.join(", ")}], Micron`);
 
   // ---- 6. vendor_components (raw supplier per component) --------------------
+  // iterate every non-assembly candidate row, not just newly-created `comps`, so a
+  // dedup'd row's supplier still gets tagged (against the reused component's id).
   const vc: { vendor_id: string; component_id: string }[] = [];
   const vcSeen = new Set<string>();
-  for (const c of comps) {
-    const vid = c.raw_supplier_id as string | null;
+  for (const c of vendorTagCandidates) {
+    const vid = c.raw_supplier_id;
     const cid = compIdByNo.get(c.component_no);
     if (!vid || !cid) continue;
     const k = `${vid}:${cid}`;
