@@ -4,7 +4,7 @@ import { getProfile, canWriteMasters } from "@/lib/auth";
 import { MASTER_TAGS } from "@/lib/masters-data";
 
 export type ParseType = "string" | "number" | "boolean";
-export type ActionResult = { ok?: true; error?: string; redirect?: string };
+export type ActionResult = { ok?: true; error?: string; redirect?: string; id?: string };
 
 // Tables backed by a cached getter in src/lib/masters-data.ts — invalidate on
 // every successful write so the cache never serves stale data past this
@@ -55,14 +55,14 @@ export async function upsertRecord(
   const tbl = supabase.from(table as any) as any;
   let resp;
   if (id) {
-    resp = await tbl.update(payload).eq("id", String(id));
+    resp = await tbl.update(payload).eq("id", String(id)).select("id").single();
   } else {
     payload.created_by = profile!.id;
-    resp = await tbl.insert(payload);
+    resp = await tbl.insert(payload).select("id").single();
   }
   if (resp.error) return { error: friendlyError(resp.error.message, resp.error.code) };
   invalidateMasterCache(table);
-  return { ok: true };
+  return { ok: true, id: resp.data?.id };
 }
 
 /**
