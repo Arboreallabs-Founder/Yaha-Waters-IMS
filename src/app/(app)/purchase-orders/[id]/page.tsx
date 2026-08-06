@@ -3,12 +3,14 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Printer } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile, canSeeFinancials, canWriteMasters } from "@/lib/auth";
+import { canDeletePurchaseOrders } from "@/lib/roles";
 import { getVendors, getComponentsFull, getCustomers } from "@/lib/masters-data";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { PoEditor } from "./po-editor";
+import { DeletePoButton } from "./delete-po-button";
 import { projectLabel } from "@/lib/utils";
 
 export default async function PoDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -16,6 +18,7 @@ export default async function PoDetailPage({ params }: { params: Promise<{ id: s
   const profile = await getProfile();
   const finance = canSeeFinancials(profile?.role);
   const canWrite = canWriteMasters(profile?.role);
+  const canDelete = canDeletePurchaseOrders(profile?.role);
   const supabase = await createClient();
 
   const { data: po } = await supabase.from("purchase_orders").select("*").eq("id", id).single();
@@ -68,6 +71,7 @@ export default async function PoDetailPage({ params }: { params: Promise<{ id: s
             <Link href={`/purchase-orders/${id}/print`} className={buttonVariants({ variant: "outline" })}>
               <Printer className="size-4" /> Print PO
             </Link>
+            {canDelete && <DeletePoButton poId={id} poNo={po.po_no} />}
           </div>
         }
       />
@@ -77,6 +81,7 @@ export default async function PoDetailPage({ params }: { params: Promise<{ id: s
           <PoEditor
             poId={id}
             header={{
+              po_no: po.po_no,
               vendor_id: po.vendor_id,
               po_date: po.po_date,
               status: po.status,

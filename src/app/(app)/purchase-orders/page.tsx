@@ -25,7 +25,7 @@ export default async function PurchaseOrdersPage() {
   const canWrite = canWriteMasters(profile?.role); // admin / team_lead
   const supabase = await createClient();
 
-  const [{ data: pos }, vendorsAll, { data: untagged }, components, { data: projects }, customers] =
+  const [{ data: pos }, vendorsAll, { data: untagged }, components, { data: projects }, customers, { data: nextPoNo }] =
     await Promise.all([
       supabase.from("purchase_orders").select("*").order("created_at", { ascending: false }),
       getVendors(),
@@ -33,6 +33,7 @@ export default async function PurchaseOrdersPage() {
       getComponentsFull(),
       supabase.from("projects").select("id, project_no, customer_id").order("project_no"),
       getCustomers(),
+      supabase.rpc("peek_next_po_no"),
     ]);
   const vendors = vendorsAll.filter((v) => v.is_active);
   const vName = new Map((vendors ?? []).map((v) => [v.id, v.name]));
@@ -53,7 +54,7 @@ export default async function PurchaseOrdersPage() {
       <PageHeader
         title="Purchase Orders"
         description="Orders to vendors. Batched across projects; project tags are back-fillable."
-        action={canWrite ? <NewPoButton vendors={vendors ?? []} /> : undefined}
+        action={canWrite ? <NewPoButton vendors={vendors ?? []} defaultPoNo={nextPoNo ?? ""} /> : undefined}
       />
       <UntaggedWorklist lines={untaggedLines} projects={projectsWithCustomer} canWrite={canWrite} />
       <Table>

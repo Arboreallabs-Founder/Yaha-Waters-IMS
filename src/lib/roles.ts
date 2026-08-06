@@ -20,3 +20,8 @@ export function canSeeFinancials(role: Role | undefined | null) {
 export function canWriteMasters(role: Role | undefined | null) {
   return role === "admin" || role === "team_lead";
 }
+
+/** Deleting a purchase order is irreversible — restricted tighter than normal PO management. */
+export function canDeletePurchaseOrders(role: Role | undefined | null) {
+  return role === "admin" || role === "founder";
+}

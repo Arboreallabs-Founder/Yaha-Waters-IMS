@@ -43,7 +43,7 @@ export function PoEditor({
 }: {
   poId: string;
   header: {
-    vendor_id: string | null; po_date: string | null; status: string;
+    po_no: string; vendor_id: string | null; po_date: string | null; status: string;
     delivery_terms: string; payment_terms: string; freight_terms: string; gst_percent: number;
   };
   lines: Line[];
@@ -78,6 +78,10 @@ export function PoEditor({
       {canWrite ? (
         <form onSubmit={(e) => { e.preventDefault(); const fd = new FormData(e.currentTarget); fd.set("id", poId); run(updatePO, fd); }}
           className="grid grid-cols-1 gap-3 rounded-lg border border-border bg-muted/30 p-4 sm:grid-cols-3">
+          <div className="space-y-1.5">
+            <Label>PO No.</Label>
+            <Input name="po_no" defaultValue={header.po_no} required />
+          </div>
           <div className="space-y-1.5">
             <Label>Vendor</Label>
             <Select name="vendor_id" defaultValue={header.vendor_id ?? ""}>

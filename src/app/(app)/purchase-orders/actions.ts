@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile } from "@/lib/auth";
+import { canDeletePurchaseOrders } from "@/lib/roles";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type ActionResult = {
@@ -26,6 +27,16 @@ function num(fd: FormData, k: string): number | null {
   return v === "" ? null : Number(v);
 }
 
+function poNoError(error: { message: string; code?: string }): string {
+  if (error.code === "23505") return "A PO with that number already exists.";
+  return error.message;
+}
+
+function deleteError(error: { message: string; code?: string }): string {
+  if (error.code === "23503") return "Can't delete — goods have already been received against this PO.";
+  return error.message;
+}
+
 async function recomputePoTotal(supabase: SupabaseClient, po_id: string) {
   const { data } = await supabase.from("po_lines").select("amount").eq("po_id", po_id);
   const total = (data ?? []).reduce((s, l) => s + Number(l.amount ?? 0), 0);
@@ -36,7 +47,8 @@ export async function createPO(fd: FormData): Promise<ActionResult> {
   const p = await procurer();
   if (!p) return { error: "Only Admin / Team Lead can raise POs." };
   const supabase = await createClient();
-  const { data: poNo } = await supabase.rpc("next_po_no");
+  const manualPoNo = String(fd.get("po_no") ?? "").trim();
+  const poNo = manualPoNo || (await supabase.rpc("next_po_no")).data;
   const { data, error } = await supabase
     .from("purchase_orders")
     .insert({
@@ -49,7 +61,7 @@ export async function createPO(fd: FormData): Promise<ActionResult> {
     })
     .select("id")
     .single();
-  if (error) return { error: error.message };
+  if (error) return { error: poNoError(error) };
   revalidatePath("/purchase-orders");
   return { ok: true, id: data.id };
 }
@@ -59,9 +71,12 @@ export async function updatePO(fd: FormData): Promise<ActionResult> {
   if (!p) return { error: "Not authorized." };
   const id = String(fd.get("id"));
   const supabase = await createClient();
+  const po_no = String(fd.get("po_no") ?? "").trim();
+  if (!po_no) return { error: "PO No. is required." };
   const { error } = await supabase
     .from("purchase_orders")
     .update({
+      po_no,
       vendor_id: String(fd.get("vendor_id") ?? "") || null,
       po_date: String(fd.get("po_date") ?? "") || null,
       status: String(fd.get("status") ?? "draft"),
@@ -71,17 +86,17 @@ export async function updatePO(fd: FormData): Promise<ActionResult> {
       gst_percent: num(fd, "gst_percent") ?? 18,
     })
     .eq("id", id);
-  if (error) return { error: error.message };
+  if (error) return { error: poNoError(error) };
   revalidatePath(`/purchase-orders/${id}`);
   return { ok: true };
 }
 
 export async function removePO(fd: FormData): Promise<ActionResult> {
-  const p = await procurer();
-  if (!p) return { error: "Not authorized." };
+  const p = await getProfile();
+  if (!p || !canDeletePurchaseOrders(p.role)) return { error: "Only Admin / Founder can delete a PO." };
   const supabase = await createClient();
   const { error } = await supabase.from("purchase_orders").delete().eq("id", String(fd.get("id")));
-  if (error) return { error: error.message };
+  if (error) return { error: deleteError(error) };
   revalidatePath("/purchase-orders");
   return { ok: true };
 }

@@ -10,7 +10,7 @@ import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
 import { createPO } from "./actions";
 
-export function NewPoButton({ vendors }: { vendors: { id: string; name: string }[] }) {
+export function NewPoButton({ vendors, defaultPoNo }: { vendors: { id: string; name: string }[]; defaultPoNo: string }) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [pending, setPending] = React.useState(false);
@@ -35,6 +35,10 @@ export function NewPoButton({ vendors }: { vendors: { id: string; name: string }
       </Button>
       <Dialog open={open} onClose={() => setOpen(false)} title="New purchase order">
         <form onSubmit={onSubmit} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>PO No.</Label>
+            <Input name="po_no" defaultValue={defaultPoNo} />
+          </div>
           <div className="space-y-1.5">
             <Label>Vendor (optional)</Label>
             <Select name="vendor_id" defaultValue="">
