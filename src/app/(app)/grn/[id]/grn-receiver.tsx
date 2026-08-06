@@ -106,16 +106,17 @@ export function GrnReceiver({
     return null;
   }, [qt, pieceCount, pieceLength, pieceWidth]);
 
+  const matchingPoLines = manualComp ? (openPoByComponent[manualComp] ?? []) : [];
+
   React.useEffect(() => {
-    setSelectedPoLineId("");
+    setSelectedPoLineId(matchingPoLines.length > 0 ? matchingPoLines[0].po_line_id : "");
     setPieceCount("");
     setPieceLength("");
     setPieceWidth("");
     setTargetLotId("");
     setAnswers({});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [manualComp]);
-
-  const matchingPoLines = manualComp ? (openPoByComponent[manualComp] ?? []) : [];
 
   async function run(fd: FormData, key: string, onOk?: () => void) {
     setBusy(key); setError(null); setMessage(null);
@@ -396,13 +397,6 @@ export function GrnReceiver({
                           </span>
                         </label>
                       ))}
-                      <label className="flex cursor-pointer items-center gap-2.5">
-                        <input type="radio" name="_po_line_choice" value=""
-                          checked={selectedPoLineId === ""}
-                          onChange={() => setSelectedPoLineId("")}
-                          className="accent-primary" />
-                        <span className="text-amber-700">Receive without linking to a PO (will be flagged)</span>
-                      </label>
                     </div>
                   </div>
                 ) : (
@@ -410,7 +404,7 @@ export function GrnReceiver({
                     <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-500" />
                     <span>
                       <span className="font-medium">No open PO found for this component.</span>{" "}
-                      This receipt will be flagged as untagged and reported to the manager.
+                      Raise a purchase order before receiving — this line cannot be posted without one.
                     </span>
                   </div>
                 )}
@@ -421,12 +415,9 @@ export function GrnReceiver({
 
             <div className="flex items-center gap-2">
               <Button type="submit" variant="secondary"
-                disabled={busy === "manual" || (qt !== "nos" && derivedQty === null)}>
+                disabled={busy === "manual" || (qt !== "nos" && derivedQty === null) || (!!manualComp && !selectedPoLineId)}>
                 <Plus className="size-4" /> {needsInspection ? "Submit for inspection" : "Add line"}
               </Button>
-              {!needsInspection && !selectedPoLineId && manualComp && matchingPoLines.length === 0 && (
-                <span className="text-xs text-amber-600">Will be flagged to manager</span>
-              )}
             </div>
           </form>
         </section>

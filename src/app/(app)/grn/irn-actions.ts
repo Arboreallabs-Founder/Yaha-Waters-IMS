@@ -26,6 +26,8 @@ export async function submitIrn(fd: FormData): Promise<ActionResult> {
   if (!grn_id || !component_id) return { error: "Missing GRN or component." };
   const qty = num(fd, "qty_received");
   if (!qty || qty <= 0) return { error: "Enter a received quantity." };
+  const po_line_id = String(fd.get("po_line_id") ?? "") || null;
+  if (!po_line_id) return { error: "Select an open PO line — receiving without a PO is not allowed." };
 
   let answers: unknown = [];
   try {
@@ -40,7 +42,7 @@ export async function submitIrn(fd: FormData): Promise<ActionResult> {
     p_component_id: component_id,
     p_qty: qty,
     p_unit_cost: num(fd, "unit_cost"),
-    p_po_line_id: String(fd.get("po_line_id") ?? "") || null,
+    p_po_line_id: po_line_id,
     p_project_id: String(fd.get("project_id") ?? "") || null,
     p_piece_count: num(fd, "piece_count"),
     p_piece_length: num(fd, "piece_length"),

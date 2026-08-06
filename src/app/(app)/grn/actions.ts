@@ -16,6 +16,12 @@ async function receiver() {
 export async function createGrn(fd: FormData): Promise<ActionResult> {
   const p = await receiver();
   if (!p) return { error: "Not authorized to receive goods." };
+  const challan_no = String(fd.get("challan_no") ?? "").trim() || null;
+  const invoice_no = String(fd.get("invoice_no") ?? "").trim() || null;
+  if (!challan_no && !invoice_no) {
+    return { error: "Enter a challan number or an invoice number — at least one is required." };
+  }
+
   const supabase = await createClient();
   const vendor_id = String(fd.get("vendor_id") ?? "") || null;
 
@@ -25,14 +31,19 @@ export async function createGrn(fd: FormData): Promise<ActionResult> {
     .insert({
       grn_no: grnNo,
       vendor_id,
-      challan_no: String(fd.get("challan_no") ?? "") || null,
-      invoice_no: String(fd.get("invoice_no") ?? "") || null,
+      challan_no,
+      invoice_no,
       received_by: p.id,
       created_by: p.id,
     })
     .select("id")
     .single();
   if (error) return { error: error.message };
+
+  if (!invoice_no) {
+    await supabase.rpc("notify_grn_missing_invoice", { p_grn_id: data.id, p_user_id: p.id });
+  }
+
   revalidatePath("/grn");
   return { ok: true, id: data.id };
 }
@@ -47,6 +58,9 @@ export async function addGrnLine(fd: FormData): Promise<ActionResult> {
   if (qty <= 0) return { error: "Enter a received quantity." };
   const unitCostRaw = String(fd.get("unit_cost") ?? "").trim();
 
+  const po_line_id = String(fd.get("po_line_id") ?? "") || null;
+  if (!po_line_id) return { error: "Select an open PO line — receiving without a PO is not allowed." };
+
   const pieceCount  = Number(fd.get("piece_count")  ?? "") || null;
   const pieceLength = Number(fd.get("piece_length") ?? "") || null;
   const pieceWidth  = Number(fd.get("piece_width")  ?? "") || null;
@@ -60,7 +74,7 @@ export async function addGrnLine(fd: FormData): Promise<ActionResult> {
     grn_id,
     component_id,
     qty_received: qty,
-    po_line_id: String(fd.get("po_line_id") ?? "") || null,
+    po_line_id,
     project_id: String(fd.get("project_id") ?? "") || null,
     unit_cost: unitCostRaw === "" ? null : Number(unitCostRaw),
     target_lot_id,

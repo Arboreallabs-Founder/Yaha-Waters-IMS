@@ -22,9 +22,16 @@ export function NewGrnButton({
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const challan = String(fd.get("challan_no") ?? "").trim();
+    const invoice = String(fd.get("invoice_no") ?? "").trim();
+    if (!challan && !invoice) {
+      setError("Enter a challan number or an invoice number — at least one is required.");
+      return;
+    }
     setPending(true);
     setError(null);
-    const res = await createGrn(new FormData(e.currentTarget));
+    const res = await createGrn(fd);
     setPending(false);
     if (res?.error) { setError(res.error); return; }
     setOpen(false);
@@ -56,6 +63,9 @@ export function NewGrnButton({
               <Input name="invoice_no" placeholder="supplier tax invoice no." />
             </div>
           </div>
+          <p className="text-xs text-muted-foreground">
+            At least one of challan or invoice is required. If the invoice number is left blank, admin/team lead are notified.
+          </p>
           {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
