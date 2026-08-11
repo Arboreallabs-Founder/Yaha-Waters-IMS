@@ -13,6 +13,18 @@ async function receiver() {
   return p && RECEIVE.includes(p.role) ? p : null;
 }
 
+function grnDupeError(error: { message: string; code?: string }, challan_no: string | null, invoice_no: string | null): string {
+  if (error.code === "23505") {
+    if (error.message.includes("uq_grns_challan_per_vendor")) {
+      return `Challan No. "${challan_no}" has already been used for a GRN from this vendor.`;
+    }
+    if (error.message.includes("uq_grns_invoice_per_vendor")) {
+      return `Invoice No. "${invoice_no}" has already been used for a GRN from this vendor.`;
+    }
+  }
+  return error.message;
+}
+
 export async function createGrn(fd: FormData): Promise<ActionResult> {
   const p = await receiver();
   if (!p) return { error: "Not authorized to receive goods." };
@@ -38,7 +50,7 @@ export async function createGrn(fd: FormData): Promise<ActionResult> {
     })
     .select("id")
     .single();
-  if (error) return { error: error.message };
+  if (error) return { error: grnDupeError(error, challan_no, invoice_no) };
 
   if (!invoice_no) {
     await supabase.rpc("notify_grn_missing_invoice", { p_grn_id: data.id, p_user_id: p.id });
