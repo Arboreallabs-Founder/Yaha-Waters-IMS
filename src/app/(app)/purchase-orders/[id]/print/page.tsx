@@ -48,10 +48,32 @@ export default async function PoPrintPage({ params }: { params: Promise<{ id: st
   const { data: po } = await supabase.from("purchase_orders").select("*").eq("id", id).single();
   if (!po) notFound();
 
+  // Admin/Founder can browse every revision in this PO's lineage from here.
+  const canViewRevisions = profile?.role === "admin" || profile?.role === "founder";
+  const rootId = po.root_po_id ?? po.id;
+  const { data: lineage } = canViewRevisions
+    ? await supabase.from("purchase_orders").select("id, po_no, revision_no").or(`id.eq.${rootId},root_po_id.eq.${rootId}`).order("revision_no")
+    : { data: null };
+
   const [{ data: lines }, { data: vendor }] = await Promise.all([
-    supabase.from("po_lines").select("component_id, project_id, qty_ordered, rate, amount").eq("po_id", id).order("created_at"),
+    supabase.from("po_lines").select("component_id, project_id, qty_ordered, rate, amount, approval_status").eq("po_id", id).order("created_at"),
     po.vendor_id ? supabase.from("vendors").select("name, address, contact, gst_no").eq("id", po.vendor_id).maybeSingle() : Promise.resolve({ data: null }),
   ]);
+
+  const pendingCount = (lines ?? []).filter((l) => l.approval_status !== "approved").length;
+  if (pendingCount > 0) {
+    return (
+      <div className="mx-auto max-w-lg py-16 text-center">
+        <p className="text-lg font-semibold text-amber-700">Cannot print this PO</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {pendingCount} line(s) are awaiting price approval. Printing is blocked until every line is approved.
+        </p>
+        <Link href={`/purchase-orders/${id}`} className="mt-4 inline-flex items-center gap-1 text-sm text-primary hover:underline">
+          <ArrowLeft className="size-4" /> Back to PO
+        </Link>
+      </div>
+    );
+  }
 
   const componentIds = [...new Set((lines ?? []).map((l) => l.component_id).filter(Boolean))] as string[];
   const projectIds = [...new Set((lines ?? []).map((l) => l.project_id).filter(Boolean))] as string[];
@@ -88,6 +110,27 @@ export default async function PoPrintPage({ params }: { params: Promise<{ id: st
         </Link>
         <PrintButton label="Print PO" />
       </div>
+
+      {lineage && lineage.length > 1 && (
+        <div className="mb-4 flex flex-wrap items-center gap-1.5 print:hidden">
+          <span className="text-xs font-medium text-muted-foreground">Versions:</span>
+          {lineage.map((r) => (
+            <Link
+              key={r.id}
+              href={`/purchase-orders/${r.id}/print`}
+              className={`rounded-md border px-2 py-1 text-xs ${r.id === id ? "border-primary bg-primary/10 font-medium text-primary" : "border-border text-muted-foreground hover:bg-accent"}`}
+            >
+              {r.revision_no === 0 ? "Original" : `R${r.revision_no}`}
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {po.superseded_by && (
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-amber-700">
+          Superseded revision — not the current version of this PO
+        </p>
+      )}
 
       <div className="border border-black text-[11px] leading-tight">
         {/* Header */}

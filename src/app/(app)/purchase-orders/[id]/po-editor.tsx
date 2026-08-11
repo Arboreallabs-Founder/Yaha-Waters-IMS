@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { formatINR, formatNumber, formatDate } from "@/lib/utils";
 import { updatePO, addPoLine, updatePoLine, removePoLine, type ActionResult } from "../actions";
+import { ComponentSearchSelect } from "./component-search-select";
 
 type Line = {
   id: string;
@@ -23,12 +24,20 @@ type Line = {
   amount: number | null;
   expected_date: string | null;
   line_status: string;
+  approval_status: string;
+  rejection_reason: string | null;
 };
 type Opt = { id: string; label: string };
 type Suggestion = { vendor: string; price: number | null };
+type ComponentOpt = { id: string; component_no: string; name: string; is_job_work?: boolean; quantity_type?: string | null; uom?: string | null };
 
-const PO_STATUSES = ["draft", "sent", "partial", "completed", "cancelled"];
-const LINE_STATUSES = ["pending", "partial", "received", "cancelled"];
+const DRAFT_STATUS_CHOICES = ["draft", "sent", "cancelled"];
+
+function unitSuffix(qt: string | null | undefined, uom: string | null | undefined) {
+  if (qt === "length") return "m";
+  if (qt === "area") return "m²";
+  return uom || "";
+}
 
 export function PoEditor({
   poId,
@@ -38,6 +47,9 @@ export function PoEditor({
   vendors,
   projects,
   suggestions,
+  lastRateByComponent,
+  vendorComponentIds,
+  vendorName,
   canWrite,
   canSeeFinancials,
 }: {
@@ -47,10 +59,14 @@ export function PoEditor({
     delivery_terms: string; payment_terms: string; freight_terms: string; gst_percent: number;
   };
   lines: Line[];
-  components: { id: string; component_no: string; name: string; is_job_work?: boolean }[];
+  components: ComponentOpt[];
   vendors: { id: string; name: string }[];
   projects: Opt[];
   suggestions: Record<string, Suggestion[]>;
+  lastRateByComponent: Record<string, number>;
+  /** Components tagged to this PO's vendor (via vendor_components) — narrows the manual picker. */
+  vendorComponentIds: string[];
+  vendorName: string | null;
   canWrite: boolean;
   canSeeFinancials: boolean;
 }) {
@@ -59,7 +75,39 @@ export function PoEditor({
   const [error, setError] = React.useState<string | null>(null);
   const [editing, setEditing] = React.useState<Line | null>(null);
   const [addComp, setAddComp] = React.useState("");
+  const [pieceCount, setPieceCount] = React.useState("");
+  const [pieceLength, setPieceLength] = React.useState("");
+  const [pieceWidth, setPieceWidth] = React.useState("");
+  const [rateInput, setRateInput] = React.useState("");
+  const [showAllComponents, setShowAllComponents] = React.useState(false);
   const projLabel = new Map(projects.map((p) => [p.id, p.label]));
+  const compMap = React.useMemo(() => new Map(components.map((c) => [c.id, c])), [components]);
+
+  const hasVendorFilter = vendorComponentIds.length > 0;
+  const vendorCompSet = React.useMemo(() => new Set(vendorComponentIds), [vendorComponentIds]);
+  const pickerComponents = React.useMemo(
+    () => (hasVendorFilter && !showAllComponents ? components.filter((c) => vendorCompSet.has(c.id)) : components),
+    [components, hasVendorFilter, showAllComponents, vendorCompSet],
+  );
+
+  const addSelectedComp = addComp ? compMap.get(addComp) : undefined;
+  const addQt = addSelectedComp?.quantity_type ?? "nos";
+
+  const derivedQty = React.useMemo(() => {
+    const pc = Number(pieceCount) || 0;
+    const pl = Number(pieceLength) || 0;
+    const pw = Number(pieceWidth) || 0;
+    if (addQt === "length" && pc > 0 && pl > 0) return pc * pl;
+    if (addQt === "area" && pc > 0 && pl > 0 && pw > 0) return pc * pl * pw;
+    return null;
+  }, [addQt, pieceCount, pieceLength, pieceWidth]);
+
+  React.useEffect(() => {
+    setPieceCount(""); setPieceLength(""); setPieceWidth("");
+    const last = addComp ? lastRateByComponent[addComp] : undefined;
+    setRateInput(last != null ? String(last) : "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addComp]);
 
   async function run(action: (fd: FormData) => Promise<ActionResult>, fd: FormData, onOk?: () => void) {
     setBusy(true); setError(null);
@@ -67,6 +115,7 @@ export function PoEditor({
     const res = await action(fd);
     setBusy(false);
     if (res?.error) { setError(res.error); return; }
+    if (res?.revisedPoId) { router.push(`/purchase-orders/${res.revisedPoId}`); return; }
     onOk?.(); router.refresh();
   }
 
@@ -95,9 +144,15 @@ export function PoEditor({
           </div>
           <div className="space-y-1.5">
             <Label>Status</Label>
-            <Select name="status" defaultValue={header.status}>
-              {PO_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-            </Select>
+            {header.status === "draft" ? (
+              <Select name="status" defaultValue={header.status}>
+                {DRAFT_STATUS_CHOICES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </Select>
+            ) : (
+              <p className="flex h-9 items-center text-sm text-muted-foreground">
+                {header.status} <span className="ml-1.5 text-xs">(automatic — set via receiving/revisions)</span>
+              </p>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label>Delivery</Label>
@@ -154,11 +209,26 @@ export function PoEditor({
                 <TableRow key={l.id}>
                   <TableCell className="font-medium">{l.component_label}</TableCell>
                   <TableCell>{l.project_id ? projLabel.get(l.project_id) ?? "—" : <Badge variant="secondary">Stock</Badge>}</TableCell>
-                  <TableCell>{formatNumber(l.qty_ordered)}</TableCell>
+                  <TableCell>
+                    {formatNumber(l.qty_ordered)}
+                    {(() => {
+                      const c = l.component_id ? compMap.get(l.component_id) : undefined;
+                      const suffix = unitSuffix(c?.quantity_type, c?.uom);
+                      return suffix ? <span className="ml-1 text-muted-foreground">{suffix}</span> : null;
+                    })()}
+                  </TableCell>
                   {canSeeFinancials && <TableCell>{formatINR(l.rate)}</TableCell>}
                   {canSeeFinancials && <TableCell>{formatINR(l.amount)}</TableCell>}
                   <TableCell className="text-muted-foreground">{formatDate(l.expected_date)}</TableCell>
-                  <TableCell><Badge variant={l.line_status === "received" ? "success" : "secondary"}>{l.line_status}</Badge></TableCell>
+                  <TableCell>
+                    <div className="flex flex-col items-start gap-1">
+                      <Badge variant={l.line_status === "received" ? "success" : "secondary"}>{l.line_status}</Badge>
+                      {l.approval_status === "pending_approval" && <Badge variant="warning">Pending approval</Badge>}
+                      {l.approval_status === "rejected" && (
+                        <Badge variant="destructive">Rejected{l.rejection_reason ? ` — ${l.rejection_reason}` : ""}</Badge>
+                      )}
+                    </div>
+                  </TableCell>
                   {canWrite && (
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
@@ -179,16 +249,33 @@ export function PoEditor({
 
       {/* Add line */}
       {canWrite && (
-        <form onSubmit={(e) => { e.preventDefault(); const form = e.currentTarget; run(addPoLine, new FormData(form), () => { form.reset(); setAddComp(""); }); }}
-          className="space-y-2 rounded-lg border border-border bg-muted/30 p-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const form = e.currentTarget;
+            const fd = new FormData(form);
+            if (derivedQty !== null) fd.set("qty_ordered", String(derivedQty));
+            run(addPoLine, fd, () => { form.reset(); setAddComp(""); setPieceCount(""); setPieceLength(""); setPieceWidth(""); setRateInput(""); });
+          }}
+          className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
           <h3 className="text-sm font-semibold">Add line</h3>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-1.5 lg:col-span-2">
               <Label>Component</Label>
-              <Select name="component_id" required value={addComp} onChange={(e) => setAddComp(e.target.value)}>
-                <option value="">— component —</option>
-                {components.map((c) => <option key={c.id} value={c.id}>{c.component_no} — {c.name}{c.is_job_work ? " (raw)" : ""}</option>)}
-              </Select>
+              <ComponentSearchSelect items={pickerComponents} value={addComp} onChange={setAddComp} name="component_id" />
+              {hasVendorFilter && (
+                <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={showAllComponents}
+                    onChange={(e) => setShowAllComponents(e.target.checked)}
+                    className="size-3.5 rounded border-input"
+                  />
+                  {showAllComponents
+                    ? "Showing all components"
+                    : `Showing only ${vendorName ?? "this vendor"}'s components (${pickerComponents.length}) — check to show all`}
+                </label>
+              )}
               {addComp && suggestions[addComp]?.length > 0 && (
                 <p className="text-xs text-muted-foreground">
                   Supplied by: {suggestions[addComp].map((s) => `${s.vendor}${canSeeFinancials && s.price != null ? ` (${formatINR(s.price)})` : ""}`).join(", ")}
@@ -202,14 +289,21 @@ export function PoEditor({
                 {projects.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label>Qty</Label>
-              <Input name="qty_ordered" type="number" step="any" defaultValue="1" />
-            </div>
+            {addQt === "nos" && (
+              <div className="space-y-1.5">
+                <Label>Qty{addSelectedComp?.uom ? ` (${addSelectedComp.uom})` : ""}</Label>
+                <Input name="qty_ordered" type="number" step="any" defaultValue="1" />
+              </div>
+            )}
             {canSeeFinancials && (
               <div className="space-y-1.5">
-                <Label>Rate (₹)</Label>
-                <Input name="rate" type="number" step="any" placeholder="amount auto = rate × qty" />
+                <Label>Rate (₹{addQt !== "nos" ? `/${unitSuffix(addQt, addSelectedComp?.uom)}` : ""})</Label>
+                <Input name="rate" type="number" step="any" value={rateInput}
+                  onChange={(e) => setRateInput(e.target.value)}
+                  placeholder="amount auto = rate × qty" />
+                {addComp && lastRateByComponent[addComp] != null && (
+                  <p className="text-xs text-muted-foreground">Last approved: {formatINR(lastRateByComponent[addComp])}</p>
+                )}
               </div>
             )}
             <div className="space-y-1.5">
@@ -217,7 +311,71 @@ export function PoEditor({
               <Input name="expected_date" type="date" />
             </div>
           </div>
-          <Button type="submit" variant="secondary" disabled={busy}><Plus className="size-4" /> Add line</Button>
+
+          {addQt === "length" && (
+            <div className="rounded-md border border-border bg-background p-3">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Length ordered <span className="ml-1 font-normal normal-case text-muted-foreground">— total = pieces × length/pc</span>
+              </p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="space-y-1.5">
+                  <Label>No. of pieces</Label>
+                  <Input type="number" step="1" min="1" value={pieceCount}
+                    onChange={(e) => setPieceCount(e.target.value)} required placeholder="e.g. 1" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Length per piece (m)</Label>
+                  <Input type="number" step="any" min="0" value={pieceLength}
+                    onChange={(e) => setPieceLength(e.target.value)} required placeholder="e.g. 10" />
+                </div>
+                {derivedQty !== null && (
+                  <div className="flex items-end">
+                    <p className="text-sm font-medium text-green-700">
+                      Total: <span className="font-bold">{formatNumber(derivedQty)} m</span>
+                      <span className="ml-2 text-muted-foreground">({pieceCount} × {pieceLength} m)</span>
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {addQt === "area" && (
+            <div className="rounded-md border border-border bg-background p-3">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Area ordered <span className="ml-1 font-normal normal-case text-muted-foreground">— total = pieces × width × length</span>
+              </p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+                <div className="space-y-1.5">
+                  <Label>No. of sheets</Label>
+                  <Input type="number" step="1" min="1" value={pieceCount}
+                    onChange={(e) => setPieceCount(e.target.value)} required placeholder="e.g. 1" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Width (m)</Label>
+                  <Input type="number" step="any" min="0" value={pieceWidth}
+                    onChange={(e) => setPieceWidth(e.target.value)} required placeholder="e.g. 1.2" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Length (m)</Label>
+                  <Input type="number" step="any" min="0" value={pieceLength}
+                    onChange={(e) => setPieceLength(e.target.value)} required placeholder="e.g. 2.4" />
+                </div>
+                {derivedQty !== null && (
+                  <div className="flex items-end">
+                    <p className="text-sm font-medium text-green-700">
+                      Total: <span className="font-bold">{formatNumber(derivedQty)} m²</span>
+                      <span className="ml-2 text-muted-foreground">({pieceCount} × {pieceWidth}×{pieceLength} m)</span>
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <Button type="submit" variant="secondary" disabled={busy || (addQt !== "nos" && derivedQty === null)}>
+            <Plus className="size-4" /> Add line
+          </Button>
         </form>
       )}
 
@@ -225,6 +383,13 @@ export function PoEditor({
       <Dialog open={editing !== null} onClose={() => setEditing(null)} title="Edit line" description={editing?.component_label}>
         {editing && (
           <form onSubmit={(e) => { e.preventDefault(); const fd = new FormData(e.currentTarget); fd.set("id", editing.id); run(updatePoLine, fd, () => setEditing(null)); }} className="space-y-4">
+            {editing.approval_status !== "approved" && (
+              <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                {editing.approval_status === "pending_approval"
+                  ? "Price pending Admin approval — editing the rate will re-check it."
+                  : `Price was rejected${editing.rejection_reason ? `: ${editing.rejection_reason}` : ""} — editing the rate will re-check it.`}
+              </p>
+            )}
             <div className="space-y-1.5">
               <Label>Project tag (back-fill)</Label>
               <Select name="project_id" defaultValue={editing.project_id ?? ""}>
@@ -234,7 +399,14 @@ export function PoEditor({
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label>Qty</Label>
+                <Label>
+                  Qty
+                  {(() => {
+                    const c = editing.component_id ? compMap.get(editing.component_id) : undefined;
+                    const suffix = unitSuffix(c?.quantity_type, c?.uom);
+                    return suffix ? ` (${suffix} total)` : "";
+                  })()}
+                </Label>
                 <Input name="qty_ordered" type="number" step="any" defaultValue={editing.qty_ordered} />
               </div>
               <div className="space-y-1.5">
@@ -249,16 +421,11 @@ export function PoEditor({
                   </div>
                   <div className="space-y-1.5">
                     <Label>Amount (₹)</Label>
-                    <Input name="amount" type="number" step="any" defaultValue={editing.amount ?? ""} placeholder="blank = rate × qty" />
+                    <Input name="amount" type="number" step="any" defaultValue=""
+                      placeholder={`blank = rate × qty (current ₹${formatNumber(editing.amount ?? 0)})`} />
                   </div>
                 </>
               )}
-              <div className="space-y-1.5">
-                <Label>Line status</Label>
-                <Select name="line_status" defaultValue={editing.line_status}>
-                  {LINE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                </Select>
-              </div>
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancel</Button>

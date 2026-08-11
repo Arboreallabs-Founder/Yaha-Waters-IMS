@@ -11,7 +11,7 @@ import { removePO } from "../actions";
 
 const CONFIRM_WORD = "DELETE";
 
-export function DeletePoButton({ poId, poNo }: { poId: string; poNo: string }) {
+export function DeletePoButton({ poId, poNo, isRevisioned }: { poId: string; poNo: string; isRevisioned: boolean }) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [confirmText, setConfirmText] = React.useState("");
@@ -43,7 +43,16 @@ export function DeletePoButton({ poId, poNo }: { poId: string; poNo: string }) {
       <Button variant="destructive" onClick={() => setOpen(true)}>
         <Trash2 className="size-4" /> Delete PO
       </Button>
-      <Dialog open={open} onClose={close} title="Delete purchase order" description={`This permanently deletes ${poNo} and cannot be undone.`}>
+      <Dialog
+        open={open}
+        onClose={close}
+        title="Delete purchase order"
+        description={
+          isRevisioned
+            ? `This permanently deletes ${poNo} AND every other version in its revision history (the original plus all R1/R2/... revisions) — not just this one. Cannot be undone.`
+            : `This permanently deletes ${poNo} and cannot be undone.`
+        }
+      >
         <div className="space-y-4">
           <div className="space-y-1.5">
             <Label>

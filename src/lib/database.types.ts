@@ -1831,6 +1831,9 @@ export type Database = {
       po_lines: {
         Row: {
           amount: number | null
+          approval_status: Database["public"]["Enums"]["po_line_approval_status"]
+          approved_at: string | null
+          approved_by: string | null
           component_id: string | null
           created_at: string
           created_by: string | null
@@ -1842,11 +1845,15 @@ export type Database = {
           qty_ordered: number
           qty_received: number
           rate: number | null
+          rejection_reason: string | null
           requisition_line_id: string | null
           updated_at: string | null
         }
         Insert: {
           amount?: number | null
+          approval_status?: Database["public"]["Enums"]["po_line_approval_status"]
+          approved_at?: string | null
+          approved_by?: string | null
           component_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -1858,11 +1865,15 @@ export type Database = {
           qty_ordered?: number
           qty_received?: number
           rate?: number | null
+          rejection_reason?: string | null
           requisition_line_id?: string | null
           updated_at?: string | null
         }
         Update: {
           amount?: number | null
+          approval_status?: Database["public"]["Enums"]["po_line_approval_status"]
+          approved_at?: string | null
+          approved_by?: string | null
           component_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -1874,10 +1885,18 @@ export type Database = {
           qty_ordered?: number
           qty_received?: number
           rate?: number | null
+          rejection_reason?: string | null
           requisition_line_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "po_lines_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "po_lines_component_id_fkey"
             columns: ["component_id"]
@@ -2086,7 +2105,6 @@ export type Database = {
           id: string
           is_active: boolean
           role: Database["public"]["Enums"]["role"]
-          team_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -2096,7 +2114,6 @@ export type Database = {
           id: string
           is_active?: boolean
           role?: Database["public"]["Enums"]["role"]
-          team_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -2106,7 +2123,6 @@ export type Database = {
           id?: string
           is_active?: boolean
           role?: Database["public"]["Enums"]["role"]
-          team_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -2115,13 +2131,6 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "profiles_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
         ]
@@ -2390,7 +2399,6 @@ export type Database = {
           order_date: string | null
           project_no: string
           status: Database["public"]["Enums"]["project_status"]
-          team_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -2405,7 +2413,6 @@ export type Database = {
           order_date?: string | null
           project_no: string
           status?: Database["public"]["Enums"]["project_status"]
-          team_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -2420,7 +2427,6 @@ export type Database = {
           order_date?: string | null
           project_no?: string
           status?: Database["public"]["Enums"]["project_status"]
-          team_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -2438,13 +2444,6 @@ export type Database = {
             referencedRelation: "customers"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "projects_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
         ]
       }
       purchase_orders: {
@@ -2459,8 +2458,11 @@ export type Database = {
           payment_terms: string
           po_date: string | null
           po_no: string
+          revision_no: number
+          root_po_id: string | null
           source: Database["public"]["Enums"]["po_source"]
           status: Database["public"]["Enums"]["po_status"]
+          superseded_by: string | null
           total_amount: number | null
           updated_at: string | null
           vendor_id: string | null
@@ -2476,8 +2478,11 @@ export type Database = {
           payment_terms?: string
           po_date?: string | null
           po_no: string
+          revision_no?: number
+          root_po_id?: string | null
           source?: Database["public"]["Enums"]["po_source"]
           status?: Database["public"]["Enums"]["po_status"]
+          superseded_by?: string | null
           total_amount?: number | null
           updated_at?: string | null
           vendor_id?: string | null
@@ -2493,8 +2498,11 @@ export type Database = {
           payment_terms?: string
           po_date?: string | null
           po_no?: string
+          revision_no?: number
+          root_po_id?: string | null
           source?: Database["public"]["Enums"]["po_source"]
           status?: Database["public"]["Enums"]["po_status"]
+          superseded_by?: string | null
           total_amount?: number | null
           updated_at?: string | null
           vendor_id?: string | null
@@ -2505,6 +2513,34 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_root_po_id_fkey"
+            columns: ["root_po_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_root_po_id_fkey"
+            columns: ["root_po_id"]
+            isOneToOne: false
+            referencedRelation: "v_purchase_orders_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "v_purchase_orders_safe"
             referencedColumns: ["id"]
           },
           {
@@ -2981,38 +3017,6 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "v_projects_safe"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      teams: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          id: string
-          name: string
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          name: string
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          name?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "teams_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -3644,6 +3648,42 @@ export type Database = {
           },
         ]
       }
+      v_last_component_rate: {
+        Row: {
+          component_id: string | null
+          rate: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "po_lines_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "components"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "po_lines_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "v_component_on_hand"
+            referencedColumns: ["component_id"]
+          },
+          {
+            foreignKeyName: "po_lines_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "v_component_on_hand_safe"
+            referencedColumns: ["component_id"]
+          },
+          {
+            foreignKeyName: "po_lines_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "v_components_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_missing_po: {
         Row: {
           component_id: string | null
@@ -4052,7 +4092,6 @@ export type Database = {
           order_date: string | null
           project_no: string | null
           status: Database["public"]["Enums"]["project_status"] | null
-          team_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -4066,7 +4105,6 @@ export type Database = {
           order_date?: string | null
           project_no?: string | null
           status?: Database["public"]["Enums"]["project_status"] | null
-          team_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -4080,7 +4118,6 @@ export type Database = {
           order_date?: string | null
           project_no?: string | null
           status?: Database["public"]["Enums"]["project_status"] | null
-          team_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -4096,13 +4133,6 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "projects_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
         ]
@@ -4388,17 +4418,28 @@ export type Database = {
           id: string
           is_active: boolean
           role: Database["public"]["Enums"]["role"]
-          team_id: string
         }[]
       }
       approve_irn: {
         Args: { p_approver_id: string; p_irn_id: string }
         Returns: Json
       }
-      auth_can_access_project: { Args: { p: string }; Returns: boolean }
+      approve_po_line: {
+        Args: { p_approver_id: string; p_line_id: string }
+        Returns: Json
+      }
       auth_is_staff: { Args: never; Returns: boolean }
       auth_role: { Args: never; Returns: Database["public"]["Enums"]["role"] }
-      auth_team_id: { Args: never; Returns: string }
+      clone_po_revision: {
+        Args: {
+          p_actor: string
+          p_kind: string
+          p_line_id: string
+          p_old_po_id: string
+          p_patch: Json
+        }
+        Returns: Json
+      }
       create_site_purchase: {
         Args: {
           p_component: string
@@ -4441,6 +4482,7 @@ export type Database = {
         Args: { p_grn_id: string; p_user_id: string }
         Returns: undefined
       }
+      peek_next_po_no: { Args: never; Returns: string }
       project_shortfall: {
         Args: { p_project: string }
         Returns: {
@@ -4461,6 +4503,10 @@ export type Database = {
       recompute_po_status: { Args: { p_po: string }; Returns: undefined }
       reject_irn: {
         Args: { p_approver_id: string; p_irn_id: string; p_reason: string }
+        Returns: Json
+      }
+      reject_po_line: {
+        Args: { p_approver_id: string; p_line_id: string; p_reason: string }
         Returns: Json
       }
       resubmit_irn: {
@@ -4496,9 +4542,16 @@ export type Database = {
       jw_stage: "raw" | "completed"
       lot_status: "open" | "issued" | "consumed"
       movement_type: "receipt" | "issue" | "adjustment" | "transfer" | "return"
+      po_line_approval_status: "pending_approval" | "approved" | "rejected"
       po_line_status: "pending" | "partial" | "received" | "cancelled"
       po_source: "system" | "phone"
-      po_status: "draft" | "sent" | "partial" | "completed" | "cancelled"
+      po_status:
+        | "draft"
+        | "sent"
+        | "partial"
+        | "completed"
+        | "cancelled"
+        | "superseded"
       project_status:
         | "planning"
         | "doc_approval"
@@ -4649,9 +4702,17 @@ export const Constants = {
       jw_stage: ["raw", "completed"],
       lot_status: ["open", "issued", "consumed"],
       movement_type: ["receipt", "issue", "adjustment", "transfer", "return"],
+      po_line_approval_status: ["pending_approval", "approved", "rejected"],
       po_line_status: ["pending", "partial", "received", "cancelled"],
       po_source: ["system", "phone"],
-      po_status: ["draft", "sent", "partial", "completed", "cancelled"],
+      po_status: [
+        "draft",
+        "sent",
+        "partial",
+        "completed",
+        "cancelled",
+        "superseded",
+      ],
       project_status: [
         "planning",
         "doc_approval",
