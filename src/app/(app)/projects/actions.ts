@@ -11,7 +11,6 @@ const FIELDS = {
   order_date: "string",
   delivery_date: "string",
   status: "string",
-  team_id: "string",
 } as const;
 
 export async function upsert(fd: FormData): Promise<ActionResult> {

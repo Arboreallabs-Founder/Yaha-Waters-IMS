@@ -7,18 +7,15 @@ export default async function UsersPage() {
   await requireRole(["admin"]);
   const supabase = await createClient();
 
-  const [{ data: users }, { data: teams }] = await Promise.all([
-    supabase.rpc("admin_list_users"),
-    supabase.from("teams").select("id, name").order("name"),
-  ]);
+  const { data: users } = await supabase.rpc("admin_list_users");
 
   return (
     <div>
       <PageHeader
-        title="Users & Teams"
+        title="Users"
         description="Provision sign-ins and assign roles. There is no public signup — accounts are created here."
       />
-      <UsersManager users={users ?? []} teams={teams ?? []} />
+      <UsersManager users={users ?? []} />
     </div>
   );
 }

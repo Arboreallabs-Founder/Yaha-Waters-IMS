@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil, Users as UsersIcon } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,27 +12,23 @@ import { Dialog } from "@/components/ui/dialog";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { ROLE_LABELS, type Role } from "@/lib/roles";
 import { formatDate } from "@/lib/utils";
-import { createUser, updateUser, createTeam, type ActionResult } from "./actions";
+import { createUser, updateUser, type ActionResult } from "./actions";
 
 type AppUser = {
   id: string;
   email: string;
   full_name: string | null;
   role: Role;
-  team_id: string | null;
   is_active: boolean;
   created_at: string;
 };
-type Team = { id: string; name: string };
 
 const ROLE_OPTIONS = (Object.keys(ROLE_LABELS) as Role[]).map((r) => ({ value: r, label: ROLE_LABELS[r] }));
 
-export function UsersManager({ users, teams }: { users: AppUser[]; teams: Team[] }) {
+export function UsersManager({ users }: { users: AppUser[] }) {
   const router = useRouter();
-  const teamName = new Map(teams.map((t) => [t.id, t.name]));
   const [creating, setCreating] = React.useState(false);
   const [editing, setEditing] = React.useState<AppUser | null>(null);
-  const [teamOpen, setTeamOpen] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
 
@@ -52,15 +48,10 @@ export function UsersManager({ users, teams }: { users: AppUser[]; teams: Team[]
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">{users.length} users · {teams.length} teams</p>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => { setError(null); setTeamOpen(true); }}>
-            <UsersIcon className="size-4" /> Add team
-          </Button>
-          <Button onClick={() => { setError(null); setCreating(true); }}>
-            <Plus className="size-4" /> Add user
-          </Button>
-        </div>
+        <p className="text-sm text-muted-foreground">{users.length} users</p>
+        <Button onClick={() => { setError(null); setCreating(true); }}>
+          <Plus className="size-4" /> Add user
+        </Button>
       </div>
 
       <Table>
@@ -69,7 +60,6 @@ export function UsersManager({ users, teams }: { users: AppUser[]; teams: Team[]
             <TableHead>Name</TableHead>
             <TableHead>Email</TableHead>
             <TableHead>Role</TableHead>
-            <TableHead>Team</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Created</TableHead>
             <TableHead className="w-16 text-right">Edit</TableHead>
@@ -81,7 +71,6 @@ export function UsersManager({ users, teams }: { users: AppUser[]; teams: Team[]
               <TableCell className="font-medium">{u.full_name ?? "—"}</TableCell>
               <TableCell className="text-muted-foreground">{u.email}</TableCell>
               <TableCell><Badge>{ROLE_LABELS[u.role]}</Badge></TableCell>
-              <TableCell>{u.team_id ? teamName.get(u.team_id) ?? "—" : "—"}</TableCell>
               <TableCell>
                 {u.is_active ? <Badge variant="success">Active</Badge> : <Badge variant="destructive">Inactive</Badge>}
               </TableCell>
@@ -105,19 +94,11 @@ export function UsersManager({ users, teams }: { users: AppUser[]; teams: Team[]
           <Field label="Full name"><Input name="full_name" required /></Field>
           <Field label="Email"><Input name="email" type="email" required /></Field>
           <Field label="Temporary password"><Input name="password" type="text" minLength={6} required placeholder="min 6 characters" /></Field>
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Role">
-              <Select name="role" defaultValue="team_member">
-                {ROLE_OPTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-              </Select>
-            </Field>
-            <Field label="Team">
-              <Select name="team_id" defaultValue="">
-                <option value="">— none —</option>
-                {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </Select>
-            </Field>
-          </div>
+          <Field label="Role">
+            <Select name="role" defaultValue="team_member">
+              {ROLE_OPTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+            </Select>
+          </Field>
           <FormFooter error={error} pending={pending} onCancel={() => setCreating(false)} />
         </form>
       </Dialog>
@@ -131,19 +112,11 @@ export function UsersManager({ users, teams }: { users: AppUser[]; teams: Team[]
           >
             <input type="hidden" name="id" value={editing.id} />
             <Field label="Full name"><Input name="full_name" defaultValue={editing.full_name ?? ""} /></Field>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Role">
-                <Select name="role" defaultValue={editing.role}>
-                  {ROLE_OPTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-                </Select>
-              </Field>
-              <Field label="Team">
-                <Select name="team_id" defaultValue={editing.team_id ?? ""}>
-                  <option value="">— none —</option>
-                  {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-                </Select>
-              </Field>
-            </div>
+            <Field label="Role">
+              <Select name="role" defaultValue={editing.role}>
+                {ROLE_OPTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+              </Select>
+            </Field>
             <label className="flex items-center gap-2">
               <input type="checkbox" name="is_active" defaultChecked={editing.is_active} className="size-4 rounded border-input" />
               <span className="text-sm font-medium">Active (can sign in)</span>
@@ -151,17 +124,6 @@ export function UsersManager({ users, teams }: { users: AppUser[]; teams: Team[]
             <FormFooter error={error} pending={pending} onCancel={() => setEditing(null)} />
           </form>
         )}
-      </Dialog>
-
-      {/* Create team */}
-      <Dialog open={teamOpen} onClose={() => setTeamOpen(false)} title="Add team">
-        <form
-          onSubmit={(e) => { e.preventDefault(); run(createTeam, e.currentTarget, () => setTeamOpen(false)); }}
-          className="space-y-4"
-        >
-          <Field label="Team name"><Input name="name" required placeholder="Planning, Procurement, Stores…" /></Field>
-          <FormFooter error={error} pending={pending} onCancel={() => setTeamOpen(false)} />
-        </form>
       </Dialog>
     </div>
   );

@@ -19,7 +19,6 @@ export async function createUser(fd: FormData): Promise<ActionResult> {
     password: String(fd.get("password") ?? ""),
     full_name: String(fd.get("full_name") ?? "").trim() || null,
     role: String(fd.get("role") ?? "team_member"),
-    team_id: String(fd.get("team_id") ?? "") || null,
   };
 
   const { data, error } = await supabase.functions.invoke("admin-create-user", { body });
@@ -51,22 +50,9 @@ export async function updateUser(fd: FormData): Promise<ActionResult> {
     .update({
       full_name: String(fd.get("full_name") ?? "").trim() || null,
       role: String(fd.get("role") ?? "team_member") as Role,
-      team_id: String(fd.get("team_id") ?? "") || null,
       is_active: fd.get("is_active") !== null,
     })
     .eq("id", id);
   if (error) return { error: error.message };
-  return { ok: true };
-}
-
-export async function createTeam(fd: FormData): Promise<ActionResult> {
-  const admin = await requireAdmin();
-  if (!admin) return { error: "Admin only." };
-  const name = String(fd.get("name") ?? "").trim();
-  if (!name) return { error: "Team name is required." };
-  const supabase = await createClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from("teams") as any).insert({ name, created_by: admin.id });
-  if (error) return { error: error.message.includes("duplicate") ? "That team already exists." : error.message };
   return { ok: true };
 }

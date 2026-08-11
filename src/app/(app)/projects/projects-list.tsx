@@ -61,8 +61,6 @@ type Project = {
   project_no: string;
   customer_id: string | null;
   customer_name: string | null;
-  team_id: string | null;
-  team_name: string | null;
   status: string;
   order_date: string | null;
   delivery_date: string | null;
@@ -71,7 +69,6 @@ type Project = {
 };
 
 type Customer = { id: string; name: string };
-type Team = { id: string; name: string };
 
 // ---------------------------------------------------------------------------
 // Main component
@@ -80,7 +77,6 @@ type Team = { id: string; name: string };
 export function ProjectsList({
   projects,
   customers,
-  teams,
   canWrite,
   canSeeFinancials,
   upsertAction,
@@ -88,7 +84,6 @@ export function ProjectsList({
 }: {
   projects: Project[];
   customers: Customer[];
-  teams: Team[];
   canWrite: boolean;
   canSeeFinancials: boolean;
   upsertAction: (fd: FormData) => Promise<ActionResult>;
@@ -161,7 +156,7 @@ export function ProjectsList({
             <TableHead>Customer</TableHead>
             <TableHead>Phase</TableHead>
             <TableHead>Delivery</TableHead>
-            {canSeeFinancials && <TableHead>PO Value</TableHead>}
+            {canSeeFinancials && <TableHead>Budgeted Cost</TableHead>}
             <TableHead className="w-36 text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -231,7 +226,6 @@ export function ProjectsList({
         <ProjectForm
           initial={editing}
           customers={customers}
-          teams={teams}
           canSeeFinancials={canSeeFinancials}
           error={error}
           pending={pending}
@@ -304,7 +298,6 @@ function PhaseCell({ status }: { status: string }) {
 function ProjectForm({
   initial,
   customers,
-  teams,
   canSeeFinancials,
   error,
   pending,
@@ -313,7 +306,6 @@ function ProjectForm({
 }: {
   initial: Project | null;
   customers: Customer[];
-  teams: Team[];
   canSeeFinancials: boolean;
   error: string | null;
   pending: boolean;
@@ -336,25 +328,20 @@ function ProjectForm({
           </Select>
         </Field>
 
-        <Field label="Status">
-          <Select name="status" defaultValue={initial?.status ?? "planning"}>
-            {ALL_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </Select>
-        </Field>
-
-        <Field label="Team (RLS scope)">
-          <Select name="team_id" defaultValue={initial?.team_id ?? ""}>
-            <option value="">— none —</option>
-            {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </Select>
-        </Field>
+        {initial && (
+          <Field label="Status">
+            <Select name="status" defaultValue={initial.status}>
+              {ALL_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </Select>
+          </Field>
+        )}
 
         <Field label="Customer PO No.">
           <Input name="customer_po_number" defaultValue={initial?.customer_po_number ?? ""} />
         </Field>
 
         {canSeeFinancials && (
-          <Field label="Customer PO Value (₹)">
+          <Field label="Budgeted Company Cost (₹)">
             <Input name="customer_po_value" type="number" step="any" defaultValue={initial?.customer_po_value ?? ""} />
           </Field>
         )}

@@ -38,7 +38,6 @@ Deno.serve(async (req) => {
   const password = String(body.password ?? "");
   const full_name = body.full_name ? String(body.full_name) : null;
   const role = ROLES.includes(String(body.role)) ? String(body.role) : "team_member";
-  const team_id = body.team_id ? String(body.team_id) : null;
   if (!email || password.length < 6) return json({ error: "Email and a 6+ char password are required" }, 400);
 
   // 3) Create the auth user + profile with the service role.
@@ -49,7 +48,7 @@ Deno.serve(async (req) => {
   if (cErr || !created.user) return json({ error: cErr?.message ?? "Could not create user" }, 400);
 
   const { error: pErr } = await admin.from("profiles").insert({
-    id: created.user.id, full_name, role, team_id, created_by: user.id, is_active: true,
+    id: created.user.id, full_name, role, created_by: user.id, is_active: true,
   });
   if (pErr) {
     await admin.auth.admin.deleteUser(created.user.id); // roll back orphaned auth user

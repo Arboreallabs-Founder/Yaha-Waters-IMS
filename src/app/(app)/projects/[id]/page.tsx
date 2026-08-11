@@ -337,7 +337,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           <Info label="Delivery date" value={formatDate(project.delivery_date)} />
           <Info label="Customer PO" value={project.customer_po_number || "—"} />
           {canSeeFinancials(profile?.role) && (
-            <Info label="PO value" value={formatINR(project.customer_po_value)} />
+            <Info label="Budgeted Company Cost" value={formatINR(project.customer_po_value)} />
           )}
         </CardContent>
       </Card>
@@ -345,7 +345,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       {canSeeFinancials(profile?.role) && costing && (
         <Card className="mb-8">
           <CardContent className="grid grid-cols-2 gap-4 p-5 text-sm sm:grid-cols-5">
-            <Info label="Customer PO" value={formatINR(costing.customer_po_value)} />
+            <Info label="Budgeted Company Cost" value={formatINR(costing.customer_po_value)} />
             <Info label="Ordered" value={formatINR(costing.ordered_value)} />
             <Info label="Received" value={formatINR(costing.received_value)} />
             <Info label="Consumed" value={formatINR(costing.consumed_value)} />
