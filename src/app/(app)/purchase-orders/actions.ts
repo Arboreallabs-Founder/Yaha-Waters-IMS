@@ -17,7 +17,12 @@ export type ActionResult = {
   revisedPoId?: string;
 };
 
-const LOCKED_PO_ERROR = "This PO is locked — it has already been received against (or cancelled/superseded) and can no longer be edited. Raise a new PO instead.";
+const LOCKED_PO_ERROR = "This PO is locked — it's been cancelled or superseded by a later revision and can no longer be edited.";
+
+// Editing any of these creates a new revision (or, for header-only changes,
+// saves in place) via clone_po_revision — only cancelled/superseded POs are
+// permanently locked.
+const EDITABLE_SENT_STATUSES = ["sent", "partial", "completed"];
 
 const PROCURE = ["admin", "team_lead"];
 
@@ -78,15 +83,16 @@ export async function updatePO(fd: FormData): Promise<ActionResult> {
 
   const { data: po } = await supabase.from("purchase_orders").select("status, vendor_id").eq("id", id).single();
   if (!po) return { error: "PO not found." };
-  if (po.status !== "draft" && po.status !== "sent") return { error: LOCKED_PO_ERROR };
+  if (po.status !== "draft" && !EDITABLE_SENT_STATUSES.includes(po.status)) return { error: LOCKED_PO_ERROR };
 
   const po_no = String(fd.get("po_no") ?? "").trim();
   if (!po_no) return { error: "PO No. is required." };
   const vendor_id = String(fd.get("vendor_id") ?? "") || null;
 
-  // Changing the vendor on an already-sent PO changes who's fulfilling the
-  // order — treat it as a revision-triggering change, same as a line edit.
-  if (po.status === "sent" && vendor_id !== po.vendor_id) {
+  // Changing the vendor on an already-sent/partial/completed PO changes
+  // who's fulfilling the order — treat it as a revision-triggering change,
+  // same as a line edit.
+  if (EDITABLE_SENT_STATUSES.includes(po.status) && vendor_id !== po.vendor_id) {
     const { data: result, error } = await supabase.rpc("clone_po_revision", {
       p_old_po_id: id,
       p_kind: "header_vendor",
@@ -170,7 +176,7 @@ export async function addPoLine(fd: FormData): Promise<ActionResult> {
   const { data: po } = await supabase.from("purchase_orders").select("status").eq("id", po_id).single();
   if (!po) return { error: "PO not found." };
 
-  if (po.status === "sent") {
+  if (EDITABLE_SENT_STATUSES.includes(po.status)) {
     const { data: result, error } = await supabase.rpc("clone_po_revision", {
       p_old_po_id: po_id,
       p_kind: "add",
@@ -225,7 +231,7 @@ export async function updatePoLine(fd: FormData): Promise<ActionResult> {
     qty !== Number(line.qty_ordered) ||
     rate !== (line.rate == null ? null : Number(line.rate));
 
-  if (po.status === "sent" && contentChanged) {
+  if (EDITABLE_SENT_STATUSES.includes(po.status) && contentChanged) {
     const { data: result, error } = await supabase.rpc("clone_po_revision", {
       p_old_po_id: po_id,
       p_kind: "update",
@@ -240,7 +246,7 @@ export async function updatePoLine(fd: FormData): Promise<ActionResult> {
     revalidatePath(`/purchase-orders/${res.id}`);
     return { ok: true, id: res.id, revisedPoId: res.id };
   }
-  if (po.status !== "draft" && po.status !== "sent") return { error: LOCKED_PO_ERROR };
+  if (po.status !== "draft" && !EDITABLE_SENT_STATUSES.includes(po.status)) return { error: LOCKED_PO_ERROR };
 
   const { error } = await supabase
     .from("po_lines")
@@ -261,7 +267,7 @@ export async function removePoLine(fd: FormData): Promise<ActionResult> {
   const { data: po } = await supabase.from("purchase_orders").select("status").eq("id", po_id).single();
   if (!po) return { error: "PO not found." };
 
-  if (po.status === "sent") {
+  if (EDITABLE_SENT_STATUSES.includes(po.status)) {
     const { data: result, error } = await supabase.rpc("clone_po_revision", {
       p_old_po_id: po_id,
       p_kind: "remove",

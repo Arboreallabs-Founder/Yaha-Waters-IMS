@@ -22,10 +22,10 @@ export default async function PoDetailPage({ params }: { params: Promise<{ id: s
   const { data: po } = await supabase.from("purchase_orders").select("*").eq("id", id).single();
   if (!po) notFound();
 
-  // Editable only while draft (in place) or sent (line edits fork a
-  // revision) — once GRN receiving has started (partial/completed) or the
-  // PO is cancelled/superseded, it's permanently read-only.
-  const canWrite = canWriteMasters(profile?.role) && (po.status === "draft" || po.status === "sent");
+  // Editable while draft (in place) or sent/partial/completed (line edits
+  // fork a revision, gated by the same price-approval mechanism) — only
+  // cancelled/superseded is permanently read-only.
+  const canWrite = canWriteMasters(profile?.role) && ["draft", "sent", "partial", "completed"].includes(po.status);
   const canDelete = canDeletePurchaseOrders(profile?.role, po);
 
   let currentRevisionId: string | null = null;
