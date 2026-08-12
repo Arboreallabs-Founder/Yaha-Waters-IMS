@@ -76,6 +76,7 @@ export async function addGrnLine(fd: FormData): Promise<ActionResult> {
   const pieceCount  = Number(fd.get("piece_count")  ?? "") || null;
   const pieceLength = Number(fd.get("piece_length") ?? "") || null;
   const pieceWidth  = Number(fd.get("piece_width")  ?? "") || null;
+  const pieceWeight = Number(fd.get("piece_weight") ?? "") || null;
 
   const target_lot_id = String(fd.get("target_lot_id") ?? "") || null;
 
@@ -95,10 +96,10 @@ export async function addGrnLine(fd: FormData): Promise<ActionResult> {
   if (error) return { error: error.message };
 
   // If dimensions were supplied (bulk), patch the lot the trigger just created.
-  if (target_lot_id === null && (pieceCount !== null || pieceLength !== null || pieceWidth !== null)) {
+  if (target_lot_id === null && (pieceCount !== null || pieceLength !== null || pieceWidth !== null || pieceWeight !== null)) {
     await supabase
       .from("inventory_lots")
-      .update({ piece_count: pieceCount, piece_length: pieceLength, piece_width: pieceWidth })
+      .update({ piece_count: pieceCount, piece_length: pieceLength, piece_width: pieceWidth, piece_weight: pieceWeight })
       .eq("grn_line_id", line.id);
   }
 

@@ -71,7 +71,7 @@ export default async function ComponentsPage() {
       options: [
         { value: "nos", label: "Nos (count)" },
         { value: "length", label: "Length (pipes / rods) — metres" },
-        { value: "area", label: "Area (sheets) — sq metres" },
+        { value: "weight", label: "Weight (sheets / raw stock) — KG" },
       ],
     },
     { name: "uom", label: "UoM display label", type: "text", placeholder: "Nos, Mtr, Kg, Ltr…" },
@@ -99,7 +99,7 @@ export default async function ComponentsPage() {
       label: "Inspection template",
       type: "select",
       options: templateOptions,
-      help: "Requires an IRN (inspection) before goods received at GRN become stock. Item/Bulk tracking only — not Box.",
+      help: "Requires an IRN (inspection) before goods received at GRN become stock.",
     },
     { name: "description", label: "Description", type: "textarea" },
   ];

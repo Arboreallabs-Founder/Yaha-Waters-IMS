@@ -23,6 +23,7 @@ export function BomPanel({
   components,
   canWrite,
   generateAction,
+  startCustomAction,
   approveAction,
   unapproveAction,
   addManualAction,
@@ -34,6 +35,7 @@ export function BomPanel({
   components: Component[];
   canWrite: boolean;
   generateAction: Act;
+  startCustomAction: Act;
   approveAction: Act;
   unapproveAction: Act;
   addManualAction: Act;
@@ -107,6 +109,11 @@ export function BomPanel({
             >
               <Cog className="size-4" /> {bom ? "Regenerate" : "Generate BOM"}
             </Button>
+            {!bom && (
+              <Button variant="outline" disabled={busy} onClick={() => run(startCustomAction, {})}>
+                <Plus className="size-4" /> Build Custom BOM
+              </Button>
+            )}
             {bom && !approved && (
               <Button disabled={busy || lines.length === 0} onClick={() => run(approveAction, { bom_id: bom.id })}>
                 <Check className="size-4" /> Approve
@@ -140,7 +147,7 @@ export function BomPanel({
               {lines.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="py-6 text-center text-muted-foreground">
-                    No lines yet — click Generate BOM.
+                    No lines yet — click Generate BOM or add lines manually below.
                   </TableCell>
                 </TableRow>
               ) : (

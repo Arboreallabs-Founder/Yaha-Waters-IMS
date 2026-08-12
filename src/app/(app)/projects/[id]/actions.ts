@@ -212,6 +212,24 @@ export async function generateBom(fd: FormData): Promise<ActionResult> {
   return { ok: true, message: notes.join(" ") };
 }
 
+// ---------- custom (template-free) BOM ----------
+export async function startCustomBom(fd: FormData): Promise<ActionResult> {
+  const p = await planner();
+  if (!p) return { error: "Only Admin / Team Lead can start a BOM." };
+  const project_id = String(fd.get("project_id") ?? "");
+  if (!project_id) return { error: "Missing project." };
+  const supabase = await createClient();
+
+  const { data: existing } = await supabase.from("boms").select("id").eq("project_id", project_id).maybeSingle();
+  if (existing) return { error: "A BOM already exists for this project." };
+
+  const { error } = await supabase.from("boms").insert({ project_id, status: "draft", created_by: p.id });
+  if (error) return { error: error.message };
+
+  revalidate(project_id);
+  return { ok: true, message: "Custom BOM started — add line items below." };
+}
+
 // ---------- BOM approval + manual lines ----------
 export async function approveBom(fd: FormData): Promise<ActionResult> {
   const p = await planner();

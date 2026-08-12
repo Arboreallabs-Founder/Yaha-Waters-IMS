@@ -21,6 +21,7 @@ import {
   addLineItem,
   removeLineItem,
   generateBom,
+  startCustomBom,
   approveBom,
   unapproveBom,
   addManualBomLine,
@@ -374,6 +375,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           components={components ?? []}
           canWrite={canWrite}
           generateAction={generateBom}
+          startCustomAction={startCustomBom}
           approveAction={approveBom}
           unapproveAction={unapproveBom}
           addManualAction={addManualBomLine}

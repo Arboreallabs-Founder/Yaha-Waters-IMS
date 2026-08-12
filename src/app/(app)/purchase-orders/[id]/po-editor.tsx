@@ -35,7 +35,7 @@ const DRAFT_STATUS_CHOICES = ["draft", "sent", "cancelled"];
 
 function unitSuffix(qt: string | null | undefined, uom: string | null | undefined) {
   if (qt === "length") return "m";
-  if (qt === "area") return "m²";
+  if (qt === "weight") return "kg";
   return uom || "";
 }
 
@@ -76,8 +76,8 @@ export function PoEditor({
   const [editing, setEditing] = React.useState<Line | null>(null);
   const [addComp, setAddComp] = React.useState("");
   const [pieceCount, setPieceCount] = React.useState("");
-  const [pieceLength, setPieceLength] = React.useState("");
-  const [pieceWidth, setPieceWidth] = React.useState("");
+  const [totalLength, setTotalLength] = React.useState("");
+  const [totalWeight, setTotalWeight] = React.useState("");
   const [rateInput, setRateInput] = React.useState("");
   const [showAllComponents, setShowAllComponents] = React.useState(false);
   const projLabel = new Map(projects.map((p) => [p.id, p.label]));
@@ -95,15 +95,27 @@ export function PoEditor({
 
   const derivedQty = React.useMemo(() => {
     const pc = Number(pieceCount) || 0;
-    const pl = Number(pieceLength) || 0;
-    const pw = Number(pieceWidth) || 0;
-    if (addQt === "length" && pc > 0 && pl > 0) return pc * pl;
-    if (addQt === "area" && pc > 0 && pl > 0 && pw > 0) return pc * pl * pw;
+    const tl = Number(totalLength) || 0;
+    const tw = Number(totalWeight) || 0;
+    if (addQt === "length" && pc > 0 && tl > 0) return tl;
+    if (addQt === "weight" && pc > 0 && tw > 0) return tw;
     return null;
-  }, [addQt, pieceCount, pieceLength, pieceWidth]);
+  }, [addQt, pieceCount, totalLength, totalWeight]);
+
+  const derivedPieceLength = React.useMemo(() => {
+    const pc = Number(pieceCount) || 0;
+    const tl = Number(totalLength) || 0;
+    return addQt === "length" && pc > 0 && tl > 0 ? tl / pc : null;
+  }, [addQt, pieceCount, totalLength]);
+
+  const derivedPieceWeight = React.useMemo(() => {
+    const pc = Number(pieceCount) || 0;
+    const tw = Number(totalWeight) || 0;
+    return addQt === "weight" && pc > 0 && tw > 0 ? tw / pc : null;
+  }, [addQt, pieceCount, totalWeight]);
 
   React.useEffect(() => {
-    setPieceCount(""); setPieceLength(""); setPieceWidth("");
+    setPieceCount(""); setTotalLength(""); setTotalWeight("");
     const last = addComp ? lastRateByComponent[addComp] : undefined;
     setRateInput(last != null ? String(last) : "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -255,7 +267,7 @@ export function PoEditor({
             const form = e.currentTarget;
             const fd = new FormData(form);
             if (derivedQty !== null) fd.set("qty_ordered", String(derivedQty));
-            run(addPoLine, fd, () => { form.reset(); setAddComp(""); setPieceCount(""); setPieceLength(""); setPieceWidth(""); setRateInput(""); });
+            run(addPoLine, fd, () => { form.reset(); setAddComp(""); setPieceCount(""); setTotalLength(""); setTotalWeight(""); setRateInput(""); });
           }}
           className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
           <h3 className="text-sm font-semibold">Add line</h3>
@@ -315,7 +327,7 @@ export function PoEditor({
           {addQt === "length" && (
             <div className="rounded-md border border-border bg-background p-3">
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Length ordered <span className="ml-1 font-normal normal-case text-muted-foreground">— total = pieces × length/pc</span>
+                Length ordered <span className="ml-1 font-normal normal-case text-muted-foreground">— length/piece is auto-calculated from the total</span>
               </p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div className="space-y-1.5">
@@ -324,15 +336,15 @@ export function PoEditor({
                     onChange={(e) => setPieceCount(e.target.value)} required placeholder="e.g. 1" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Length per piece (m)</Label>
-                  <Input type="number" step="any" min="0" value={pieceLength}
-                    onChange={(e) => setPieceLength(e.target.value)} required placeholder="e.g. 10" />
+                  <Label>Total length (m)</Label>
+                  <Input type="number" step="any" min="0" value={totalLength}
+                    onChange={(e) => setTotalLength(e.target.value)} required placeholder="e.g. 10" />
                 </div>
-                {derivedQty !== null && (
+                {derivedPieceLength !== null && (
                   <div className="flex items-end">
                     <p className="text-sm font-medium text-green-700">
-                      Total: <span className="font-bold">{formatNumber(derivedQty)} m</span>
-                      <span className="ml-2 text-muted-foreground">({pieceCount} × {pieceLength} m)</span>
+                      ≈ <span className="font-bold">{formatNumber(derivedPieceLength)} m/piece</span>
+                      <span className="ml-2 text-muted-foreground">({totalLength} m ÷ {pieceCount} pieces)</span>
                     </p>
                   </div>
                 )}
@@ -340,32 +352,27 @@ export function PoEditor({
             </div>
           )}
 
-          {addQt === "area" && (
+          {addQt === "weight" && (
             <div className="rounded-md border border-border bg-background p-3">
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Area ordered <span className="ml-1 font-normal normal-case text-muted-foreground">— total = pieces × width × length</span>
+                Weight ordered <span className="ml-1 font-normal normal-case text-muted-foreground">— weight/piece is auto-calculated from the total</span>
               </p>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div className="space-y-1.5">
-                  <Label>No. of sheets</Label>
+                  <Label>No. of pieces</Label>
                   <Input type="number" step="1" min="1" value={pieceCount}
-                    onChange={(e) => setPieceCount(e.target.value)} required placeholder="e.g. 1" />
+                    onChange={(e) => setPieceCount(e.target.value)} required placeholder="e.g. 50" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Width (m)</Label>
-                  <Input type="number" step="any" min="0" value={pieceWidth}
-                    onChange={(e) => setPieceWidth(e.target.value)} required placeholder="e.g. 1.2" />
+                  <Label>Total weight (kg)</Label>
+                  <Input type="number" step="any" min="0" value={totalWeight}
+                    onChange={(e) => setTotalWeight(e.target.value)} required placeholder="e.g. 125" />
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Length (m)</Label>
-                  <Input type="number" step="any" min="0" value={pieceLength}
-                    onChange={(e) => setPieceLength(e.target.value)} required placeholder="e.g. 2.4" />
-                </div>
-                {derivedQty !== null && (
+                {derivedPieceWeight !== null && (
                   <div className="flex items-end">
                     <p className="text-sm font-medium text-green-700">
-                      Total: <span className="font-bold">{formatNumber(derivedQty)} m²</span>
-                      <span className="ml-2 text-muted-foreground">({pieceCount} × {pieceWidth}×{pieceLength} m)</span>
+                      ≈ <span className="font-bold">{formatNumber(derivedPieceWeight)} kg/piece</span>
+                      <span className="ml-2 text-muted-foreground">({totalWeight} kg ÷ {pieceCount} pieces)</span>
                     </p>
                   </div>
                 )}

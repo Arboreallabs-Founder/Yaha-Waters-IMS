@@ -7,6 +7,8 @@ import {
   parseOptions,
   type ActionResult,
 } from "@/lib/server/crud";
+import { getProfile, canWriteMasters } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 
 const TEMPLATE_FIELDS = {
   name: "string",
@@ -47,4 +49,23 @@ export async function removeTemplateField(fd: FormData): Promise<ActionResult> {
   const id = String(fd.get("id") ?? "");
   if (!id) return { error: "Missing id." };
   return upsertRaw("inspection_template_fields", { is_active: false }, id);
+}
+
+// ---- per-component field eligibility (opt-out: presence in the
+// exclusions table means "not eligible / not asked for this component") ----
+export async function toggleFieldEligibility(fd: FormData): Promise<ActionResult> {
+  const profile = await getProfile();
+  if (!canWriteMasters(profile?.role)) return { error: "You don't have permission to edit master data." };
+
+  const componentId = String(fd.get("component_id") ?? "");
+  const fieldId = String(fd.get("field_id") ?? "");
+  const eligible = fd.get("eligible") === "true";
+  if (!componentId || !fieldId) return { error: "Missing component or field." };
+
+  const supabase = await createClient();
+  const resp = eligible
+    ? await supabase.from("component_inspection_field_exclusions").delete().eq("component_id", componentId).eq("field_id", fieldId)
+    : await supabase.from("component_inspection_field_exclusions").insert({ component_id: componentId, field_id: fieldId, created_by: profile!.id });
+  if (resp.error && resp.error.code !== "23505") return { error: resp.error.message };
+  return { ok: true };
 }

@@ -16,15 +16,15 @@ type Lot = {
   id: string; lot_code: string; qty_on_hand: string | number; qty_initial: string | number;
   location: string | null; status: string; unit_cost: number | null;
   created_at: string; project_id: string | null; vendor_id: string | null;
-  piece_count: string | number | null; piece_length: string | number | null; piece_width: string | number | null;
+  piece_count: string | number | null; piece_length: string | number | null; piece_weight: string | number | null;
 };
 
-/** Renders qty with dimension breakdown for length/area lots. */
+/** Renders qty with dimension breakdown for length/weight lots. */
 function QtyCell({ lot, qt }: { lot: Lot; qt: string }) {
   const qty = Number(lot.qty_on_hand);
   const pc = Number(lot.piece_count) || null;
   const pl = Number(lot.piece_length) || null;
-  const pw = Number(lot.piece_width) || null;
+  const pweight = Number(lot.piece_weight) || null;
 
   if (qt === "length" && pc && pl) {
     return (
@@ -34,11 +34,11 @@ function QtyCell({ lot, qt }: { lot: Lot; qt: string }) {
       </span>
     );
   }
-  if (qt === "area" && pc && pl && pw) {
+  if (qt === "weight" && pc && pweight) {
     return (
       <span>
-        <span className="font-semibold">{formatNumber(qty)} m²</span>
-        <span className="ml-1.5 text-xs text-muted-foreground">({pc} × {pw}×{pl} m)</span>
+        <span className="font-semibold">{formatNumber(qty)} kg</span>
+        <span className="ml-1.5 text-xs text-muted-foreground">({pc} × {formatNumber(pweight)} kg/pc)</span>
       </span>
     );
   }
@@ -47,7 +47,7 @@ function QtyCell({ lot, qt }: { lot: Lot; qt: string }) {
 
 function qtUnit(qt: string) {
   if (qt === "length") return "m";
-  if (qt === "area") return "m²";
+  if (qt === "weight") return "kg";
   return "";
 }
 
@@ -69,7 +69,7 @@ export default async function ComponentInventoryPage({ params }: { params: Promi
   const [{ data: allLots }, { data: movements }] = await Promise.all([
     supabase
       .from("inventory_lots")
-      .select("id, lot_code, qty_on_hand, qty_initial, location, status, unit_cost, created_at, project_id, vendor_id, piece_count, piece_length, piece_width")
+      .select("id, lot_code, qty_on_hand, qty_initial, location, status, unit_cost, created_at, project_id, vendor_id, piece_count, piece_length, piece_weight")
       .eq("component_id", id)
       .order("created_at", { ascending: false }),
     supabase
@@ -120,7 +120,7 @@ export default async function ComponentInventoryPage({ params }: { params: Promi
         title={`${comp.component_no} — ${comp.name}`}
         description={[
           comp.uom ? `Unit: ${comp.uom}` : null,
-          qt !== "nos" ? (qt === "length" ? "Lot type: Length (metres)" : "Lot type: Area (sq metres)") : null,
+          qt !== "nos" ? (qt === "length" ? "Lot type: Length (metres)" : "Lot type: Weight (KG)") : null,
         ].filter(Boolean).join(" · ") || undefined}
       />
 

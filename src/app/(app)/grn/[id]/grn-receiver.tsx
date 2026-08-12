@@ -29,8 +29,8 @@ const IRN_STATUS_META: Record<string, { label: string; variant: "success" | "war
 };
 
 function QtyHelperLabel({ qt }: { qt: string }) {
-  if (qt === "length") return <span className="text-xs text-muted-foreground">Total = pieces × length/pc</span>;
-  if (qt === "area")   return <span className="text-xs text-muted-foreground">Total = pieces × width × length</span>;
+  if (qt === "length") return <span className="text-xs text-muted-foreground">Length/piece is auto-calculated from the total</span>;
+  if (qt === "weight")  return <span className="text-xs text-muted-foreground">Weight/piece is auto-calculated from the total</span>;
   return null;
 }
 
@@ -47,6 +47,7 @@ export function GrnReceiver({
   vendorComponentIds,
   vendorName,
   templateFieldsByTemplate,
+  excludedFieldIdsByComponent,
   irnRows,
   submitIrnAction,
 }: {
@@ -63,6 +64,8 @@ export function GrnReceiver({
   vendorComponentIds: string[];
   vendorName: string | null;
   templateFieldsByTemplate: Record<string, TemplateField[]>;
+  /** Per-component field exclusions (opt-out) — fields listed here are skipped for that component. */
+  excludedFieldIdsByComponent: Record<string, string[]>;
   irnRows: IrnRow[];
   submitIrnAction: (fd: FormData) => Promise<IrnActionResult>;
 }) {
@@ -75,8 +78,8 @@ export function GrnReceiver({
   const [selectedPoLineId, setSelectedPoLineId] = React.useState("");
   // dimension inputs for manual entry
   const [pieceCount, setPieceCount] = React.useState("");
-  const [pieceLength, setPieceLength] = React.useState("");
-  const [pieceWidth, setPieceWidth] = React.useState("");
+  const [totalLength, setTotalLength] = React.useState("");
+  const [totalWeight, setTotalWeight] = React.useState("");
   const [targetLotId, setTargetLotId] = React.useState("");
   const [showAllComponents, setShowAllComponents] = React.useState(false);
   const [answers, setAnswers] = React.useState<Record<string, string>>({});
@@ -93,26 +96,41 @@ export function GrnReceiver({
   const qt = selectedComp?.quantity_type ?? "nos";
   const trackingMode = selectedComp?.tracking_mode ?? "box";
   const boxesForComp = manualComp ? (openBoxesByComponent[manualComp] ?? []) : [];
-  const templateFields = selectedComp?.inspection_template_id ? (templateFieldsByTemplate[selectedComp.inspection_template_id] ?? []) : [];
+  const allTemplateFields = selectedComp?.inspection_template_id ? (templateFieldsByTemplate[selectedComp.inspection_template_id] ?? []) : [];
+  const excludedIds = React.useMemo(() => new Set(manualComp ? (excludedFieldIdsByComponent[manualComp] ?? []) : []), [manualComp, excludedFieldIdsByComponent]);
+  const templateFields = allTemplateFields.filter((f) => !excludedIds.has(f.id));
   const needsInspection = templateFields.length > 0;
 
-  // Derived total qty for length/area
+  // Derived total qty for length/weight — both are directly-entered totals now.
   const derivedQty = React.useMemo(() => {
     const pc = Number(pieceCount) || 0;
-    const pl = Number(pieceLength) || 0;
-    const pw = Number(pieceWidth) || 0;
-    if (qt === "length" && pc > 0 && pl > 0) return pc * pl;
-    if (qt === "area" && pc > 0 && pl > 0 && pw > 0) return pc * pl * pw;
+    const tl = Number(totalLength) || 0;
+    const tw = Number(totalWeight) || 0;
+    if (qt === "length" && pc > 0 && tl > 0) return tl;
+    if (qt === "weight" && pc > 0 && tw > 0) return tw;
     return null;
-  }, [qt, pieceCount, pieceLength, pieceWidth]);
+  }, [qt, pieceCount, totalLength, totalWeight]);
+
+  // Length/weight per piece — auto-calculated from the directly-entered total ÷ pieces.
+  const derivedPieceLength = React.useMemo(() => {
+    const pc = Number(pieceCount) || 0;
+    const tl = Number(totalLength) || 0;
+    return qt === "length" && pc > 0 && tl > 0 ? tl / pc : null;
+  }, [qt, pieceCount, totalLength]);
+
+  const derivedPieceWeight = React.useMemo(() => {
+    const pc = Number(pieceCount) || 0;
+    const tw = Number(totalWeight) || 0;
+    return qt === "weight" && pc > 0 && tw > 0 ? tw / pc : null;
+  }, [qt, pieceCount, totalWeight]);
 
   const matchingPoLines = manualComp ? (openPoByComponent[manualComp] ?? []) : [];
 
   React.useEffect(() => {
     setSelectedPoLineId(matchingPoLines.length > 0 ? matchingPoLines[0].po_line_id : "");
     setPieceCount("");
-    setPieceLength("");
-    setPieceWidth("");
+    setTotalLength("");
+    setTotalWeight("");
     setTargetLotId("");
     setAnswers({});
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -150,7 +168,7 @@ export function GrnReceiver({
       const selectedLine = matchingPoLines.find((pl) => pl.po_line_id === selectedPoLineId);
       if (selectedLine?.project_id) fd.set("project_id", selectedLine.project_id);
     }
-    // For length/area, override qty_received with the computed total
+    // For length/weight, override qty_received with the computed total
     if (derivedQty !== null) fd.set("qty_received", String(derivedQty));
 
     if (needsInspection) {
@@ -160,12 +178,18 @@ export function GrnReceiver({
         return;
       }
       fd.set("answers", JSON.stringify(templateFields.map((f) => ({ field_id: f.id, value: answers[f.id] ?? "" }))));
-      if (qt !== "nos") { fd.set("piece_count", pieceCount); fd.set("piece_length", pieceLength); fd.set("piece_width", pieceWidth); }
+      if (qt !== "nos") {
+        fd.set("piece_count", pieceCount);
+        fd.set("piece_length", derivedPieceLength !== null ? String(derivedPieceLength) : "");
+        fd.set("piece_weight", derivedPieceWeight !== null ? String(derivedPieceWeight) : "");
+      }
+      if (trackingMode === "box" && targetLotId) fd.set("target_lot_id", targetLotId);
       runIrn(fd, () => {
         form.reset();
         setManualComp("");
         setSelectedPoLineId("");
-        setPieceCount(""); setPieceLength(""); setPieceWidth("");
+        setPieceCount(""); setTotalLength(""); setTotalWeight("");
+        setTargetLotId("");
         setAnswers({});
       });
       return;
@@ -177,7 +201,7 @@ export function GrnReceiver({
       form.reset();
       setManualComp("");
       setSelectedPoLineId("");
-      setPieceCount(""); setPieceLength(""); setPieceWidth("");
+      setPieceCount(""); setTotalLength(""); setTotalWeight("");
       setTargetLotId("");
     });
   }
@@ -224,7 +248,7 @@ export function GrnReceiver({
               <div className="rounded-md border border-border bg-background p-3">
                 <div className="mb-1.5 flex items-center gap-2">
                   <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {qt === "nos" ? "Count" : qt === "length" ? "Length (metres)" : "Area (sq metres)"}
+                    {qt === "nos" ? "Count" : qt === "length" ? "Length (metres)" : "Weight (KG)"}
                   </span>
                   <QtyHelperLabel qt={qt} />
                 </div>
@@ -278,10 +302,10 @@ export function GrnReceiver({
                         name="piece_count" required placeholder="e.g. 10" />
                     </div>
                     <div className="space-y-1.5">
-                      <Label>Length per piece (m)</Label>
-                      <Input type="number" step="any" min="0" value={pieceLength}
-                        onChange={(e) => setPieceLength(e.target.value)}
-                        name="piece_length" required placeholder="e.g. 6" />
+                      <Label>Total length (m)</Label>
+                      <Input type="number" step="any" min="0" value={totalLength}
+                        onChange={(e) => setTotalLength(e.target.value)}
+                        required placeholder="e.g. 60" />
                     </div>
                     {canSeeFinancials && (
                       <div className="space-y-1.5">
@@ -289,55 +313,52 @@ export function GrnReceiver({
                         <Input name="unit_cost" type="number" step="any" />
                       </div>
                     )}
-                    {derivedQty !== null && (
+                    {derivedPieceLength !== null && (
                       <div className="sm:col-span-3">
                         <p className="text-sm font-medium text-green-700">
-                          Total: <span className="font-bold">{formatNumber(derivedQty)} m</span>
-                          <span className="ml-2 text-muted-foreground">({pieceCount} × {pieceLength} m)</span>
+                          ≈ <span className="font-bold">{formatNumber(derivedPieceLength)} m/piece</span>
+                          <span className="ml-2 text-muted-foreground">({totalLength} m ÷ {pieceCount} pieces)</span>
                         </p>
-                        <input type="hidden" name="qty_received" value={derivedQty} />
+                        <input type="hidden" name="qty_received" value={derivedQty ?? ""} />
+                        <input type="hidden" name="piece_length" value={derivedPieceLength} />
                       </div>
                     )}
                   </div>
                 )}
 
-                {qt === "area" && (
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+                {qt === "weight" && (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <div className="space-y-1.5">
-                      <Label>No. of sheets</Label>
+                      <Label>No. of pieces</Label>
                       <Input type="number" step="1" min="1" value={pieceCount}
                         onChange={(e) => setPieceCount(e.target.value)}
-                        name="piece_count" required placeholder="e.g. 5" />
+                        name="piece_count" required placeholder="e.g. 50" />
                     </div>
                     <div className="space-y-1.5">
-                      <Label>Width (m)</Label>
-                      <Input type="number" step="any" min="0" value={pieceWidth}
-                        onChange={(e) => setPieceWidth(e.target.value)}
-                        name="piece_width" required placeholder="e.g. 1.2" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Length (m)</Label>
-                      <Input type="number" step="any" min="0" value={pieceLength}
-                        onChange={(e) => setPieceLength(e.target.value)}
-                        name="piece_length" required placeholder="e.g. 2.4" />
+                      <Label>Total weight (kg)</Label>
+                      <Input type="number" step="any" min="0" value={totalWeight}
+                        onChange={(e) => setTotalWeight(e.target.value)}
+                        required placeholder="e.g. 125" />
                     </div>
                     {canSeeFinancials && (
                       <div className="space-y-1.5">
-                        <Label>Unit cost (₹/m²)</Label>
+                        <Label>Unit cost (₹/kg)</Label>
                         <Input name="unit_cost" type="number" step="any" />
                       </div>
                     )}
-                    {derivedQty !== null && (
-                      <div className="sm:col-span-4">
+                    {derivedPieceWeight !== null && (
+                      <div className="sm:col-span-3">
                         <p className="text-sm font-medium text-green-700">
-                          Total: <span className="font-bold">{formatNumber(derivedQty)} m²</span>
-                          <span className="ml-2 text-muted-foreground">({pieceCount} × {pieceWidth}×{pieceLength} m)</span>
+                          ≈ <span className="font-bold">{formatNumber(derivedPieceWeight)} kg/piece</span>
+                          <span className="ml-2 text-muted-foreground">({totalWeight} kg ÷ {pieceCount} pieces)</span>
                         </p>
-                        <input type="hidden" name="qty_received" value={derivedQty} />
+                        <input type="hidden" name="qty_received" value={derivedQty ?? ""} />
+                        <input type="hidden" name="piece_weight" value={derivedPieceWeight} />
                       </div>
                     )}
                   </div>
                 )}
+
               </div>
             )}
 
@@ -349,25 +370,42 @@ export function GrnReceiver({
                 </p>
                 {templateFields.map((f) => (
                   <div key={f.id} className="space-y-1.5">
-                    <Label>
-                      {f.label}
-                      {f.is_required && <span className="text-destructive"> *</span>}
-                    </Label>
-                    {f.field_type === "choice" ? (
-                      <Select
-                        value={answers[f.id] ?? ""}
-                        onChange={(e) => setAnswers((prev) => ({ ...prev, [f.id]: e.target.value }))}
-                      >
-                        <option value="">— choose —</option>
-                        {(f.options ?? []).map((o) => <option key={o} value={o}>{o}</option>)}
-                      </Select>
+                    {f.field_type === "checkbox" ? (
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          className="size-4 rounded border-input"
+                          checked={answers[f.id] === "true"}
+                          onChange={(e) => setAnswers((prev) => ({ ...prev, [f.id]: e.target.checked ? "true" : "" }))}
+                        />
+                        <span className="text-sm font-medium">
+                          {f.label}
+                          {f.is_required && <span className="text-destructive"> *</span>}
+                        </span>
+                      </label>
                     ) : (
-                      <Input
-                        type={f.field_type === "number" ? "number" : "text"}
-                        step={f.field_type === "number" ? "any" : undefined}
-                        value={answers[f.id] ?? ""}
-                        onChange={(e) => setAnswers((prev) => ({ ...prev, [f.id]: e.target.value }))}
-                      />
+                      <>
+                        <Label>
+                          {f.label}
+                          {f.is_required && <span className="text-destructive"> *</span>}
+                        </Label>
+                        {f.field_type === "choice" ? (
+                          <Select
+                            value={answers[f.id] ?? ""}
+                            onChange={(e) => setAnswers((prev) => ({ ...prev, [f.id]: e.target.value }))}
+                          >
+                            <option value="">— choose —</option>
+                            {(f.options ?? []).map((o) => <option key={o} value={o}>{o}</option>)}
+                          </Select>
+                        ) : (
+                          <Input
+                            type={f.field_type === "number" ? "number" : "text"}
+                            step={f.field_type === "number" ? "any" : undefined}
+                            value={answers[f.id] ?? ""}
+                            onChange={(e) => setAnswers((prev) => ({ ...prev, [f.id]: e.target.value }))}
+                          />
+                        )}
+                      </>
                     )}
                   </div>
                 ))}

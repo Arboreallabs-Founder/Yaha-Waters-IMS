@@ -26,7 +26,7 @@ function optionsToText(options: string[] | null): string {
   return options ? options.join(", ") : "";
 }
 
-const FIELD_TYPE_LABELS: Record<string, string> = { text: "Text", number: "Number", choice: "Multiple choice" };
+const FIELD_TYPE_LABELS: Record<string, string> = { text: "Text", number: "Number", choice: "Multiple choice", checkbox: "Checkbox" };
 
 export function TemplateFieldEditor({
   templateId,
@@ -170,6 +170,7 @@ export function TemplateFieldEditor({
               <option value="text">Text</option>
               <option value="number">Number</option>
               <option value="choice">Multiple choice</option>
+              <option value="checkbox">Checkbox</option>
             </Select>
           </div>
           {fieldType === "choice" && (

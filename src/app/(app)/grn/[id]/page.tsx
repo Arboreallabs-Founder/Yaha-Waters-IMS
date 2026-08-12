@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Printer } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile, canSeeFinancials } from "@/lib/auth";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
+import { buttonVariants } from "@/components/ui/button";
 import { formatDate } from "@/lib/utils";
 import { GrnReceiver } from "./grn-receiver";
 import { submitIrn } from "../irn-actions";
@@ -54,6 +55,14 @@ export default async function GrnDetailPage({ params }: { params: Promise<{ id: 
     (templateFieldsByTemplate[f.template_id] ??= []).push({
       id: f.id, label: f.label, field_type: f.field_type, options: (f.options as string[] | null) ?? null, is_required: f.is_required,
     });
+  }
+
+  // Per-component field eligibility (opt-out — presence here means the field
+  // is NOT asked for that component). Small table, fetch in full.
+  const { data: exclusions } = await supabase.from("component_inspection_field_exclusions").select("component_id, field_id");
+  const excludedFieldIdsByComponent: Record<string, string[]> = {};
+  for (const x of exclusions ?? []) {
+    (excludedFieldIdsByComponent[x.component_id] ??= []).push(x.field_id);
   }
 
   // IRNs raised against this GRN (any status) — shown alongside posted lines.
@@ -136,7 +145,15 @@ export default async function GrnDetailPage({ params }: { params: Promise<{ id: 
       <Link href="/grn" className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="size-4" /> All goods receipts
       </Link>
-      <PageHeader title={grn.grn_no} description={vendor?.data?.name ?? "no vendor"} />
+      <PageHeader
+        title={grn.grn_no}
+        description={vendor?.data?.name ?? "no vendor"}
+        action={
+          <Link href={`/grn/${id}/print`} className={buttonVariants({ variant: "outline" })}>
+            <Printer className="size-4" /> Print
+          </Link>
+        }
+      />
 
       <Card className="mb-6">
         <CardContent className="grid grid-cols-2 gap-4 p-5 text-sm sm:grid-cols-4">
@@ -160,6 +177,7 @@ export default async function GrnDetailPage({ params }: { params: Promise<{ id: 
         vendorComponentIds={vendorComponentIds}
         vendorName={vendor?.data?.name ?? null}
         templateFieldsByTemplate={templateFieldsByTemplate}
+        excludedFieldIdsByComponent={excludedFieldIdsByComponent}
         irnRows={irnRows}
         submitIrnAction={submitIrn}
       />

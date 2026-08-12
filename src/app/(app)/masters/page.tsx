@@ -8,7 +8,7 @@ const MASTERS = [
   { label: "Components", href: "/masters/components", description: "Component numbers, attributes, QR/lot tracking, job-work flags.", icon: Wrench },
   { label: "Categories", href: "/masters/categories", description: "Product/component category tree.", icon: FolderTree },
   { label: "BOM Templates", href: "/masters/bom-templates", description: "Per-product bill of materials and variant rules.", icon: ListTree },
-  { label: "Inspection Templates", href: "/masters/inspection-templates", description: "IRN checklists attached to inspected components.", icon: ClipboardCheck },
+  { label: "Inspection Templates", href: "/masters/inspection-templates", description: "Per-item receiving checklist, gated by IRN approval.", icon: ClipboardCheck },
   { label: "Vendors", href: "/masters/vendors", description: "Suppliers, contact details, and supplied components.", icon: Truck },
   { label: "Customers", href: "/masters/customers", description: "Customer master for projects/orders.", icon: Users },
 ];
