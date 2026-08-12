@@ -55,12 +55,18 @@ export default async function GrnPrintPage({ params }: { params: Promise<{ id: s
   const [{ data: vendor }, { data: grnLines }, { data: checklistFields }] = await Promise.all([
     grn.vendor_id ? supabase.from("vendors").select("name").eq("id", grn.vendor_id).maybeSingle() : Promise.resolve({ data: null }),
     supabase.from("grn_lines").select("id, component_id, po_line_id, qty_received").eq("grn_id", grnId).order("created_at"),
-    supabase.from("inspection_templates").select("id, inspection_template_fields(id, label, field_type, sort_order)").eq("name", "MRIN Inspection Checklist").maybeSingle(),
+    supabase
+      .from("inspection_templates")
+      .select("id, inspection_template_fields(id, label, field_type, sort_order, is_active)")
+      .eq("name", "MRIN Inspection Checklist")
+      .maybeSingle(),
   ]);
 
   const fields = (
-    (checklistFields?.inspection_template_fields as { id: string; label: string; field_type: string; sort_order: number }[] | null) ?? []
-  ).sort((a, b) => a.sort_order - b.sort_order);
+    (checklistFields?.inspection_template_fields as { id: string; label: string; field_type: string; sort_order: number; is_active: boolean }[] | null) ?? []
+  )
+    .filter((f) => f.is_active)
+    .sort((a, b) => a.sort_order - b.sort_order);
 
   const componentIds = [...new Set((grnLines ?? []).map((l) => l.component_id).filter(Boolean))] as string[];
   const poLineIds = [...new Set((grnLines ?? []).map((l) => l.po_line_id).filter(Boolean))] as string[];
