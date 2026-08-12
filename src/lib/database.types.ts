@@ -413,6 +413,70 @@ export type Database = {
           },
         ]
       }
+      component_inspection_field_exclusions: {
+        Row: {
+          component_id: string
+          created_at: string
+          created_by: string | null
+          field_id: string
+        }
+        Insert: {
+          component_id: string
+          created_at?: string
+          created_by?: string | null
+          field_id: string
+        }
+        Update: {
+          component_id?: string
+          created_at?: string
+          created_by?: string | null
+          field_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "component_inspection_field_exclusions_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "components"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "component_inspection_field_exclusions_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "v_component_on_hand"
+            referencedColumns: ["component_id"]
+          },
+          {
+            foreignKeyName: "component_inspection_field_exclusions_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "v_component_on_hand_safe"
+            referencedColumns: ["component_id"]
+          },
+          {
+            foreignKeyName: "component_inspection_field_exclusions_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "v_components_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "component_inspection_field_exclusions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "component_inspection_field_exclusions_field_id_fkey"
+            columns: ["field_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_template_fields"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       components: {
         Row: {
           by_weight: boolean
@@ -1059,6 +1123,7 @@ export type Database = {
           parent_lot_id: string | null
           piece_count: number | null
           piece_length: number | null
+          piece_weight: number | null
           piece_width: number | null
           project_id: string | null
           qty_initial: number
@@ -1082,6 +1147,7 @@ export type Database = {
           parent_lot_id?: string | null
           piece_count?: number | null
           piece_length?: number | null
+          piece_weight?: number | null
           piece_width?: number | null
           project_id?: string | null
           qty_initial?: number
@@ -1105,6 +1171,7 @@ export type Database = {
           parent_lot_id?: string | null
           piece_count?: number | null
           piece_length?: number | null
+          piece_weight?: number | null
           piece_width?: number | null
           project_id?: string | null
           qty_initial?: number
@@ -1309,6 +1376,7 @@ export type Database = {
           irn_no: string
           piece_count: number | null
           piece_length: number | null
+          piece_weight: number | null
           piece_width: number | null
           po_line_id: string | null
           project_id: string | null
@@ -1316,6 +1384,7 @@ export type Database = {
           rejection_reason: string | null
           status: Database["public"]["Enums"]["irn_status"]
           supersedes_irn_id: string | null
+          target_lot_id: string | null
           template_id: string
           unit_cost: number | null
           updated_at: string | null
@@ -1334,6 +1403,7 @@ export type Database = {
           irn_no: string
           piece_count?: number | null
           piece_length?: number | null
+          piece_weight?: number | null
           piece_width?: number | null
           po_line_id?: string | null
           project_id?: string | null
@@ -1341,6 +1411,7 @@ export type Database = {
           rejection_reason?: string | null
           status?: Database["public"]["Enums"]["irn_status"]
           supersedes_irn_id?: string | null
+          target_lot_id?: string | null
           template_id: string
           unit_cost?: number | null
           updated_at?: string | null
@@ -1359,6 +1430,7 @@ export type Database = {
           irn_no?: string
           piece_count?: number | null
           piece_length?: number | null
+          piece_weight?: number | null
           piece_width?: number | null
           po_line_id?: string | null
           project_id?: string | null
@@ -1366,6 +1438,7 @@ export type Database = {
           rejection_reason?: string | null
           status?: Database["public"]["Enums"]["irn_status"]
           supersedes_irn_id?: string | null
+          target_lot_id?: string | null
           template_id?: string
           unit_cost?: number | null
           updated_at?: string | null
@@ -1503,6 +1576,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "irns"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "irns_target_lot_id_fkey"
+            columns: ["target_lot_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "irns_target_lot_id_fkey"
+            columns: ["target_lot_id"]
+            isOneToOne: false
+            referencedRelation: "v_inventory_lots_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "irns_target_lot_id_fkey"
+            columns: ["target_lot_id"]
+            isOneToOne: false
+            referencedRelation: "v_stale_stock"
+            referencedColumns: ["lot_id"]
           },
           {
             foreignKeyName: "irns_template_id_fkey"
@@ -4520,11 +4614,13 @@ export type Database = {
           p_grn_id: string
           p_piece_count: number
           p_piece_length: number
+          p_piece_weight?: number
           p_piece_width: number
           p_po_line_id: string
           p_project_id: string
           p_qty: number
           p_submitter_id: string
+          p_target_lot_id?: string
           p_unit_cost: number
         }
         Returns: Json
@@ -4537,7 +4633,7 @@ export type Database = {
       doc_type: "qap" | "drawing" | "spec" | "other"
       fg_status: "in_production" | "ready" | "dispatched"
       input_type: "dropdown" | "number" | "text"
-      irn_field_type: "text" | "number" | "choice"
+      irn_field_type: "text" | "number" | "choice" | "checkbox"
       irn_status: "pending_approval" | "approved" | "rejected"
       jw_stage: "raw" | "completed"
       lot_status: "open" | "issued" | "consumed"
@@ -4560,7 +4656,7 @@ export type Database = {
         | "dispatched"
         | "closed"
         | "on_hold"
-      quantity_type: "nos" | "length" | "area"
+      quantity_type: "nos" | "length" | "area" | "weight"
       req_status: "open" | "partially_issued" | "issued" | "closed"
       role: "admin" | "founder" | "team_lead" | "team_member"
       tracking_mode: "item" | "box" | "bulk"
@@ -4697,7 +4793,7 @@ export const Constants = {
       doc_type: ["qap", "drawing", "spec", "other"],
       fg_status: ["in_production", "ready", "dispatched"],
       input_type: ["dropdown", "number", "text"],
-      irn_field_type: ["text", "number", "choice"],
+      irn_field_type: ["text", "number", "choice", "checkbox"],
       irn_status: ["pending_approval", "approved", "rejected"],
       jw_stage: ["raw", "completed"],
       lot_status: ["open", "issued", "consumed"],
@@ -4722,7 +4818,7 @@ export const Constants = {
         "closed",
         "on_hold",
       ],
-      quantity_type: ["nos", "length", "area"],
+      quantity_type: ["nos", "length", "area", "weight"],
       req_status: ["open", "partially_issued", "issued", "closed"],
       role: ["admin", "founder", "team_lead", "team_member"],
       tracking_mode: ["item", "box", "bulk"],
