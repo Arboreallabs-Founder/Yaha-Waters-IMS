@@ -12,9 +12,12 @@ export function IrnApprovalActions({ irnId }: { irnId: string }) {
   const [error, setError] = React.useState<string | null>(null);
 
   async function onApprove() {
+    const remarks = prompt("Remarks (optional — leave blank for none):");
+    if (remarks === null) return; // cancelled
     setBusy("approve"); setError(null);
     const fd = new FormData();
     fd.set("irn_id", irnId);
+    if (remarks.trim()) fd.set("remarks", remarks.trim());
     const res = await approveIrn(fd);
     setBusy(null);
     if (res?.error) { setError(res.error); return; }

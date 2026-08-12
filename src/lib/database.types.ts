@@ -1363,6 +1363,7 @@ export type Database = {
       }
       irns: {
         Row: {
+          approval_remarks: string | null
           approved_at: string | null
           approved_by: string | null
           component_id: string
@@ -1390,6 +1391,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          approval_remarks?: string | null
           approved_at?: string | null
           approved_by?: string | null
           component_id: string
@@ -1417,6 +1419,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          approval_remarks?: string | null
           approved_at?: string | null
           approved_by?: string | null
           component_id?: string
@@ -4514,10 +4517,16 @@ export type Database = {
           role: Database["public"]["Enums"]["role"]
         }[]
       }
-      approve_irn: {
-        Args: { p_approver_id: string; p_irn_id: string }
-        Returns: Json
-      }
+      approve_irn:
+        | { Args: { p_approver_id: string; p_irn_id: string }; Returns: Json }
+        | {
+            Args: {
+              p_approver_id: string
+              p_irn_id: string
+              p_remarks?: string
+            }
+            Returns: Json
+          }
       approve_po_line: {
         Args: { p_approver_id: string; p_line_id: string }
         Returns: Json

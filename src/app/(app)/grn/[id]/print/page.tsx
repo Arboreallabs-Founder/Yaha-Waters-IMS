@@ -76,7 +76,7 @@ export default async function GrnPrintPage({ params }: { params: Promise<{ id: s
       ? supabase.from("components").select("id, component_no, name, uom, spec, grade, nominal_size, od_mm, id_mm, thk_mm, width_mm, length_mm").in("id", componentIds)
       : Promise.resolve({ data: [] }),
     poLineIds.length ? supabase.from("po_lines").select("id, po_id, qty_ordered, purchase_orders(po_no)") .in("id", poLineIds) : Promise.resolve({ data: [] }),
-    grnLineIds.length ? supabase.from("irns").select("id, grn_line_id").in("grn_line_id", grnLineIds) : Promise.resolve({ data: [] }),
+    grnLineIds.length ? supabase.from("irns").select("id, grn_line_id, approval_remarks").in("grn_line_id", grnLineIds) : Promise.resolve({ data: [] }),
   ]);
   const compById = new Map((components ?? []).map((c) => [c.id, c]));
   const poLineById = new Map((poLines ?? []).map((p) => [p.id, p]));
@@ -112,8 +112,12 @@ export default async function GrnPrintPage({ params }: { params: Promise<{ id: s
         if (f.field_type === "checkbox") return a.choice_value === "true" ? "✓" : a.choice_value === "false" ? "✗" : "—";
         return a.text_value || a.choice_value || "—";
       }),
+      remarks: irn?.approval_remarks?.trim() || null,
     };
   });
+
+  const remarkRows = lineRows.filter((l) => l.remarks);
+  const totalCols = 7 + fields.length;
 
   return (
     <div className="mx-auto max-w-6xl bg-white p-6 text-black print:p-0">
@@ -125,8 +129,11 @@ export default async function GrnPrintPage({ params }: { params: Promise<{ id: s
         <PrintButton label="Print MRIN" />
       </div>
 
-      <div className="border border-black text-[10px] leading-tight">
-        {/* Header */}
+      {/* Company header + GRN info. print:fixed so it's re-emitted on every physical printed
+          page (this app's <thead> repeat-on-page-break never worked here — tried plain
+          markup, no flex/grid, inline border-collapse override, prod build, nothing repeated
+          it — position:fixed is the one mechanism that reliably does). */}
+      <div className="border border-black text-[10px] leading-tight print:fixed print:inset-x-0 print:top-0 print:z-10 print:border-0 print:bg-white">
         <div className="flex items-start justify-between border-b border-black p-3">
           <div className="flex items-start gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -145,10 +152,7 @@ export default async function GrnPrintPage({ params }: { params: Promise<{ id: s
             <p>Date : {MRIN_OUR.formDate}</p>
           </div>
         </div>
-
         <h1 className="border-b border-black py-2 text-center text-base font-bold">MATERIAL RECEIPT CUM INSPECTION NOTE (MRIN)</h1>
-
-        {/* GRN info */}
         <div className="grid grid-cols-4 divide-x divide-black border-b border-black">
           <div className="p-2"><span className="font-semibold">GRN No.:</span> {grn.grn_no}</div>
           <div className="p-2"><span className="font-semibold">Vendor:</span> {vendor?.name ?? "—"}</div>
@@ -157,8 +161,12 @@ export default async function GrnPrintPage({ params }: { params: Promise<{ id: s
           <div className="p-2"><span className="font-semibold">Challan No.:</span> {grn.challan_no ?? "—"}</div>
           <div className="p-2"><span className="font-semibold">Invoice No.:</span> {grn.invoice_no ?? "—"}</div>
         </div>
+      </div>
 
-        {/* Line items with inspection checklist folded in */}
+      {/* print:pt clears the fixed header above on every page. The column-label row below
+          still only prints on page 1 (thead repeat doesn't work — see note above), so a
+          multi-page GRN's later pages show data without repeated column labels. */}
+      <div className="border border-black text-[10px] leading-tight print:pt-[66mm]">
         <table className="w-full border-collapse">
           <thead>
             <tr className="border-b border-black">
@@ -176,7 +184,7 @@ export default async function GrnPrintPage({ params }: { params: Promise<{ id: s
           </thead>
           <tbody>
             {lineRows.length === 0 ? (
-              <tr><td colSpan={7 + fields.length} className="p-3 text-center text-muted-foreground">No lines.</td></tr>
+              <tr><td colSpan={totalCols} className="p-3 text-center text-muted-foreground">No lines.</td></tr>
             ) : (
               lineRows.map((l) => (
                 <tr key={l.sr} className="border-b border-black/20">
@@ -196,8 +204,20 @@ export default async function GrnPrintPage({ params }: { params: Promise<{ id: s
           </tbody>
         </table>
 
-        {/* Signatures */}
-        <div className="grid grid-cols-3 gap-3 border-t border-black p-6 pt-16 text-center">
+        {/* Remarks — captured by the approver at IRN approval time; blank if none were left. */}
+        <div className="min-h-[25mm] break-inside-avoid border-b border-black p-3">
+          <p className="mb-1 font-semibold">Remarks:</p>
+          {remarkRows.length > 0 && (
+            <div className="space-y-0.5">
+              {remarkRows.map((l) => (
+                <p key={l.sr}>{remarkRows.length > 1 ? `${l.item}: ` : ""}{l.remarks}</p>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Signatures — one block per GRN, appears once at the end of the document */}
+        <div className="grid grid-cols-3 gap-3 break-inside-avoid border-t border-black p-6 pt-16 text-center">
           <div><div className="mb-1 border-t border-black pt-1">Prepared By (Store)</div></div>
           <div><div className="mb-1 border-t border-black pt-1">Inspected By (QA/QC)</div></div>
           <div><div className="mb-1 border-t border-black pt-1">Approved By</div></div>
