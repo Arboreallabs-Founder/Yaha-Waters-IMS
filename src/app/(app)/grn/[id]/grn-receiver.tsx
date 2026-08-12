@@ -262,7 +262,7 @@ export function GrnReceiver({
                       </div>
                       {canSeeFinancials && (
                         <div className="space-y-1.5">
-                          <Label>Unit cost (₹)</Label>
+                          <Label>Unit cost (₹) — for comparison only, optional</Label>
                           <Input name="unit_cost" type="number" step="any" />
                         </div>
                       )}
@@ -309,7 +309,7 @@ export function GrnReceiver({
                     </div>
                     {canSeeFinancials && (
                       <div className="space-y-1.5">
-                        <Label>Unit cost (₹/m)</Label>
+                        <Label>Unit cost (₹/m) — for comparison only, optional</Label>
                         <Input name="unit_cost" type="number" step="any" />
                       </div>
                     )}
@@ -342,7 +342,7 @@ export function GrnReceiver({
                     </div>
                     {canSeeFinancials && (
                       <div className="space-y-1.5">
-                        <Label>Unit cost (₹/kg)</Label>
+                        <Label>Unit cost (₹/kg) — for comparison only, optional</Label>
                         <Input name="unit_cost" type="number" step="any" />
                       </div>
                     )}

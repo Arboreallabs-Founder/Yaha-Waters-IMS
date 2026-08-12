@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Printer } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile, canWriteMasters, canSeeFinancials } from "@/lib/auth";
 import { getVendors, getComponentsFull } from "@/lib/masters-data";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { projectLabel } from "@/lib/utils";
 import { JwManager, type JwLine, type RawLot, type JwComponent } from "./jw-manager";
 
@@ -74,7 +75,14 @@ export default async function JobWorkDetailPage({ params }: { params: Promise<{ 
       <PageHeader
         title={order.jw_no}
         description={`Job-work vendor: ${vendor?.name ?? "—"} · ${order.project_id ? `Project ${projectDisplay ?? "—"}` : "Stock (no project)"}`}
-        action={<Badge variant={STATUS_VARIANT[order.status] ?? "secondary"}>{order.status}</Badge>}
+        action={
+          <div className="flex items-center gap-3">
+            <Badge variant={STATUS_VARIANT[order.status] ?? "secondary"}>{order.status}</Badge>
+            <Link href={`/job-work/${id}/print`} className={buttonVariants({ variant: "outline" })}>
+              <Printer className="size-4" /> Print JW
+            </Link>
+          </div>
+        }
       />
 
       <Card className="mb-6">

@@ -4,7 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile } from "@/lib/auth";
 import { PrintButton } from "@/components/print-button";
-import { formatNumber } from "@/lib/utils";
+import { formatNumber, projectLabel } from "@/lib/utils";
 
 // ---- our company's fixed details (from the real YAHA PO template) ----
 const OUR = {
@@ -25,12 +25,12 @@ const OUR = {
 };
 
 const TERMS = [
-  "The material is accepted subject to inspection. Please mention our PO no. on your delivery challan & Invoice.",
-  "The material should be labelled with it's grade, Batch/Lot No., MFG/Expiry date.",
-  "The MTC (Material Test Certificate) should be sent along with the supply.",
-  "The failure due to poor work man ship or any other defect shall be replace free of cost with in the warranty period.",
-  "PO price are firm and final till the exection of contract, no escalation or reqest in increase the price will be entertain.",
-  "The seller shall be liable to pay to buyer LD, a sum equivalent to 0.5% of the Ex work contract value for each week of delay or any part thereof. However, total amount of LD for delay in completion of contract shall be subject to a maximum of 5% fo Ex work contract price.",
+  "This material remains the property of YAHA WATER SYSTEMS PVT. LTD. and is issued strictly for job-work processing.",
+  "Please mention our JW no. on your delivery challan & invoice for the processed material returned.",
+  "The returned material should be labelled with the JW No. and quantity for reconciliation against this challan.",
+  "Any loss, damage or shortfall in the material during job-work must be reported immediately.",
+  "Job-work rates are firm and final for this order; no escalation or increase will be entertained.",
+  "Billing for job-work charges is to be raised only on the quantity actually received back.",
 ];
 
 function formatDateDDMMYYYY(d: string | null): string {
@@ -40,97 +40,63 @@ function formatDateDDMMYYYY(d: string | null): string {
   return dt.toLocaleDateString("en-GB").replace(/\//g, ".");
 }
 
-export default async function PoPrintPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function JwPrintPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const profile = await getProfile();
   const supabase = await createClient();
 
-  const { data: po } = await supabase.from("purchase_orders").select("*").eq("id", id).single();
-  if (!po) notFound();
-
-  // Admin/Founder can browse every revision in this PO's lineage from here.
-  const canViewRevisions = profile?.role === "admin" || profile?.role === "founder";
-  const rootId = po.root_po_id ?? po.id;
-  const { data: lineage } = canViewRevisions
-    ? await supabase.from("purchase_orders").select("id, po_no, revision_no").or(`id.eq.${rootId},root_po_id.eq.${rootId}`).order("revision_no")
-    : { data: null };
+  const { data: order } = await supabase.from("job_work_orders").select("*").eq("id", id).single();
+  if (!order) notFound();
 
   const [{ data: lines }, { data: vendor }] = await Promise.all([
-    supabase.from("po_lines").select("component_id, project_id, qty_ordered, rate, amount, approval_status").eq("po_id", id).order("created_at"),
-    po.vendor_id ? supabase.from("vendors").select("name, address, contact, gst_no").eq("id", po.vendor_id).maybeSingle() : Promise.resolve({ data: null }),
+    supabase.from("job_work_lines").select("component_id, raw_lot_id, qty_sent, jw_rate").eq("jw_order_id", id).order("created_at"),
+    order.vendor_id ? supabase.from("vendors").select("name, address, contact, gst_no").eq("id", order.vendor_id).maybeSingle() : Promise.resolve({ data: null }),
   ]);
-
-  const pendingCount = (lines ?? []).filter((l) => l.approval_status !== "approved").length;
-  if (pendingCount > 0) {
-    return (
-      <div className="mx-auto max-w-lg py-16 text-center">
-        <p className="text-lg font-semibold text-amber-700">Cannot print this PO</p>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {pendingCount} line(s) are awaiting price approval. Printing is blocked until every line is approved.
-        </p>
-        <Link href={`/purchase-orders/${id}`} className="mt-4 inline-flex items-center gap-1 text-sm text-primary hover:underline">
-          <ArrowLeft className="size-4" /> Back to PO
-        </Link>
-      </div>
-    );
-  }
 
   const componentIds = [...new Set((lines ?? []).map((l) => l.component_id).filter(Boolean))] as string[];
-  const projectIds = [...new Set((lines ?? []).map((l) => l.project_id).filter(Boolean))] as string[];
-  const [{ data: components }, { data: projects }] = await Promise.all([
-    componentIds.length ? supabase.from("components").select("id, component_no, name, uom").in("id", componentIds) : Promise.resolve({ data: [] }),
-    projectIds.length ? supabase.from("projects").select("id, project_no").in("id", projectIds) : Promise.resolve({ data: [] }),
+  const rawLotIds = [...new Set((lines ?? []).map((l) => l.raw_lot_id).filter(Boolean))] as string[];
+  const [{ data: components }, { data: rawLots }, project] = await Promise.all([
+    componentIds.length ? supabase.from("components").select("id, component_no, name, uom, jw_rate").in("id", componentIds) : Promise.resolve({ data: [] }),
+    rawLotIds.length ? supabase.from("inventory_lots").select("id, lot_code").in("id", rawLotIds) : Promise.resolve({ data: [] }),
+    order.project_id
+      ? supabase.from("projects").select("project_no, customer_id").eq("id", order.project_id).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
   const compById = new Map((components ?? []).map((c) => [c.id, c]));
-  const projectLabel = projectIds.length
-    ? (projects ?? []).map((p) => p.project_no).join(", ")
-    : "Stock";
+  const lotById = new Map((rawLots ?? []).map((l) => [l.id, l]));
+
+  let projectDisplay = "Stock";
+  if (project.data) {
+    const { data: cust } = project.data.customer_id
+      ? await supabase.from("customers").select("name").eq("id", project.data.customer_id).maybeSingle()
+      : { data: null };
+    projectDisplay = projectLabel({ project_no: project.data.project_no, customer_name: cust?.name ?? null }) ?? "Stock";
+  }
 
   const lineRows = (lines ?? []).map((l, i) => {
     const c = l.component_id ? compById.get(l.component_id) : null;
+    const rate = Number(l.jw_rate ?? c?.jw_rate ?? 0);
+    const qty = Number(l.qty_sent ?? 0);
     return {
       sr: i + 1,
       item: c ? `${c.component_no} — ${c.name}` : "—",
+      rawLot: l.raw_lot_id ? lotById.get(l.raw_lot_id)?.lot_code ?? "—" : "—",
       uom: c?.uom ?? "",
-      qty: Number(l.qty_ordered ?? 0),
-      rate: Number(l.rate ?? 0),
-      amount: Number(l.amount ?? (l.rate ?? 0) * Number(l.qty_ordered ?? 0)),
+      qty,
+      rate,
+      amount: rate * qty,
     };
   });
   const subtotal = lineRows.reduce((s, l) => s + l.amount, 0);
-  const gstPct = Number(po.gst_percent ?? 18);
-  const gstAmount = (subtotal * gstPct) / 100;
-  const total = subtotal + gstAmount;
 
   return (
     <div className="mx-auto max-w-4xl bg-white p-6 text-black print:p-0">
       <div className="mb-4 flex items-center justify-between print:hidden">
-        <Link href={`/purchase-orders/${id}`} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="size-4" /> Back to PO
+        <Link href={`/job-work/${id}`} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="size-4" /> Back to JW
         </Link>
-        <PrintButton label="Print PO" />
+        <PrintButton label="Print JW" />
       </div>
-
-      {lineage && lineage.length > 1 && (
-        <div className="mb-4 flex flex-wrap items-center gap-1.5 print:hidden">
-          <span className="text-xs font-medium text-muted-foreground">Versions:</span>
-          {lineage.map((r) => (
-            <Link
-              key={r.id}
-              href={`/purchase-orders/${r.id}/print`}
-              className={`rounded-md border px-2 py-1 text-xs ${r.id === id ? "border-primary bg-primary/10 font-medium text-primary" : "border-border text-muted-foreground hover:bg-accent"}`}
-            >
-              {r.revision_no === 0 ? "Original" : `R${r.revision_no}`}
-            </Link>
-          ))}
-        </div>
-      )}
-
-      {po.superseded_by && (
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-amber-700">
-          Superseded revision — not the current version of this PO
-        </p>
-      )}
 
       <div className="border border-black text-[11px] leading-tight">
         {/* Header */}
@@ -154,21 +120,21 @@ export default async function PoPrintPage({ params }: { params: Promise<{ id: st
           </div>
         </div>
 
-        <h1 className="border-b border-black py-2 text-center text-lg font-bold">PURCHASE ORDER</h1>
+        <h1 className="border-b border-black py-2 text-center text-lg font-bold">JOB WORK ORDER</h1>
 
-        {/* Date / PO No / Project */}
+        {/* Date / JW No / Project */}
         <div className="flex justify-between border-b border-black p-3">
-          <p>PO DATE : {formatDateDDMMYYYY(po.po_date)}</p>
+          <p>JW DATE : {formatDateDDMMYYYY(order.sent_date)}</p>
           <div className="text-right">
-            <p>PO NO : {po.po_no}</p>
-            <p>Project : {projectLabel}</p>
+            <p>JW NO : {order.jw_no}</p>
+            <p>Project : {projectDisplay}</p>
           </div>
         </div>
 
         {/* Vendor / Billing */}
         <div className="grid grid-cols-2 gap-3 border-b border-black p-3">
           <div>
-            <p className="mb-1 font-bold">VENDOR NAME &amp; ADDRESS :</p>
+            <p className="mb-1 font-bold">JOB-WORK VENDOR NAME &amp; ADDRESS :</p>
             <p className="font-medium">{vendor?.name ?? "—"}</p>
             {vendor?.address
               ? vendor.address.split("\n").map((l: string, i: number) => <p key={i}>{l}</p>)
@@ -186,7 +152,7 @@ export default async function PoPrintPage({ params }: { params: Promise<{ id: st
         </div>
 
         <p className="border-b border-black p-3">
-          We are pleased to place an order for the supply of following items on the terms and conditions mentioned below :-
+          We are sending the following material for job-work processing on the terms and conditions mentioned below :-
         </p>
 
         {/* Line items */}
@@ -195,7 +161,8 @@ export default async function PoPrintPage({ params }: { params: Promise<{ id: st
             <tr className="border-b border-black">
               <th className="border-r border-black p-1.5 text-left">Sr. No.</th>
               <th className="border-r border-black p-1.5 text-left">ITEM</th>
-              <th className="border-r border-black p-1.5 text-right">Qty.</th>
+              <th className="border-r border-black p-1.5 text-left">Raw Lot</th>
+              <th className="border-r border-black p-1.5 text-right">Qty Sent</th>
               <th className="border-r border-black p-1.5 text-left">UOM</th>
               <th className="border-r border-black p-1.5 text-right">Rate</th>
               <th className="p-1.5 text-right">Amount</th>
@@ -203,12 +170,13 @@ export default async function PoPrintPage({ params }: { params: Promise<{ id: st
           </thead>
           <tbody>
             {lineRows.length === 0 ? (
-              <tr><td colSpan={6} className="p-3 text-center text-muted-foreground">No lines.</td></tr>
+              <tr><td colSpan={7} className="p-3 text-center text-muted-foreground">No lines.</td></tr>
             ) : (
               lineRows.map((l) => (
                 <tr key={l.sr} className="border-b border-black/20">
                   <td className="border-r border-black/20 p-1.5">{l.sr}</td>
                   <td className="border-r border-black/20 p-1.5">{l.item}</td>
+                  <td className="border-r border-black/20 p-1.5">{l.rawLot}</td>
                   <td className="border-r border-black/20 p-1.5 text-right">{formatNumber(l.qty)}</td>
                   <td className="border-r border-black/20 p-1.5">{l.uom}</td>
                   <td className="border-r border-black/20 p-1.5 text-right">{l.rate ? formatNumber(l.rate) : "—"}</td>
@@ -224,12 +192,10 @@ export default async function PoPrintPage({ params }: { params: Promise<{ id: st
           <div className="border-r border-black p-3">
             <p>GSTIN : {OUR.gstin}</p>
             <p>PAN : {OUR.pan}</p>
-            <p>Taxes as applicable - At Actual</p>
+            <p>Job-work charges — taxes as applicable</p>
           </div>
           <div className="p-3">
-            <div className="flex justify-between"><span>SUBTOTAL</span><span>Rs {formatNumber(subtotal)}</span></div>
-            <div className="flex justify-between"><span>GST {formatNumber(gstPct)}%</span><span>{formatNumber(gstAmount)}</span></div>
-            <div className="flex justify-between border-t border-black font-bold"><span>TOTAL</span><span>Rs {formatNumber(total)}</span></div>
+            <div className="flex justify-between border-t border-black font-bold"><span>TOTAL (est.)</span><span>Rs {formatNumber(subtotal)}</span></div>
           </div>
         </div>
 
@@ -241,17 +207,17 @@ export default async function PoPrintPage({ params }: { params: Promise<{ id: st
           </ol>
         </div>
 
-        {/* Delivery address + terms */}
+        {/* Return address + dispatch details */}
         <div className="grid grid-cols-2 gap-3 border-t border-black p-3">
           <div>
-            <p className="mb-1 font-bold">Delivery Address :</p>
+            <p className="mb-1 font-bold">Return Processed Material To :</p>
             {OUR.deliveryAddress.map((l) => <p key={l}>{l}</p>)}
           </div>
           <div>
-            <p className="mb-1 font-bold">Terms &amp; Condition:</p>
-            <p>Delivery : {po.delivery_terms}</p>
-            <p>Payment : {po.payment_terms}</p>
-            <p>Freight : {po.freight_terms}</p>
+            <p className="mb-1 font-bold">Dispatch Details:</p>
+            <p>Sent Date : {formatDateDDMMYYYY(order.sent_date)}</p>
+            <p>Expected Return : {formatDateDDMMYYYY(order.expected_date)}</p>
+            <p>Status : {order.status}</p>
           </div>
         </div>
 
