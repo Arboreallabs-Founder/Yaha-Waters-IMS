@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Send, PackageCheck } from "lucide-react";
+import { Plus, Trash2, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,13 +11,14 @@ import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { formatNumber } from "@/lib/utils";
-import { addJwLine, removeJwLine, dispatchJwOrder, receiveJwLine } from "../actions";
+import { addJwLine, removeJwLine, dispatchJwOrder } from "../actions";
 
 export type JwComponent = { id: string; label: string; jw_rate: number | null };
 export type RawLot = { id: string; component_id: string; lot_code: string; qty_on_hand: number; unit_cost: number | null };
 export type JwLine = {
-  id: string; component_label: string; raw_lot_code: string;
+  id: string; component_id: string; component_label: string; raw_lot_code: string;
   qty_sent: number; qty_returned: number; has_completed: boolean; completed_lot_id: string | null;
+  grn_id: string | null; grn_no: string | null;
 };
 
 export function JwManager({
@@ -41,7 +42,6 @@ export function JwManager({
     [rawLots, componentId],
   );
   const isDraft = status === "draft";
-  const canReceive = status === "sent" || status === "partial";
 
   async function run(fn: () => Promise<{ error?: string }>, key: string) {
     setBusy(key); setError(null);
@@ -88,12 +88,6 @@ export function JwManager({
     await run(() => dispatchJwOrder(fd), "dispatch");
   }
 
-  async function onReceive(lineId: string, value: string) {
-    const fd = new FormData();
-    fd.set("jw_order_id", orderId); fd.set("line_id", lineId); fd.set("qty", value);
-    await run(() => receiveJwLine(fd), `rcv-${lineId}`);
-  }
-
   return (
     <div className="space-y-5">
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
@@ -129,6 +123,12 @@ export function JwManager({
         </form>
       )}
 
+      {!isDraft && lines.some((l) => l.qty_sent - l.qty_returned > 0) && (
+        <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+          Receive returned material from <Link href="/grn" className="text-primary hover:underline">Goods Receipt → New GRN → Job Work</Link>.
+        </p>
+      )}
+
       {/* Lines */}
       <Table>
         <TableHeader>
@@ -138,40 +138,37 @@ export function JwManager({
             <TableHead>Sent</TableHead>
             <TableHead>Returned</TableHead>
             <TableHead>Completed</TableHead>
-            {canManage && <TableHead className="w-40 text-right">Action</TableHead>}
+            <TableHead>GRN</TableHead>
+            {canManage && isDraft && <TableHead className="w-40 text-right">Action</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
           {lines.length === 0 ? (
-            <TableRow><TableCell colSpan={canManage ? 6 : 5} className="py-6 text-center text-muted-foreground">No lines yet. Add the raw components to send.</TableCell></TableRow>
+            <TableRow><TableCell colSpan={canManage && isDraft ? 7 : 6} className="py-6 text-center text-muted-foreground">No lines yet. Add the raw components to send.</TableCell></TableRow>
           ) : (
-            lines.map((l) => {
-              const outstanding = l.qty_sent - l.qty_returned;
-              return (
-                <TableRow key={l.id}>
-                  <TableCell className="font-medium">{l.component_label}</TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">{l.raw_lot_code}</TableCell>
-                  <TableCell>{formatNumber(l.qty_sent)}</TableCell>
-                  <TableCell>{formatNumber(l.qty_returned)}</TableCell>
-                  <TableCell>
-                    {l.completed_lot_id ? (
-                      <Link href={`/inventory/lots/${l.completed_lot_id}`} className="text-primary hover:underline">completed lot →</Link>
-                    ) : l.qty_returned > 0 ? <Badge variant="success">received</Badge> : <span className="text-muted-foreground">—</span>}
+            lines.map((l) => (
+              <TableRow key={l.id}>
+                <TableCell className="font-medium">{l.component_label}</TableCell>
+                <TableCell className="font-mono text-xs text-muted-foreground">{l.raw_lot_code}</TableCell>
+                <TableCell>{formatNumber(l.qty_sent)}</TableCell>
+                <TableCell>{formatNumber(l.qty_returned)}</TableCell>
+                <TableCell>
+                  {l.completed_lot_id ? (
+                    <Link href={`/inventory/lots/${l.completed_lot_id}`} className="text-primary hover:underline">completed lot →</Link>
+                  ) : l.qty_returned > 0 ? <Badge variant="success">received</Badge> : <span className="text-muted-foreground">—</span>}
+                </TableCell>
+                <TableCell>
+                  {l.grn_id ? (
+                    <Link href={`/grn/${l.grn_id}`} className="text-primary hover:underline">{l.grn_no}</Link>
+                  ) : <span className="text-muted-foreground">—</span>}
+                </TableCell>
+                {canManage && isDraft && (
+                  <TableCell className="text-right">
+                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => onRemoveLine(l.id)} aria-label="Remove"><Trash2 className="size-4" /></Button>
                   </TableCell>
-                  {canManage && (
-                    <TableCell className="text-right">
-                      {isDraft ? (
-                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => onRemoveLine(l.id)} aria-label="Remove"><Trash2 className="size-4" /></Button>
-                      ) : canReceive && outstanding > 0 ? (
-                        <ReceiveInline max={outstanding} busy={busy === `rcv-${l.id}`} onReceive={(v) => onReceive(l.id, v)} />
-                      ) : (
-                        <span className="text-xs text-muted-foreground">done</span>
-                      )}
-                    </TableCell>
-                  )}
-                </TableRow>
-              );
-            })
+                )}
+              </TableRow>
+            ))
           )}
         </TableBody>
       </Table>
@@ -184,16 +181,6 @@ export function JwManager({
           </Button>
         </div>
       )}
-    </div>
-  );
-}
-
-function ReceiveInline({ max, busy, onReceive }: { max: number; busy: boolean; onReceive: (v: string) => void }) {
-  const [v, setV] = React.useState(String(max));
-  return (
-    <div className="flex items-center justify-end gap-1">
-      <Input type="number" step="any" min="0" max={max} value={v} onChange={(e) => setV(e.target.value)} className="h-8 w-20" aria-label="qty to receive" />
-      <Button size="sm" variant="secondary" onClick={() => onReceive(v)} disabled={busy}><PackageCheck className="size-4" /> Receive</Button>
     </div>
   );
 }

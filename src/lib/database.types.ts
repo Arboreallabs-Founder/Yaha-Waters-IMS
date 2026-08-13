@@ -778,6 +778,7 @@ export type Database = {
           grn_id: string
           id: string
           is_untagged: boolean
+          jw_line_id: string | null
           po_line_id: string | null
           project_id: string | null
           qty_received: number
@@ -792,6 +793,7 @@ export type Database = {
           grn_id: string
           id?: string
           is_untagged?: boolean
+          jw_line_id?: string | null
           po_line_id?: string | null
           project_id?: string | null
           qty_received?: number
@@ -806,6 +808,7 @@ export type Database = {
           grn_id?: string
           id?: string
           is_untagged?: boolean
+          jw_line_id?: string | null
           po_line_id?: string | null
           project_id?: string | null
           qty_received?: number
@@ -854,6 +857,13 @@ export type Database = {
             columns: ["grn_id"]
             isOneToOne: false
             referencedRelation: "grns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grn_lines_jw_line_id_fkey"
+            columns: ["jw_line_id"]
+            isOneToOne: false
+            referencedRelation: "job_work_lines"
             referencedColumns: ["id"]
           },
           {
@@ -936,6 +946,7 @@ export type Database = {
           grn_no: string
           id: string
           invoice_no: string | null
+          is_job_work: boolean
           po_id: string | null
           received_at: string
           received_by: string | null
@@ -949,6 +960,7 @@ export type Database = {
           grn_no: string
           id?: string
           invoice_no?: string | null
+          is_job_work?: boolean
           po_id?: string | null
           received_at?: string
           received_by?: string | null
@@ -962,6 +974,7 @@ export type Database = {
           grn_no?: string
           id?: string
           invoice_no?: string | null
+          is_job_work?: boolean
           po_id?: string | null
           received_at?: string
           received_by?: string | null
@@ -1375,6 +1388,7 @@ export type Database = {
           grn_line_id: string | null
           id: string
           irn_no: string
+          jw_line_id: string | null
           piece_count: number | null
           piece_length: number | null
           piece_weight: number | null
@@ -1403,6 +1417,7 @@ export type Database = {
           grn_line_id?: string | null
           id?: string
           irn_no: string
+          jw_line_id?: string | null
           piece_count?: number | null
           piece_length?: number | null
           piece_weight?: number | null
@@ -1431,6 +1446,7 @@ export type Database = {
           grn_line_id?: string | null
           id?: string
           irn_no?: string
+          jw_line_id?: string | null
           piece_count?: number | null
           piece_length?: number | null
           piece_weight?: number | null
@@ -1523,6 +1539,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_untagged_receipts"
             referencedColumns: ["grn_line_id"]
+          },
+          {
+            foreignKeyName: "irns_jw_line_id_fkey"
+            columns: ["jw_line_id"]
+            isOneToOne: false
+            referencedRelation: "job_work_lines"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "irns_po_line_id_fkey"
@@ -4517,16 +4540,10 @@ export type Database = {
           role: Database["public"]["Enums"]["role"]
         }[]
       }
-      approve_irn:
-        | { Args: { p_approver_id: string; p_irn_id: string }; Returns: Json }
-        | {
-            Args: {
-              p_approver_id: string
-              p_irn_id: string
-              p_remarks?: string
-            }
-            Returns: Json
-          }
+      approve_irn: {
+        Args: { p_approver_id: string; p_irn_id: string; p_remarks?: string }
+        Returns: Json
+      }
       approve_po_line: {
         Args: { p_approver_id: string; p_line_id: string }
         Returns: Json
@@ -4577,6 +4594,7 @@ export type Database = {
       next_fg_no: { Args: never; Returns: string }
       next_grn_no: { Args: never; Returns: string }
       next_irn_no: { Args: never; Returns: string }
+      next_jw_grn_no: { Args: never; Returns: string }
       next_jw_no: { Args: never; Returns: string }
       next_po_no: { Args: never; Returns: string }
       next_req_no: { Args: never; Returns: string }
@@ -4600,7 +4618,13 @@ export type Database = {
         }[]
       }
       receive_job_work: {
-        Args: { p_line_id: string; p_qty: number; p_user_id: string }
+        Args: {
+          p_answers?: Json
+          p_grn_id: string
+          p_line_id: string
+          p_qty: number
+          p_user_id: string
+        }
         Returns: Json
       }
       recompute_po_status: { Args: { p_po: string }; Returns: undefined }
@@ -4621,6 +4645,7 @@ export type Database = {
           p_answers: Json
           p_component_id: string
           p_grn_id: string
+          p_jw_line_id?: string
           p_piece_count: number
           p_piece_length: number
           p_piece_weight?: number

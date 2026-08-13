@@ -100,21 +100,6 @@ export async function dispatchJwOrder(fd: FormData): Promise<ActionResult> {
   return { ok: true };
 }
 
-export async function receiveJwLine(fd: FormData): Promise<ActionResult> {
-  const p = await manager();
-  if (!p) return { error: "Not authorized." };
-  const jw_order_id = String(fd.get("jw_order_id"));
-  const line_id = String(fd.get("line_id"));
-  const qty = Number(fd.get("qty") ?? 0) || 0;
-  if (qty <= 0) return { error: "Enter a quantity to receive." };
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc("receive_job_work", { p_line_id: line_id, p_qty: qty, p_user_id: p.id });
-  if (error) return { error: error.message };
-  if (data?.error) return { error: data.error };
-  revalidatePath(`/job-work/${jw_order_id}`);
-  return { ok: true };
-}
-
 /**
  * Raise job-work order(s) from a project's approved BOM — for every job-work
  * component still short (required minus completed stock minus stock already

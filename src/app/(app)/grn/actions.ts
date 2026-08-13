@@ -33,16 +33,19 @@ export async function createGrn(fd: FormData): Promise<ActionResult> {
   if (!challan_no && !invoice_no) {
     return { error: "Enter a challan number or an invoice number — at least one is required." };
   }
+  const is_job_work = String(fd.get("is_job_work") ?? "") === "true";
+  const vendor_id = String(fd.get("vendor_id") ?? "") || null;
+  if (is_job_work && !vendor_id) return { error: "Pick the job-work vendor." };
 
   const supabase = await createClient();
-  const vendor_id = String(fd.get("vendor_id") ?? "") || null;
 
-  const { data: grnNo } = await supabase.rpc("next_grn_no");
+  const { data: grnNo } = await supabase.rpc(is_job_work ? "next_jw_grn_no" : "next_grn_no");
   const { data, error } = await supabase
     .from("grns")
     .insert({
       grn_no: grnNo,
       vendor_id,
+      is_job_work,
       challan_no,
       invoice_no,
       received_by: p.id,
@@ -104,5 +107,28 @@ export async function addGrnLine(fd: FormData): Promise<ActionResult> {
   }
 
   revalidatePath(`/grn/${grn_id}`);
+  return { ok: true };
+}
+
+export async function addJwGrnLine(fd: FormData): Promise<ActionResult> {
+  const p = await receiver();
+  if (!p) return { error: "Not authorized." };
+  const grn_id = String(fd.get("grn_id"));
+  const jw_line_id = String(fd.get("jw_line_id") ?? "") || null;
+  if (!jw_line_id) return { error: "Select a job-work line to receive." };
+  const qty = Number(fd.get("qty") ?? 0) || 0;
+  if (qty <= 0) return { error: "Enter a received quantity." };
+  const answersRaw = String(fd.get("answers") ?? "").trim();
+  const answers = answersRaw ? JSON.parse(answersRaw) : null;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("receive_job_work", {
+    p_grn_id: grn_id, p_line_id: jw_line_id, p_qty: qty, p_user_id: p.id, p_answers: answers,
+  });
+  if (error) return { error: error.message };
+  if (data?.error) return { error: data.error };
+
+  revalidatePath(`/grn/${grn_id}`);
+  revalidatePath("/job-work");
   return { ok: true };
 }

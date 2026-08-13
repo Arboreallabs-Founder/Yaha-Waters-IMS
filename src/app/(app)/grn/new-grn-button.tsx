@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Plus, Truck, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,9 +16,15 @@ export function NewGrnButton({
   vendors: { id: string; name: string }[];
 }) {
   const router = useRouter();
-  const [open, setOpen] = React.useState(false);
+  const [step, setStep] = React.useState<"closed" | "type" | "details">("closed");
+  const [isJobWork, setIsJobWork] = React.useState(false);
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+
+  function pickType(jobWork: boolean) {
+    setIsJobWork(jobWork);
+    setStep("details");
+  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -29,27 +35,61 @@ export function NewGrnButton({
       setError("Enter a challan number or an invoice number — at least one is required.");
       return;
     }
+    fd.set("is_job_work", isJobWork ? "true" : "false");
     setPending(true);
     setError(null);
     const res = await createGrn(fd);
     setPending(false);
     if (res?.error) { setError(res.error); return; }
-    setOpen(false);
+    setStep("closed");
     if (res.id) router.push(`/grn/${res.id}`);
     else router.refresh();
   }
 
   return (
     <>
-      <Button onClick={() => { setError(null); setOpen(true); }}>
+      <Button onClick={() => { setError(null); setStep("type"); }}>
         <Plus className="size-4" /> New GRN
       </Button>
-      <Dialog open={open} onClose={() => setOpen(false)} title="New goods receipt" description="Every GRN is created open — attach each line to a project or PO as you receive it.">
+
+      <Dialog open={step === "type"} onClose={() => setStep("closed")} title="What are you receiving?" description="Choose how this GRN should be received.">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => pickType(false)}
+            className="flex flex-col items-center gap-2 rounded-lg border border-border p-6 text-center hover:border-primary hover:bg-accent"
+          >
+            <Truck className="size-8 text-muted-foreground" />
+            <span className="font-medium">Purchase</span>
+            <span className="text-xs text-muted-foreground">Material received from a supplier against a PO.</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => pickType(true)}
+            className="flex flex-col items-center gap-2 rounded-lg border border-border p-6 text-center hover:border-primary hover:bg-accent"
+          >
+            <Wrench className="size-8 text-muted-foreground" />
+            <span className="font-medium">Job Work</span>
+            <span className="text-xs text-muted-foreground">Finished parts returned by a job-work vendor.</span>
+          </button>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={step === "details"}
+        onClose={() => setStep("closed")}
+        title={isJobWork ? "New job-work GRN" : "New goods receipt"}
+        description={
+          isJobWork
+            ? "Pick the job-work vendor returning material — you'll receive against their open job-work orders next."
+            : "Every GRN is created open — attach each line to a project or PO as you receive it."
+        }
+      >
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <Label>Vendor (optional)</Label>
-            <Select name="vendor_id" defaultValue="">
-              <option value="">— none —</option>
+            <Label>Vendor{isJobWork ? "" : " (optional)"}</Label>
+            <Select name="vendor_id" defaultValue="" required={isJobWork}>
+              <option value="">— {isJobWork ? "choose vendor" : "none"} —</option>
               {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
             </Select>
           </div>
@@ -68,7 +108,7 @@ export function NewGrnButton({
           </p>
           {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={() => setStep("type")}>Back</Button>
             <Button type="submit" disabled={pending}>{pending ? "Creating…" : "Create"}</Button>
           </div>
         </form>

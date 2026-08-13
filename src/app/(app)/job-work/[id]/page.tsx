@@ -54,16 +54,33 @@ export default async function JobWorkDetailPage({ params }: { params: Promise<{ 
     id: l.id, component_id: l.component_id, lot_code: l.lot_code,
     qty_on_hand: Number(l.qty_on_hand ?? 0), unit_cost: finance ? (l.unit_cost ?? null) : null,
   }));
+
+  // ---- GRN already received against each line (latest, since a line can be received in batches) ----
+  const lineIds = (lines ?? []).map((l) => l.id);
+  const { data: jwGrnLines } = lineIds.length
+    ? await supabase.from("grn_lines").select("jw_line_id, grn_id, created_at, grns(grn_no)").in("jw_line_id", lineIds).order("created_at", { ascending: false })
+    : { data: [] };
+  const grnByLine = new Map<string, { id: string; grn_no: string }>();
+  for (const gl of jwGrnLines ?? []) {
+    if (!gl.jw_line_id || grnByLine.has(gl.jw_line_id)) continue; // first hit per line = latest, due to desc order
+    const grnNo = (gl.grns as unknown as { grn_no: string } | null)?.grn_no;
+    if (grnNo) grnByLine.set(gl.jw_line_id, { id: gl.grn_id, grn_no: grnNo });
+  }
+
   const lineRows: JwLine[] = (lines ?? []).map((l) => {
     const c = l.component_id ? compById.get(l.component_id) : null;
+    const grn = grnByLine.get(l.id);
     return {
     id: l.id,
+    component_id: l.component_id ?? "",
     component_label: c ? `${c.component_no} — ${c.name}` : "—",
     raw_lot_code: l.raw_lot_id ? lotById.get(l.raw_lot_id)?.lot_code ?? "(dispatched)" : "—",
     qty_sent: Number(l.qty_sent ?? 0),
     qty_returned: Number(l.qty_returned ?? 0),
     has_completed: !!l.completed_lot_id,
     completed_lot_id: l.completed_lot_id ?? null,
+    grn_id: grn?.id ?? null,
+    grn_no: grn?.grn_no ?? null,
     };
   });
 

@@ -80,6 +80,7 @@ async function AllGrnsTab() {
       <TableHeader>
         <TableRow>
           <TableHead>GRN No.</TableHead>
+          <TableHead>Type</TableHead>
           <TableHead>Vendor</TableHead>
           <TableHead>Challan</TableHead>
           <TableHead>Invoice</TableHead>
@@ -90,11 +91,18 @@ async function AllGrnsTab() {
       </TableHeader>
       <TableBody>
         {(grns ?? []).length === 0 ? (
-          <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">No goods receipts yet.</TableCell></TableRow>
+          <TableRow><TableCell colSpan={8} className="py-8 text-center text-muted-foreground">No goods receipts yet.</TableCell></TableRow>
         ) : (
           (grns ?? []).map((g) => (
             <TableRow key={g.id}>
               <TableCell className="font-medium">{g.grn_no}</TableCell>
+              <TableCell>
+                {g.is_job_work ? (
+                  <Badge variant="secondary">Job Work</Badge>
+                ) : (
+                  <Badge variant="outline">Purchase</Badge>
+                )}
+              </TableCell>
               <TableCell>{g.vendor_id ? vName.get(g.vendor_id) ?? "—" : <span className="text-muted-foreground">—</span>}</TableCell>
               <TableCell className="text-muted-foreground">{g.challan_no ?? "—"}</TableCell>
               <TableCell className="text-muted-foreground">{g.invoice_no ?? "—"}</TableCell>
