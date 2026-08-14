@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Pencil, Trash2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
@@ -57,6 +58,7 @@ export function PoEditor({
   header: {
     po_no: string; vendor_id: string | null; po_date: string | null; status: string;
     delivery_terms: string; payment_terms: string; freight_terms: string; gst_percent: number;
+    delivery_address: string | null;
   };
   lines: Line[];
   components: ComponentOpt[];
@@ -184,6 +186,15 @@ export function PoEditor({
               <Input name="gst_percent" type="number" step="any" defaultValue={header.gst_percent} />
             </div>
           )}
+          <div className="space-y-1.5 sm:col-span-3">
+            <Label>Delivery address</Label>
+            <Textarea
+              name="delivery_address"
+              rows={3}
+              defaultValue={header.delivery_address ?? ""}
+              placeholder="Leave blank to use the default factory address on the printed PO"
+            />
+          </div>
           <div className="sm:col-span-3">
             <Button type="submit" variant="secondary" disabled={busy}><Save className="size-4" /> Save header</Button>
           </div>

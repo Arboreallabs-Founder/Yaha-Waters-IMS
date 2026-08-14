@@ -141,6 +141,7 @@ export default async function PoDetailPage({ params }: { params: Promise<{ id: s
               payment_terms: po.payment_terms,
               freight_terms: po.freight_terms,
               gst_percent: Number(po.gst_percent ?? 18),
+              delivery_address: po.delivery_address,
             }}
             lines={lineRows}
             components={components ?? []}

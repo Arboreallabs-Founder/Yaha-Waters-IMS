@@ -245,7 +245,7 @@ export default async function PoPrintPage({ params }: { params: Promise<{ id: st
         <div className="grid grid-cols-2 gap-3 border-t border-black p-3">
           <div>
             <p className="mb-1 font-bold">Delivery Address :</p>
-            {OUR.deliveryAddress.map((l) => <p key={l}>{l}</p>)}
+            {(po.delivery_address?.trim() ? po.delivery_address.split(/\r?\n/) : OUR.deliveryAddress).map((l: string, i: number) => <p key={i}>{l}</p>)}
           </div>
           <div>
             <p className="mb-1 font-bold">Terms &amp; Condition:</p>

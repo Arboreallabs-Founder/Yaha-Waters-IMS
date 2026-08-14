@@ -115,6 +115,7 @@ export async function updatePO(fd: FormData): Promise<ActionResult> {
     delivery_terms: String(fd.get("delivery_terms") ?? "").trim() || "Urgent",
     payment_terms: String(fd.get("payment_terms") ?? "").trim() || "30 Days",
     freight_terms: String(fd.get("freight_terms") ?? "").trim() || "At Actual",
+    delivery_address: String(fd.get("delivery_address") ?? "").replace(/\r\n/g, "\n").trim() || null,
     gst_percent: num(fd, "gst_percent") ?? 18,
   };
   // Status is only ever manually settable while still draft, and only into

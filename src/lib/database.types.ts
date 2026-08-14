@@ -2570,6 +2570,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          delivery_address: string | null
           delivery_terms: string
           freight_terms: string
           gst_percent: number
@@ -2590,6 +2591,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          delivery_address?: string | null
           delivery_terms?: string
           freight_terms?: string
           gst_percent?: number
@@ -2610,6 +2612,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          delivery_address?: string | null
           delivery_terms?: string
           freight_terms?: string
           gst_percent?: number
