@@ -4,7 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile } from "@/lib/auth";
 import { PrintButton } from "@/components/print-button";
-import { formatNumber, projectLabel } from "@/lib/utils";
+import { formatNumber } from "@/lib/utils";
 
 // ---- our company's fixed details (from the real YAHA PO template) ----
 const OUR = {
@@ -59,19 +59,15 @@ export default async function JwPrintPage({ params }: { params: Promise<{ id: st
     componentIds.length ? supabase.from("components").select("id, component_no, name, uom, jw_rate").in("id", componentIds) : Promise.resolve({ data: [] }),
     rawLotIds.length ? supabase.from("inventory_lots").select("id, lot_code").in("id", rawLotIds) : Promise.resolve({ data: [] }),
     order.project_id
-      ? supabase.from("projects").select("project_no, customer_id").eq("id", order.project_id).maybeSingle()
+      ? supabase.from("projects").select("project_no").eq("id", order.project_id).maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
   const compById = new Map((components ?? []).map((c) => [c.id, c]));
   const lotById = new Map((rawLots ?? []).map((l) => [l.id, l]));
 
-  let projectDisplay = "Stock";
-  if (project.data) {
-    const { data: cust } = project.data.customer_id
-      ? await supabase.from("customers").select("name").eq("id", project.data.customer_id).maybeSingle()
-      : { data: null };
-    projectDisplay = projectLabel({ project_no: project.data.project_no, customer_name: cust?.name ?? null }) ?? "Stock";
-  }
+  // Customer identity is deliberately withheld from the job-work vendor —
+  // only our own project reference is shown, never the customer's name.
+  const projectDisplay = project.data?.project_no ?? "Stock";
 
   const lineRows = (lines ?? []).map((l, i) => {
     const c = l.component_id ? compById.get(l.component_id) : null;
