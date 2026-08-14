@@ -12,7 +12,7 @@ import { formatDate, formatNumber, projectLabel } from "@/lib/utils";
 import { NewJwButton } from "./new-jw-button";
 
 const STATUS_VARIANT: Record<string, "secondary" | "warning" | "success" | "destructive"> = {
-  draft: "secondary", sent: "warning", partial: "warning", received: "success", cancelled: "destructive",
+  draft: "secondary", sent: "warning", partial: "warning", received: "success", cancelled: "destructive", superseded: "secondary",
 };
 
 export default async function JobWorkPage() {
@@ -22,7 +22,7 @@ export default async function JobWorkPage() {
 
   const [{ data: orders }, vendorsAll, { data: projects }, { data: rawLots }, comps, customers] =
     await Promise.all([
-      supabase.from("job_work_orders").select("*").order("created_at", { ascending: false }),
+      supabase.from("job_work_orders").select("*").neq("status", "superseded").order("created_at", { ascending: false }),
       getVendors(),
       supabase.from("projects").select("id, project_no, customer_id").order("project_no"),
       supabase.from("inventory_lots").select("component_id, qty_on_hand").eq("jw_stage", "raw").eq("status", "open").gt("qty_on_hand", 0),

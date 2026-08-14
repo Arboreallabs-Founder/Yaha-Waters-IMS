@@ -48,6 +48,13 @@ export default async function JwPrintPage({ params }: { params: Promise<{ id: st
   const { data: order } = await supabase.from("job_work_orders").select("*").eq("id", id).single();
   if (!order) notFound();
 
+  // Admin/team_lead (the roles that manage job-work) can browse every revision in this order's lineage from here.
+  const canViewRevisions = profile?.role === "admin" || profile?.role === "team_lead";
+  const rootId = order.root_jw_id ?? order.id;
+  const { data: lineage } = canViewRevisions
+    ? await supabase.from("job_work_orders").select("id, jw_no, revision_no").or(`id.eq.${rootId},root_jw_id.eq.${rootId}`).order("revision_no")
+    : { data: null };
+
   const [{ data: lines }, { data: vendor }] = await Promise.all([
     supabase.from("job_work_lines").select("component_id, raw_lot_id, qty_sent, jw_rate").eq("jw_order_id", id).order("created_at"),
     order.vendor_id ? supabase.from("vendors").select("name, address, contact, gst_no").eq("id", order.vendor_id).maybeSingle() : Promise.resolve({ data: null }),
@@ -93,6 +100,27 @@ export default async function JwPrintPage({ params }: { params: Promise<{ id: st
         </Link>
         <PrintButton label="Print JW" />
       </div>
+
+      {lineage && lineage.length > 1 && (
+        <div className="mb-4 flex flex-wrap items-center gap-1.5 print:hidden">
+          <span className="text-xs font-medium text-muted-foreground">Versions:</span>
+          {lineage.map((r) => (
+            <Link
+              key={r.id}
+              href={`/job-work/${r.id}/print`}
+              className={`rounded-md border px-2 py-1 text-xs ${r.id === id ? "border-primary bg-primary/10 font-medium text-primary" : "border-border text-muted-foreground hover:bg-accent"}`}
+            >
+              {r.revision_no === 0 ? "Original" : `R${r.revision_no}`}
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {order.superseded_by && (
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-amber-700">
+          Superseded revision — not the current version of this job-work order
+        </p>
+      )}
 
       <div className="border border-black text-[11px] leading-tight">
         {/* Header */}

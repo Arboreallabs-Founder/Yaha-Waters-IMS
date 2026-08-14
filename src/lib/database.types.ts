@@ -1768,8 +1768,11 @@ export type Database = {
           id: string
           jw_no: string
           project_id: string | null
+          revision_no: number
+          root_jw_id: string | null
           sent_date: string | null
           status: string
+          superseded_by: string | null
           updated_at: string | null
           vendor_id: string | null
         }
@@ -1780,8 +1783,11 @@ export type Database = {
           id?: string
           jw_no: string
           project_id?: string | null
+          revision_no?: number
+          root_jw_id?: string | null
           sent_date?: string | null
           status?: string
+          superseded_by?: string | null
           updated_at?: string | null
           vendor_id?: string | null
         }
@@ -1792,8 +1798,11 @@ export type Database = {
           id?: string
           jw_no?: string
           project_id?: string | null
+          revision_no?: number
+          root_jw_id?: string | null
           sent_date?: string | null
           status?: string
+          superseded_by?: string | null
           updated_at?: string | null
           vendor_id?: string | null
         }
@@ -1831,6 +1840,20 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "v_projects_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_work_orders_root_jw_id_fkey"
+            columns: ["root_jw_id"]
+            isOneToOne: false
+            referencedRelation: "job_work_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_work_orders_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "job_work_orders"
             referencedColumns: ["id"]
           },
           {
@@ -4553,6 +4576,16 @@ export type Database = {
       }
       auth_is_staff: { Args: never; Returns: boolean }
       auth_role: { Args: never; Returns: Database["public"]["Enums"]["role"] }
+      clone_jw_revision: {
+        Args: {
+          p_actor: string
+          p_kind: string
+          p_line_id: string
+          p_old_jw_id: string
+          p_patch: Json
+        }
+        Returns: Json
+      }
       clone_po_revision: {
         Args: {
           p_actor: string

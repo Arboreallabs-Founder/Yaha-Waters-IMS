@@ -11,9 +11,15 @@ export type ActionResult = {
   /** Set when raising job-work produces more than one order (grouped by JW vendor). */
   created?: { id: string; jw_no: string; vendor_name: string | null }[];
   message?: string;
+  /** Set when an edit to a sent/partial/received JW order created a new revision — client should navigate here. */
+  revisedJwId?: string;
 };
 
 const MANAGE = ["admin", "team_lead"];
+const LOCKED_JW_ERROR = "This job-work order is locked — it's been cancelled or superseded by a later revision and can no longer be edited.";
+// Editing a line on a sent/partial/received order forks a revision via
+// clone_jw_revision; only cancelled/superseded is permanently locked.
+const EDITABLE_SENT_STATUSES = ["sent", "partial", "received"];
 
 async function manager() {
   const p = await getProfile();
@@ -45,8 +51,12 @@ export async function createJwOrder(fd: FormData): Promise<ActionResult> {
 export async function removeJwOrder(fd: FormData): Promise<ActionResult> {
   const p = await manager();
   if (!p) return { error: "Not authorized." };
+  const id = String(fd.get("id"));
   const supabase = await createClient();
-  const { error } = await supabase.from("job_work_orders").delete().eq("id", String(fd.get("id")));
+  const { data: order } = await supabase.from("job_work_orders").select("status").eq("id", id).single();
+  if (!order) return { error: "Job-work order not found." };
+  if (order.status !== "draft") return { error: "Only a draft job-work order can be deleted." };
+  const { error } = await supabase.from("job_work_orders").delete().eq("id", id);
   if (error) return { error: error.message };
   revalidatePath("/job-work");
   return { ok: true };
@@ -63,7 +73,28 @@ export async function addJwLine(fd: FormData): Promise<ActionResult> {
   const qty_sent = Number(fd.get("qty_sent") ?? 0) || 0;
   if (qty_sent <= 0) return { error: "Enter a quantity to send." };
   const jwRateRaw = String(fd.get("jw_rate") ?? "").trim();
+  const jw_rate = jwRateRaw === "" ? null : Number(jwRateRaw);
   const supabase = await createClient();
+
+  const { data: order } = await supabase.from("job_work_orders").select("status").eq("id", jw_order_id).single();
+  if (!order) return { error: "Job-work order not found." };
+
+  if (EDITABLE_SENT_STATUSES.includes(order.status)) {
+    const { data: result, error } = await supabase.rpc("clone_jw_revision", {
+      p_old_jw_id: jw_order_id,
+      p_kind: "add",
+      p_line_id: null,
+      p_patch: { component_id, raw_lot_id, qty_sent, jw_rate },
+      p_actor: p.id,
+    });
+    if (error) return { error: error.message };
+    const res = result as { error?: string; id?: string };
+    if (res?.error) return { error: res.error };
+    revalidatePath("/job-work");
+    revalidatePath(`/job-work/${res.id}`);
+    return { ok: true, id: res.id, revisedJwId: res.id };
+  }
+  if (order.status !== "draft") return { error: LOCKED_JW_ERROR };
 
   const [{ data: lot }, { data: existingLines }, { data: comp }] = await Promise.all([
     supabase.from("inventory_lots").select("qty_on_hand").eq("id", raw_lot_id).single(),
@@ -76,18 +107,13 @@ export async function addJwLine(fd: FormData): Promise<ActionResult> {
   if (qty_sent > remaining) {
     return { error: `Only ${remaining} of that lot is still available — the rest is already on another line in this order.` };
   }
-  const resolvedRate = jwRateRaw !== "" ? Number(jwRateRaw) : comp?.jw_rate ?? null;
+  const resolvedRate = jw_rate ?? comp?.jw_rate ?? null;
   if (resolvedRate === null) {
     return { error: "This component has no job-work rate. Enter a rate for this line, or set a default rate for it in Masters." };
   }
 
   const { error } = await supabase.from("job_work_lines").insert({
-    jw_order_id,
-    component_id,
-    raw_lot_id,
-    qty_sent,
-    jw_rate: jwRateRaw === "" ? null : Number(jwRateRaw),
-    created_by: p.id,
+    jw_order_id, component_id, raw_lot_id, qty_sent, jw_rate, created_by: p.id,
   });
   if (error) return { error: error.message };
   revalidatePath(`/job-work/${jw_order_id}`);
@@ -97,12 +123,63 @@ export async function addJwLine(fd: FormData): Promise<ActionResult> {
 export async function removeJwLine(fd: FormData): Promise<ActionResult> {
   const p = await manager();
   if (!p) return { error: "Not authorized." };
+  const id = String(fd.get("id"));
   const jw_order_id = String(fd.get("jw_order_id"));
   const supabase = await createClient();
-  const { error } = await supabase.from("job_work_lines").delete().eq("id", String(fd.get("id")));
+  const { data: order } = await supabase.from("job_work_orders").select("status").eq("id", jw_order_id).single();
+  if (!order) return { error: "Job-work order not found." };
+
+  if (EDITABLE_SENT_STATUSES.includes(order.status)) {
+    const { data: result, error } = await supabase.rpc("clone_jw_revision", {
+      p_old_jw_id: jw_order_id,
+      p_kind: "remove",
+      p_line_id: id,
+      p_patch: {},
+      p_actor: p.id,
+    });
+    if (error) return { error: error.message };
+    const res = result as { error?: string; id?: string };
+    if (res?.error) return { error: res.error };
+    revalidatePath("/job-work");
+    revalidatePath(`/job-work/${res.id}`);
+    return { ok: true, id: res.id, revisedJwId: res.id };
+  }
+  if (order.status !== "draft") return { error: LOCKED_JW_ERROR };
+
+  const { error } = await supabase.from("job_work_lines").delete().eq("id", id);
   if (error) return { error: error.message };
   revalidatePath(`/job-work/${jw_order_id}`);
   return { ok: true };
+}
+
+/** Rate-only correction on an already-dispatched line — qty/raw-lot represent
+ * a physical action that's already happened and aren't editable this way. */
+export async function updateJwLineRate(fd: FormData): Promise<ActionResult> {
+  const p = await manager();
+  if (!p) return { error: "Not authorized." };
+  const id = String(fd.get("id"));
+  const jw_order_id = String(fd.get("jw_order_id"));
+  const jwRateRaw = String(fd.get("jw_rate") ?? "").trim();
+  if (jwRateRaw === "") return { error: "Enter a rate." };
+  const supabase = await createClient();
+  const { data: order } = await supabase.from("job_work_orders").select("status").eq("id", jw_order_id).single();
+  if (!order) return { error: "Job-work order not found." };
+  if (order.status === "draft") return { error: "This line is still draft — remove and re-add it instead." };
+  if (!EDITABLE_SENT_STATUSES.includes(order.status)) return { error: LOCKED_JW_ERROR };
+
+  const { data: result, error } = await supabase.rpc("clone_jw_revision", {
+    p_old_jw_id: jw_order_id,
+    p_kind: "update",
+    p_line_id: id,
+    p_patch: { jw_rate: Number(jwRateRaw) },
+    p_actor: p.id,
+  });
+  if (error) return { error: error.message };
+  const res = result as { error?: string; id?: string };
+  if (res?.error) return { error: res.error };
+  revalidatePath("/job-work");
+  revalidatePath(`/job-work/${res.id}`);
+  return { ok: true, id: res.id, revisedJwId: res.id };
 }
 
 export async function dispatchJwOrder(fd: FormData): Promise<ActionResult> {

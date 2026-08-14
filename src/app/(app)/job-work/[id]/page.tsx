@@ -10,9 +10,10 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { projectLabel } from "@/lib/utils";
 import { JwManager, type JwLine, type RawLot, type JwComponent } from "./jw-manager";
+import { DeleteJwButton } from "./delete-jw-button";
 
 const STATUS_VARIANT: Record<string, "secondary" | "warning" | "success" | "destructive"> = {
-  draft: "secondary", sent: "warning", partial: "warning", received: "success", cancelled: "destructive",
+  draft: "secondary", sent: "warning", partial: "warning", received: "success", cancelled: "destructive", superseded: "secondary",
 };
 
 export default async function JobWorkDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -32,6 +33,17 @@ export default async function JobWorkDetailPage({ params }: { params: Promise<{ 
   if (!order) notFound();
   const comps = componentsAll.filter((c) => c.is_job_work);
   const vendor = order.vendor_id ? vendorsAll.find((v) => v.id === order.vendor_id) ?? null : null;
+  const canDelete = canManage && order.status === "draft";
+
+  let currentRevisionId: string | null = null;
+  if (order.superseded_by) {
+    const rootId = order.root_jw_id ?? order.id;
+    const { data: lineage } = await supabase
+      .from("job_work_orders")
+      .select("id, superseded_by")
+      .or(`id.eq.${rootId},root_jw_id.eq.${rootId}`);
+    currentRevisionId = (lineage ?? []).find((r) => r.superseded_by === null)?.id ?? null;
+  }
 
   const project = order.project_id
     ? await supabase.from("projects").select("project_no, customer_id").eq("id", order.project_id).maybeSingle()
@@ -50,10 +62,17 @@ export default async function JobWorkDetailPage({ params }: { params: Promise<{ 
   const jwComponents: JwComponent[] = (comps ?? []).map((c) => ({
     id: c.id, label: `${c.component_no} — ${c.name}`, jw_rate: finance ? (c.jw_rate ?? null) : null,
   }));
+  // Draft lines haven't been dispatched yet, so qty_on_hand still shows the
+  // whole lot — subtract what THIS order's other draft lines already claim
+  // to avoid double-allocating the same physical stock. Once sent, dispatch
+  // has already deducted qty_on_hand for real via a stock movement, so no
+  // extra subtraction is needed (or correct) when adding a line via revision.
   const committedByLot = new Map<string, number>();
-  for (const l of lines ?? []) {
-    if (!l.raw_lot_id) continue;
-    committedByLot.set(l.raw_lot_id, (committedByLot.get(l.raw_lot_id) ?? 0) + Number(l.qty_sent ?? 0));
+  if (order.status === "draft") {
+    for (const l of lines ?? []) {
+      if (!l.raw_lot_id) continue;
+      committedByLot.set(l.raw_lot_id, (committedByLot.get(l.raw_lot_id) ?? 0) + Number(l.qty_sent ?? 0));
+    }
   }
   const rawLots: RawLot[] = (lots ?? [])
     .map((l) => ({
@@ -106,9 +125,24 @@ export default async function JobWorkDetailPage({ params }: { params: Promise<{ 
             <Link href={`/job-work/${id}/print`} className={buttonVariants({ variant: "outline" })}>
               <Printer className="size-4" /> Print JW
             </Link>
+            {canDelete && <DeleteJwButton jwId={id} jwNo={order.jw_no} />}
           </div>
         }
       />
+
+      {order.superseded_by && (
+        <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          This job-work order has been superseded by a newer revision.
+          {currentRevisionId && (
+            <>
+              {" "}
+              <Link href={`/job-work/${currentRevisionId}`} className="font-medium underline">
+                View current revision
+              </Link>
+            </>
+          )}
+        </div>
+      )}
 
       <Card className="mb-6">
         <CardContent className="p-5">
