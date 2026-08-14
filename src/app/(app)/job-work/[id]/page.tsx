@@ -50,10 +50,18 @@ export default async function JobWorkDetailPage({ params }: { params: Promise<{ 
   const jwComponents: JwComponent[] = (comps ?? []).map((c) => ({
     id: c.id, label: `${c.component_no} — ${c.name}`, jw_rate: finance ? (c.jw_rate ?? null) : null,
   }));
-  const rawLots: RawLot[] = (lots ?? []).map((l) => ({
-    id: l.id, component_id: l.component_id, lot_code: l.lot_code,
-    qty_on_hand: Number(l.qty_on_hand ?? 0), unit_cost: finance ? (l.unit_cost ?? null) : null,
-  }));
+  const committedByLot = new Map<string, number>();
+  for (const l of lines ?? []) {
+    if (!l.raw_lot_id) continue;
+    committedByLot.set(l.raw_lot_id, (committedByLot.get(l.raw_lot_id) ?? 0) + Number(l.qty_sent ?? 0));
+  }
+  const rawLots: RawLot[] = (lots ?? [])
+    .map((l) => ({
+      id: l.id, component_id: l.component_id, lot_code: l.lot_code,
+      qty_on_hand: Number(l.qty_on_hand ?? 0) - (committedByLot.get(l.id) ?? 0),
+      unit_cost: finance ? (l.unit_cost ?? null) : null,
+    }))
+    .filter((l) => l.qty_on_hand > 0);
 
   // ---- GRN already received against each line (latest, since a line can be received in batches) ----
   const lineIds = (lines ?? []).map((l) => l.id);

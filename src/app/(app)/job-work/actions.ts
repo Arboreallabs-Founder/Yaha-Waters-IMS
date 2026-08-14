@@ -64,6 +64,23 @@ export async function addJwLine(fd: FormData): Promise<ActionResult> {
   if (qty_sent <= 0) return { error: "Enter a quantity to send." };
   const jwRateRaw = String(fd.get("jw_rate") ?? "").trim();
   const supabase = await createClient();
+
+  const [{ data: lot }, { data: existingLines }, { data: comp }] = await Promise.all([
+    supabase.from("inventory_lots").select("qty_on_hand").eq("id", raw_lot_id).single(),
+    supabase.from("job_work_lines").select("qty_sent").eq("jw_order_id", jw_order_id).eq("raw_lot_id", raw_lot_id),
+    supabase.from("components").select("jw_rate").eq("id", component_id).single(),
+  ]);
+  if (!lot) return { error: "Raw lot not found." };
+  const alreadyCommitted = (existingLines ?? []).reduce((sum, l) => sum + Number(l.qty_sent ?? 0), 0);
+  const remaining = Number(lot.qty_on_hand ?? 0) - alreadyCommitted;
+  if (qty_sent > remaining) {
+    return { error: `Only ${remaining} of that lot is still available — the rest is already on another line in this order.` };
+  }
+  const resolvedRate = jwRateRaw !== "" ? Number(jwRateRaw) : comp?.jw_rate ?? null;
+  if (resolvedRate === null) {
+    return { error: "This component has no job-work rate. Enter a rate for this line, or set a default rate for it in Masters." };
+  }
+
   const { error } = await supabase.from("job_work_lines").insert({
     jw_order_id,
     component_id,
