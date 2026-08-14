@@ -52,8 +52,10 @@
   --ring: #0ea5e9;
 }
 
-* {
-  border-color: var(--border);
+@layer base {
+  * {
+    border-color: var(--border);
+  }
 }
 
 body {
