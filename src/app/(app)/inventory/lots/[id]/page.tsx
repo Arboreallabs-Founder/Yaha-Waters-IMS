@@ -12,6 +12,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { MobileRowCard } from "@/components/ui/mobile-row-card";
 import { formatNumber, formatDate, formatINR, projectLabel } from "@/lib/utils";
 import { LotActions } from "./lot-actions";
+import { ReverseConsumptionButton } from "./reverse-consumption-button";
 
 const MOVE_LABEL: Record<string, string> = {
   receipt: "Receipt", issue: "Issue", adjustment: "Adjustment", transfer: "Transfer", return: "Return",
@@ -22,6 +23,7 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
   const profile = await getProfile();
   const finance = canSeeFinancials(profile?.role);
   const canManage = profile?.role === "admin" || profile?.role === "team_lead";
+  const isAdmin = profile?.role === "admin";
   const supabase = await createClient();
 
   const { data: lot } = await supabase.from("inventory_lots").select("*").eq("id", id).single();
@@ -38,6 +40,12 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
       supabase.from("customers").select("id, name"),
     ]);
   const isBox = !!lot.container_no;
+
+  const issueMoveIds = (moves ?? []).filter((m) => m.movement_type === "issue").map((m) => m.id);
+  const { data: reversals } = isAdmin && issueMoveIds.length
+    ? await supabase.from("stock_movements").select("reference_id").eq("reference_type", "consumption_reversal").in("reference_id", issueMoveIds)
+    : { data: [] };
+  const reversedIds = new Set((reversals ?? []).map((r) => r.reference_id));
 
   const custName = new Map((customers ?? []).map((c) => [c.id, c.name]));
   const projectsWithCustomer = (projects ?? []).map((p) => ({ ...p, customer_name: p.customer_id ? custName.get(p.customer_id) ?? null : null }));
@@ -108,38 +116,47 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
                   <TableHead>Qty</TableHead>
                   <TableHead>Project</TableHead>
                   <TableHead>Ref</TableHead>
+                  {isAdmin && <TableHead className="w-10" />}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(moves ?? []).map((m) => (
-                  <TableRow key={m.id}>
-                    <TableCell className="text-muted-foreground">{formatDate(m.performed_at)}</TableCell>
-                    <TableCell><Badge variant={m.movement_type === "issue" ? "warning" : "secondary"}>{MOVE_LABEL[m.movement_type] ?? m.movement_type}</Badge></TableCell>
-                    <TableCell className={Number(m.qty) < 0 ? "text-red-600" : "text-green-700"}>{Number(m.qty) > 0 ? "+" : ""}{formatNumber(m.qty)}</TableCell>
-                    <TableCell className="text-muted-foreground">{m.project_id ? projNo.get(m.project_id) ?? "—" : "—"}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {m.reference_type === "requisition" && m.reference_id
-                        ? <Link href={`/requisitions/${m.reference_id}`} className="text-primary hover:underline">requisition</Link>
-                        : (m.reference_type ?? "—")}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {(moves ?? []).map((m) => {
+                  const reversible = m.movement_type === "issue" && m.reference_type !== "job_work" && !reversedIds.has(m.id);
+                  return (
+                    <TableRow key={m.id}>
+                      <TableCell className="text-muted-foreground">{formatDate(m.performed_at)}</TableCell>
+                      <TableCell><Badge variant={m.movement_type === "issue" ? "warning" : "secondary"}>{MOVE_LABEL[m.movement_type] ?? m.movement_type}</Badge></TableCell>
+                      <TableCell className={Number(m.qty) < 0 ? "text-red-600" : "text-green-700"}>{Number(m.qty) > 0 ? "+" : ""}{formatNumber(m.qty)}</TableCell>
+                      <TableCell className="text-muted-foreground">{m.project_id ? projNo.get(m.project_id) ?? "—" : "—"}</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {m.reference_type === "requisition" && m.reference_id
+                          ? <Link href={`/requisitions/${m.reference_id}`} className="text-primary hover:underline">requisition</Link>
+                          : (m.reference_type ?? "—")}
+                      </TableCell>
+                      {isAdmin && <TableCell>{reversible && <ReverseConsumptionButton movementId={m.id} />}</TableCell>}
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
           <div className="space-y-3 sm:hidden">
-            {(moves ?? []).map((m) => (
-              <MobileRowCard
-                key={m.id}
-                title={MOVE_LABEL[m.movement_type] ?? m.movement_type}
-                subtitle={formatDate(m.performed_at)}
-                badge={<Badge variant={m.movement_type === "issue" ? "warning" : "secondary"}>{m.reference_type ?? "—"}</Badge>}
-                fields={[
-                  { label: "Qty", value: <span className={Number(m.qty) < 0 ? "text-red-600" : "text-green-700"}>{Number(m.qty) > 0 ? "+" : ""}{formatNumber(m.qty)}</span> },
-                  { label: "Project", value: m.project_id ? projNo.get(m.project_id) ?? "—" : "—" },
-                ]}
-              />
-            ))}
+            {(moves ?? []).map((m) => {
+              const reversible = m.movement_type === "issue" && m.reference_type !== "job_work" && !reversedIds.has(m.id);
+              return (
+                <MobileRowCard
+                  key={m.id}
+                  title={MOVE_LABEL[m.movement_type] ?? m.movement_type}
+                  subtitle={formatDate(m.performed_at)}
+                  badge={<Badge variant={m.movement_type === "issue" ? "warning" : "secondary"}>{m.reference_type ?? "—"}</Badge>}
+                  fields={[
+                    { label: "Qty", value: <span className={Number(m.qty) < 0 ? "text-red-600" : "text-green-700"}>{Number(m.qty) > 0 ? "+" : ""}{formatNumber(m.qty)}</span> },
+                    { label: "Project", value: m.project_id ? projNo.get(m.project_id) ?? "—" : "—" },
+                    ...(isAdmin && reversible ? [{ label: "Action", value: <ReverseConsumptionButton movementId={m.id} /> }] : []),
+                  ]}
+                />
+              );
+            })}
           </div>
         </>
       )}

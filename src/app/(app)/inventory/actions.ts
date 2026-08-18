@@ -192,6 +192,70 @@ export async function unissueLot(fd: FormData): Promise<ActionResult> {
   return { ok: true };
 }
 
+/**
+ * Reverse a specific consumption (`issue`) movement back to open stock —
+ * admin-only. Writes a compensating `return` movement (never mutates the
+ * original ledger row); `recompute_lot_on_hand()` picks it up and restores
+ * qty_on_hand / flips status back to 'open'. Also clears the lot's project
+ * tag so it's genuinely open again, matching `unissueLot`'s convention.
+ */
+export async function reverseConsumption(fd: FormData): Promise<ActionResult> {
+  const p = await getProfile();
+  if (!p || p.role !== "admin") return { error: "Only Admin can reverse a consumption." };
+  const movement_id = String(fd.get("movement_id") ?? "");
+  const reason = String(fd.get("reason") ?? "").trim();
+  if (!movement_id) return { error: "Movement not found." };
+  if (!reason) return { error: "Enter a reason for reversing this consumption." };
+
+  const supabase = await createClient();
+  const { data: move } = await supabase
+    .from("stock_movements")
+    .select("id, lot_id, component_id, qty, movement_type, reference_type, project_id")
+    .eq("id", movement_id)
+    .maybeSingle();
+  if (!move) return { error: "Movement not found." };
+  if (move.movement_type !== "issue") return { error: "Only a consumption (issue) movement can be reversed." };
+  if (move.reference_type === "job_work") {
+    return { error: "Job-work dispatches are reversed from the Job Work order's revision flow, not here." };
+  }
+  if (!move.lot_id) return { error: "This movement has no lot to reverse into." };
+
+  const { data: existingReversal } = await supabase
+    .from("stock_movements")
+    .select("id")
+    .eq("reference_type", "consumption_reversal")
+    .eq("reference_id", movement_id)
+    .maybeSingle();
+  if (existingReversal) return { error: "This consumption has already been reversed." };
+
+  const { error: insErr } = await supabase.from("stock_movements").insert({
+    lot_id: move.lot_id,
+    component_id: move.component_id,
+    movement_type: "return",
+    qty: Math.abs(Number(move.qty)),
+    project_id: move.project_id,
+    reference_type: "consumption_reversal",
+    reference_id: movement_id,
+    note: reason,
+    performed_by: p.id,
+    created_by: p.id,
+  });
+  if (insErr) return { error: insErr.message };
+
+  if (move.project_id) {
+    await supabase
+      .from("inventory_lots")
+      .update({ project_id: null })
+      .eq("id", move.lot_id)
+      .eq("project_id", move.project_id);
+  }
+
+  revalidatePath(`/inventory/lots/${move.lot_id}`);
+  if (move.component_id) revalidatePath(`/inventory/${move.component_id}`);
+  if (move.project_id) revalidatePath(`/projects/${move.project_id}`);
+  return { ok: true };
+}
+
 /** Transfer a lot to a new location (admin/team_lead — updates the lot). */
 export async function transferLot(fd: FormData): Promise<ActionResult> {
   const p = await getProfile();
