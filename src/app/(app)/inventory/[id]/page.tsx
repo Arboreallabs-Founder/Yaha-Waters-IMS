@@ -302,7 +302,13 @@ export default async function ComponentInventoryPage({ params }: { params: Promi
                   {(movements ?? []).map((m) => (
                     <TableRow key={m.id}>
                       <TableCell className="text-muted-foreground">{formatDate(m.performed_at)}</TableCell>
-                      <TableCell className="font-mono text-xs">{lotCode.get(m.lot_id) ?? "—"}</TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {m.lot_id ? (
+                          <Link href={`/inventory/lots/${m.lot_id}`} className="text-primary hover:underline">
+                            {lotCode.get(m.lot_id) ?? "—"}
+                          </Link>
+                        ) : (lotCode.get(m.lot_id) ?? "—")}
+                      </TableCell>
                       <TableCell className="font-semibold text-red-600">
                         {formatNumber(Math.abs(Number(m.qty)))}{unitSuffix}
                       </TableCell>
@@ -324,7 +330,13 @@ export default async function ComponentInventoryPage({ params }: { params: Promi
               {(movements ?? []).map((m) => (
                 <MobileRowCard
                   key={m.id}
-                  title={lotCode.get(m.lot_id) ?? "—"}
+                  title={
+                    m.lot_id ? (
+                      <Link href={`/inventory/lots/${m.lot_id}`} className="text-primary hover:underline">
+                        {lotCode.get(m.lot_id) ?? "—"}
+                      </Link>
+                    ) : (lotCode.get(m.lot_id) ?? "—")
+                  }
                   subtitle={formatDate(m.performed_at)}
                   badge={<Badge variant="secondary">{m.reference_type ?? "—"}</Badge>}
                   fields={[
