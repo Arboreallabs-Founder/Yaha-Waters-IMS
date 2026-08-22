@@ -80,7 +80,7 @@ export function LotActions({
         </div>
         <div className="w-24">
           <Label className="mb-1 block text-xs">Qty</Label>
-          <Input name="qty" type="number" step="any" min="0" max={qtyOnHand} placeholder={String(qtyOnHand)} />
+          <Input name="qty" type="number" step="any" min="0" max={qtyOnHand} defaultValue={qtyOnHand > 0 ? qtyOnHand : ""} />
         </div>
         <Button type="submit" disabled={busy === "consume" || qtyOnHand <= 0 || rawStage}><MinusCircle className="size-4" /> Consume</Button>
       </form>
