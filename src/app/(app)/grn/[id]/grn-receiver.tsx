@@ -8,6 +8,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { MobileRowCard } from "@/components/ui/mobile-row-card";
@@ -89,6 +90,10 @@ export function GrnReceiver({
   const pickerComponents = React.useMemo(
     () => (hasVendorFilter && !showAllComponents ? components.filter((c) => vendorCompSet.has(c.id)) : components),
     [components, hasVendorFilter, showAllComponents, vendorCompSet],
+  );
+  const pickerComponentItems = React.useMemo(
+    () => pickerComponents.map((c) => ({ value: c.id, label: `${c.component_no} — ${c.name}` })),
+    [pickerComponents],
   );
 
   const compMap = React.useMemo(() => new Map(components.map((c) => [c.id, c])), [components]);
@@ -221,12 +226,7 @@ export function GrnReceiver({
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5 sm:col-span-2">
                 <Label>Component</Label>
-                <Select name="component_id" required value={manualComp} onChange={(e) => setManualComp(e.target.value)}>
-                  <option value="">— component —</option>
-                  {pickerComponents.map((c) => (
-                    <option key={c.id} value={c.id}>{c.component_no} — {c.name}</option>
-                  ))}
-                </Select>
+                <Combobox items={pickerComponentItems} name="component_id" required value={manualComp} onChange={setManualComp} placeholder="— component —" />
                 {hasVendorFilter && (
                   <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <input

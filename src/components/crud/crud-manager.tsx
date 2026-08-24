@@ -8,6 +8,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
@@ -26,7 +27,7 @@ export type { ActionResult };
 export type ColumnFormat = "text" | "number" | "inr" | "bool" | "date" | "badge";
 export type Column = { key: string; label: string; format?: ColumnFormat; financial?: boolean };
 
-export type FieldType = "text" | "number" | "checkbox" | "select" | "textarea" | "date";
+export type FieldType = "text" | "number" | "checkbox" | "select" | "combobox" | "textarea" | "date";
 export type Field = {
   name: string;
   label: string;
@@ -289,6 +290,15 @@ function FieldInput({ field, defaultValue }: { field: Field; defaultValue: unkno
             </option>
           ))}
         </Select>
+      ) : field.type === "combobox" ? (
+        <Combobox
+          id={field.name}
+          name={field.name}
+          required={field.required}
+          defaultValue={defaultValue != null ? String(defaultValue) : ""}
+          items={field.options ?? []}
+          placeholder="— none —"
+        />
       ) : field.type === "textarea" ? (
         <Textarea
           id={field.name}

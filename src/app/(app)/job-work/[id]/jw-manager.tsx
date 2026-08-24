@@ -7,7 +7,7 @@ import { Plus, Trash2, Send, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
@@ -45,6 +45,11 @@ export function JwManager({
   const lotsForComp = React.useMemo(
     () => rawLots.filter((l) => l.component_id === componentId),
     [rawLots, componentId],
+  );
+  const jwComponentItems = React.useMemo(() => jwComponents.map((c) => ({ value: c.id, label: c.label })), [jwComponents]);
+  const lotItems = React.useMemo(
+    () => lotsForComp.map((l) => ({ value: l.id, label: `${l.lot_code} · ${formatNumber(l.qty_on_hand)} on hand` })),
+    [lotsForComp],
   );
   const isDraft = status === "draft";
   const isEditableSent = EDITABLE_SENT_STATUSES.includes(status);
@@ -116,17 +121,18 @@ export function JwManager({
         <form onSubmit={onAdd} className="flex flex-wrap items-end gap-2 rounded-lg border border-border p-3">
           <div className="min-w-[200px] flex-1">
             <Label className="mb-1 block text-xs">Job-work component</Label>
-            <Select value={componentId} onChange={(e) => onPickComponent(e.target.value)} required>
-              <option value="">— component —</option>
-              {jwComponents.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
-            </Select>
+            <Combobox items={jwComponentItems} value={componentId} onChange={onPickComponent} placeholder="— component —" required />
           </div>
           <div className="min-w-[180px] flex-1">
             <Label className="mb-1 block text-xs">Raw lot to send</Label>
-            <Select value={rawLotId} onChange={(e) => onPickLot(e.target.value)} required disabled={!componentId}>
-              <option value="">{componentId ? (lotsForComp.length ? "— raw lot —" : "no raw stock") : "pick component first"}</option>
-              {lotsForComp.map((l) => <option key={l.id} value={l.id}>{l.lot_code} · {formatNumber(l.qty_on_hand)} on hand</option>)}
-            </Select>
+            <Combobox
+              items={lotItems}
+              value={rawLotId}
+              onChange={onPickLot}
+              placeholder={componentId ? (lotsForComp.length ? "— raw lot —" : "no raw stock") : "pick component first"}
+              required
+              disabled={!componentId}
+            />
           </div>
           <div className="w-24">
             <Label className="mb-1 block text-xs">Qty to send</Label>

@@ -6,12 +6,13 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Dialog } from "@/components/ui/dialog";
 import { createPO } from "./actions";
 
 export function NewPoButton({ vendors, defaultPoNo }: { vendors: { id: string; name: string }[]; defaultPoNo: string }) {
   const router = useRouter();
+  const vendorItems = React.useMemo(() => vendors.map((v) => ({ value: v.id, label: v.name })), [vendors]);
   const [open, setOpen] = React.useState(false);
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -41,10 +42,7 @@ export function NewPoButton({ vendors, defaultPoNo }: { vendors: { id: string; n
           </div>
           <div className="space-y-1.5">
             <Label>Vendor (optional)</Label>
-            <Select name="vendor_id" defaultValue="">
-              <option value="">— decide later —</option>
-              {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
-            </Select>
+            <Combobox items={vendorItems} defaultValue="" name="vendor_id" placeholder="— decide later —" />
           </div>
           <div className="space-y-1.5">
             <Label>PO date</Label>

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog } from "@/components/ui/dialog";
 import {
@@ -14,6 +15,8 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { COUNTRY_CODES, COUNTRY_CODE_BY_ISO2, DEFAULT_COUNTRY_ISO2 } from "@/lib/country-codes";
+
+const COUNTRY_CODE_ITEMS = COUNTRY_CODES.map((c) => ({ value: c.iso2, label: `${c.country} (${c.dialCode})` }));
 import { customerFormSchema, applySameAsRegistered } from "./schema";
 import type { ActionResult } from "@/lib/server/crud";
 
@@ -243,16 +246,12 @@ export function CustomerManager({
 
           <div className="grid grid-cols-[160px_1fr] gap-2">
             <Field label="Country code" required error={fieldErrors.phone_country_code}>
-              <Select
+              <Combobox
+                items={COUNTRY_CODE_ITEMS}
                 value={values.phone_country_code}
-                onChange={(e) => updateField("phone_country_code", e.target.value)}
-              >
-                {COUNTRY_CODES.map((c) => (
-                  <option key={c.iso2} value={c.iso2}>
-                    {c.country} ({c.dialCode})
-                  </option>
-                ))}
-              </Select>
+                onChange={(v) => updateField("phone_country_code", v)}
+                required
+              />
             </Field>
             <Field label="Phone number" required error={fieldErrors.phone_number}>
               <Input

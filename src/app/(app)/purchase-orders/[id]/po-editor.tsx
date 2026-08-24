@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { formatINR, formatNumber, formatDate } from "@/lib/utils";
 import { updatePO, addPoLine, updatePoLine, removePoLine, type ActionResult } from "../actions";
-import { ComponentSearchSelect } from "./component-search-select";
+import { Combobox } from "@/components/ui/combobox";
 
 type Line = {
   id: string;
@@ -84,12 +84,18 @@ export function PoEditor({
   const [showAllComponents, setShowAllComponents] = React.useState(false);
   const projLabel = new Map(projects.map((p) => [p.id, p.label]));
   const compMap = React.useMemo(() => new Map(components.map((c) => [c.id, c])), [components]);
+  const vendorItems = React.useMemo(() => vendors.map((v) => ({ value: v.id, label: v.name })), [vendors]);
+  const projectItems = React.useMemo(() => projects.map((p) => ({ value: p.id, label: p.label })), [projects]);
 
   const hasVendorFilter = vendorComponentIds.length > 0;
   const vendorCompSet = React.useMemo(() => new Set(vendorComponentIds), [vendorComponentIds]);
   const pickerComponents = React.useMemo(
     () => (hasVendorFilter && !showAllComponents ? components.filter((c) => vendorCompSet.has(c.id)) : components),
     [components, hasVendorFilter, showAllComponents, vendorCompSet],
+  );
+  const pickerComponentItems = React.useMemo(
+    () => pickerComponents.map((c) => ({ value: c.id, label: `${c.component_no} — ${c.name}${c.is_job_work ? " (raw)" : ""}` })),
+    [pickerComponents],
   );
 
   const addSelectedComp = addComp ? compMap.get(addComp) : undefined;
@@ -147,10 +153,7 @@ export function PoEditor({
           </div>
           <div className="space-y-1.5">
             <Label>Vendor</Label>
-            <Select name="vendor_id" defaultValue={header.vendor_id ?? ""}>
-              <option value="">— none —</option>
-              {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
-            </Select>
+            <Combobox items={vendorItems} defaultValue={header.vendor_id ?? ""} name="vendor_id" placeholder="— none —" />
           </div>
           <div className="space-y-1.5">
             <Label>PO date</Label>
@@ -285,7 +288,7 @@ export function PoEditor({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-1.5 lg:col-span-2">
               <Label>Component</Label>
-              <ComponentSearchSelect items={pickerComponents} value={addComp} onChange={setAddComp} name="component_id" />
+              <Combobox items={pickerComponentItems} value={addComp} onChange={setAddComp} name="component_id" placeholder="Search component no. or name…" required />
               {hasVendorFilter && (
                 <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <input
@@ -307,10 +310,7 @@ export function PoEditor({
             </div>
             <div className="space-y-1.5">
               <Label>Project tag (optional)</Label>
-              <Select name="project_id" defaultValue="">
-                <option value="">Stock (general inventory)</option>
-                {projects.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
-              </Select>
+              <Combobox items={projectItems} defaultValue="" name="project_id" placeholder="Stock (general inventory)" />
             </div>
             {addQt === "nos" && (
               <div className="space-y-1.5">
@@ -410,10 +410,7 @@ export function PoEditor({
             )}
             <div className="space-y-1.5">
               <Label>Project tag (back-fill)</Label>
-              <Select name="project_id" defaultValue={editing.project_id ?? ""}>
-                <option value="">Stock (general inventory)</option>
-                {projects.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
-              </Select>
+              <Combobox items={projectItems} defaultValue={editing.project_id ?? ""} name="project_id" placeholder="Stock (general inventory)" />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">

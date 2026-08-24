@@ -5,13 +5,14 @@ import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Dialog } from "@/components/ui/dialog";
 import { createRequisition } from "./actions";
 import { projectLabel } from "@/lib/utils";
 
 export function NewRequisitionButton({ projects }: { projects: { id: string; project_no: string; customer_name?: string | null }[] }) {
   const router = useRouter();
+  const projectItems = React.useMemo(() => projects.map((p) => ({ value: p.id, label: projectLabel(p) })), [projects]);
   const [open, setOpen] = React.useState(false);
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -40,12 +41,7 @@ export function NewRequisitionButton({ projects }: { projects: { id: string; pro
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <Label>Project (optional)</Label>
-            <Select name="project_id" defaultValue="">
-              <option value="">— stock (no project) —</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>{projectLabel(p)}</option>
-              ))}
-            </Select>
+            <Combobox items={projectItems} defaultValue="" name="project_id" placeholder="— stock (no project) —" />
           </div>
           {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">

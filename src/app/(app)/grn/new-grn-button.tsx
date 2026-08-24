@@ -6,7 +6,7 @@ import { Plus, Truck, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Dialog } from "@/components/ui/dialog";
 import { createGrn } from "./actions";
 
@@ -16,6 +16,7 @@ export function NewGrnButton({
   vendors: { id: string; name: string }[];
 }) {
   const router = useRouter();
+  const vendorItems = React.useMemo(() => vendors.map((v) => ({ value: v.id, label: v.name })), [vendors]);
   const [step, setStep] = React.useState<"closed" | "type" | "details">("closed");
   const [isJobWork, setIsJobWork] = React.useState(false);
   const [pending, setPending] = React.useState(false);
@@ -88,10 +89,7 @@ export function NewGrnButton({
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <Label>Vendor{isJobWork ? "" : " (optional)"}</Label>
-            <Select name="vendor_id" defaultValue="" required={isJobWork}>
-              <option value="">— {isJobWork ? "choose vendor" : "none"} —</option>
-              {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
-            </Select>
+            <Combobox items={vendorItems} defaultValue="" name="vendor_id" required={isJobWork} placeholder={`— ${isJobWork ? "choose vendor" : "none"} —`} />
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">

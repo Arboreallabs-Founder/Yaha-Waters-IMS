@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
@@ -70,6 +71,7 @@ export function TemplateLineEditor({
     [components],
   );
   const paramByName = React.useMemo(() => new Map(dropdownParams.map((p) => [p.name, p])), [dropdownParams]);
+  const componentItems = React.useMemo(() => components.map((c) => ({ value: c.id, label: `${c.component_no} — ${c.name}` })), [components]);
   const lineById = React.useMemo(() => new Map(lines.map((l) => [l.id, l])), [lines]);
 
   // Assembly lines (possible parents) for the "nest under" picker.
@@ -421,12 +423,7 @@ export function TemplateLineEditor({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="space-y-1.5 sm:col-span-2">
               <Label>{isVariant ? "Default component (optional)" : "Component"}</Label>
-              <Select value={componentId} onChange={(e) => setComponentId(e.target.value)}>
-                <option value="">— none —</option>
-                {components.map((c) => (
-                  <option key={c.id} value={c.id}>{c.component_no} — {c.name}</option>
-                ))}
-              </Select>
+              <Combobox items={componentItems} value={componentId} onChange={setComponentId} placeholder="— none —" />
             </div>
             <div className="space-y-1.5">
               <Label>{isVariant ? "Default qty" : "Quantity"}</Label>
@@ -504,12 +501,13 @@ export function TemplateLineEditor({
                     return (
                       <div key={key} className="flex items-center gap-2">
                         <span className="w-16 shrink-0 text-sm font-medium">{key}</span>
-                        <Select value={row.componentId} onChange={(e) => setRow(key, { componentId: e.target.value })} className="flex-1">
-                          <option value="">— (skip) —</option>
-                          {components.map((c) => (
-                            <option key={c.id} value={c.id}>{c.component_no} — {c.name}</option>
-                          ))}
-                        </Select>
+                        <Combobox
+                          items={componentItems}
+                          value={row.componentId}
+                          onChange={(v) => setRow(key, { componentId: v })}
+                          placeholder="— (skip) —"
+                          className="flex-1"
+                        />
                         <Input
                           type="number"
                           step="any"

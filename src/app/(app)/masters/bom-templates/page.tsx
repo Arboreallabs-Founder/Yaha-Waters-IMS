@@ -37,14 +37,14 @@ export default async function BomTemplatesPage() {
     {
       name: "product_id",
       label: "Product",
-      type: "select",
+      type: "combobox",
       options: (products ?? []).map((p) => ({ value: p.id, label: `${p.sku_code} — ${p.model_name}` })),
       help: "Pick a product OR a sub-assembly below (one, not both).",
     },
     {
       name: "component_id",
       label: "Sub-assembly",
-      type: "select",
+      type: "combobox",
       options: (assemblies ?? []).map((a) => ({ value: a.id, label: `${a.component_no} — ${a.name}` })),
     },
     { name: "version", label: "Version", type: "number", placeholder: "1" },

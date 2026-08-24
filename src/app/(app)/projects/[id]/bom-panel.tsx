@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Cog, Check, Lock, Unlock, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { formatNumber } from "@/lib/utils";
@@ -46,6 +46,7 @@ export function BomPanel({
   const [err, setErr] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
   const approved = bom?.status === "approved";
+  const componentItems = React.useMemo(() => components.map((c) => ({ value: c.id, label: `${c.component_no} — ${c.name}` })), [components]);
 
   const totalQty = lines.reduce((s, l) => s + Number(l.required_qty || 0), 0);
 
@@ -182,12 +183,7 @@ export function BomPanel({
             <form onSubmit={onAddManual} className="flex flex-wrap items-end gap-2 rounded-lg border border-border bg-muted/30 p-3">
               <div className="flex-1 min-w-[220px]">
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Add manual line — component</label>
-                <Select name="component_id" required>
-                  <option value="">— component —</option>
-                  {components.map((c) => (
-                    <option key={c.id} value={c.id}>{c.component_no} — {c.name}</option>
-                  ))}
-                </Select>
+                <Combobox items={componentItems} defaultValue="" name="component_id" placeholder="— component —" required />
               </div>
               <div className="w-24">
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Qty</label>

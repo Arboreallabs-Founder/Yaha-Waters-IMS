@@ -6,7 +6,7 @@ import { MinusCircle, MoveRight, ClipboardCheck, PlusCircle } from "lucide-react
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { consumeLot, transferLot, adjustLot, addToBox, type ActionResult } from "../../actions";
 import { projectLabel } from "@/lib/utils";
 
@@ -33,6 +33,7 @@ export function LotActions({
   const router = useRouter();
   const [busy, setBusy] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const projectItems = React.useMemo(() => projects.map((p) => ({ value: p.id, label: projectLabel(p) })), [projects]);
 
   async function run(action: (fd: FormData) => Promise<ActionResult>, fd: FormData, key: string, onOk?: () => void) {
     setBusy(key); setError(null);
@@ -73,10 +74,7 @@ export function LotActions({
         className="flex flex-wrap items-end gap-2 rounded-lg border border-border p-3">
         <div className="flex-1 min-w-[160px]">
           <Label className="mb-1 block text-xs">Consume into project</Label>
-          <Select name="project_id" required>
-            <option value="">— project —</option>
-            {projects.map((p) => <option key={p.id} value={p.id}>{projectLabel(p)}</option>)}
-          </Select>
+          <Combobox items={projectItems} defaultValue="" name="project_id" placeholder="— project —" required />
         </div>
         <div className="w-24">
           <Label className="mb-1 block text-xs">Qty</Label>

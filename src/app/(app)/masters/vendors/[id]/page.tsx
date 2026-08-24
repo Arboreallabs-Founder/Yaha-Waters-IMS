@@ -35,7 +35,7 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
     {
       name: "component_id",
       label: "Component",
-      type: "select",
+      type: "combobox",
       required: true,
       options: (components ?? []).map((c) => ({ value: c.id, label: `${c.component_no} — ${c.name}` })),
     },

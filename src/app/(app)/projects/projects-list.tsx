@@ -8,6 +8,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import {
@@ -312,6 +313,7 @@ function ProjectForm({
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
   onCancel: () => void;
 }) {
+  const customerItems = React.useMemo(() => customers.map((c) => ({ value: c.id, label: c.name })), [customers]);
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       {initial && <input type="hidden" name="id" value={initial.id} />}
@@ -322,10 +324,7 @@ function ProjectForm({
         </Field>
 
         <Field label="Customer" className="col-span-2">
-          <Select name="customer_id" defaultValue={initial?.customer_id ?? ""}>
-            <option value="">— none —</option>
-            {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </Select>
+          <Combobox items={customerItems} defaultValue={initial?.customer_id ?? ""} name="customer_id" placeholder="— none —" />
         </Field>
 
         {initial && (

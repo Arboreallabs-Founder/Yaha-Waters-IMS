@@ -6,6 +6,8 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
+import { SearchInput } from "@/components/ui/search-input";
 import { Dialog } from "@/components/ui/dialog";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { QrCode } from "@/components/qr-code";
@@ -30,6 +32,14 @@ export function FgManager({
   const [open, setOpen] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [query, setQuery] = React.useState("");
+  const productItems = React.useMemo(() => products.map((p) => ({ value: p.id, label: p.label })), [products]);
+  const lineItemItems = React.useMemo(() => lineItems.map((li) => ({ value: li.id, label: li.label })), [lineItems]);
+  const filteredUnits = units.filter((u) => {
+    if (!query) return true;
+    const q = query.toLowerCase();
+    return u.serial_no.toLowerCase().includes(q) || u.product_label.toLowerCase().includes(q);
+  });
 
   async function run(action: (fd: FormData) => Promise<ActionResult>, fd: FormData, onOk?: () => void) {
     setBusy(true); setError(null);
@@ -41,11 +51,13 @@ export function FgManager({
 
   return (
     <div>
-      {canWrite && (
-        <div className="mb-4 flex justify-end">
-          <Button onClick={() => { setError(null); setOpen(true); }}><Plus className="size-4" /> New unit</Button>
-        </div>
-      )}
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <SearchInput value={query} onChange={setQuery} placeholder="Search serial no. or product…" />
+        <p className="text-sm text-muted-foreground">{filteredUnits.length} of {units.length}</p>
+        {canWrite && (
+          <Button className="ml-auto" onClick={() => { setError(null); setOpen(true); }}><Plus className="size-4" /> New unit</Button>
+        )}
+      </div>
       <Table>
         <TableHeader>
           <TableRow>
@@ -58,10 +70,10 @@ export function FgManager({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {units.length === 0 ? (
-            <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">No finished goods yet.</TableCell></TableRow>
+          {filteredUnits.length === 0 ? (
+            <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">{units.length === 0 ? "No finished goods yet." : "No matches."}</TableCell></TableRow>
           ) : (
-            units.map((u) => (
+            filteredUnits.map((u) => (
               <TableRow key={u.id}>
                 <TableCell className="font-mono text-xs">{u.serial_no}</TableCell>
                 <TableCell><QrCode value={u.serial_no} size={48} /></TableCell>
@@ -86,17 +98,11 @@ export function FgManager({
         <form onSubmit={(e) => { e.preventDefault(); run(createFinishedGood, new FormData(e.currentTarget), () => setOpen(false)); }} className="space-y-4">
           <div className="space-y-1.5">
             <Label>Product</Label>
-            <Select name="product_id" required>
-              <option value="">— product —</option>
-              {products.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
-            </Select>
+            <Combobox items={productItems} defaultValue="" name="product_id" placeholder="— product —" required />
           </div>
           <div className="space-y-1.5">
             <Label>Project line item (optional — copies its variant)</Label>
-            <Select name="project_line_item_id" defaultValue="">
-              <option value="">— none —</option>
-              {lineItems.map((li) => <option key={li.id} value={li.id}>{li.label}</option>)}
-            </Select>
+            <Combobox items={lineItemItems} defaultValue="" name="project_line_item_id" placeholder="— none —" />
           </div>
           <div className="space-y-1.5">
             <Label>Status</Label>

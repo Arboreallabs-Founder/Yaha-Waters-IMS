@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { formatNumber, formatINR } from "@/lib/utils";
@@ -49,6 +50,10 @@ export function JwGrnReceiver({
   const selectedLine = openLines.find((l) => l.id === lineId) ?? null;
   const templateFields = selectedLine ? templateFieldsByComponent[selectedLine.component_id] ?? [] : [];
   const needsInspection = templateFields.length > 0;
+  const openLineItems = React.useMemo(
+    () => openLines.map((l) => ({ value: l.id, label: `${l.component_label} — ${l.jw_no} — ${formatNumber(l.outstanding)} outstanding` })),
+    [openLines],
+  );
 
   function onPickLine(id: string) {
     setLineId(id);
@@ -95,14 +100,13 @@ export function JwGrnReceiver({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="sm:col-span-2 space-y-1.5">
               <Label>Job-work line to receive</Label>
-              <Select value={lineId} onChange={(e) => onPickLine(e.target.value)} required>
-                <option value="">{openLines.length ? "— choose —" : "no open job-work lines for this vendor"}</option>
-                {openLines.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.component_label} — {l.jw_no} — {formatNumber(l.outstanding)} outstanding
-                  </option>
-                ))}
-              </Select>
+              <Combobox
+                items={openLineItems}
+                value={lineId}
+                onChange={onPickLine}
+                required
+                placeholder={openLines.length ? "— choose —" : "no open job-work lines for this vendor"}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Qty received</Label>

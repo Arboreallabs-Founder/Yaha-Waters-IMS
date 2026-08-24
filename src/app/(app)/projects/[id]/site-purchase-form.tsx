@@ -6,7 +6,7 @@ import { CheckCircle2, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import type { ActionResult } from "../../site-purchases/actions";
 
 type Component = { id: string; component_no: string; name: string };
@@ -31,6 +31,8 @@ export function SitePurchaseForm({
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [message, setMessage] = React.useState<string | null>(null);
+  const componentItems = React.useMemo(() => components.map((c) => ({ value: c.id, label: `${c.component_no} — ${c.name}` })), [components]);
+  const vendorItems = React.useMemo(() => vendors.map((v) => ({ value: v.id, label: v.name })), [vendors]);
 
   if (!bomApproved) {
     return <p className="text-sm text-muted-foreground">Approve the BOM first — site purchases attach to the approved BOM.</p>;
@@ -69,10 +71,7 @@ export function SitePurchaseForm({
       <form onSubmit={onSubmit} className="grid grid-cols-1 gap-3 rounded-lg border border-border bg-muted/30 p-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="space-y-1.5 lg:col-span-2">
           <Label>Component</Label>
-          <Select name="component_id" required defaultValue="">
-            <option value="">— component —</option>
-            {components.map((c) => <option key={c.id} value={c.id}>{c.component_no} — {c.name}</option>)}
-          </Select>
+          <Combobox items={componentItems} defaultValue="" name="component_id" placeholder="— component —" required />
         </div>
         <div className="space-y-1.5">
           <Label>Qty</Label>
@@ -86,10 +85,7 @@ export function SitePurchaseForm({
         )}
         <div className="space-y-1.5">
           <Label>Vendor (if listed)</Label>
-          <Select name="vendor_id" defaultValue="">
-            <option value="">— not in vendor master —</option>
-            {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
-          </Select>
+          <Combobox items={vendorItems} defaultValue="" name="vendor_id" placeholder="— not in vendor master —" />
         </div>
         <div className="space-y-1.5">
           <Label>Or vendor name</Label>

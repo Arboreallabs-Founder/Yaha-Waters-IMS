@@ -1,19 +1,12 @@
-import Link from "next/link";
-import { ArrowRight, Hammer } from "lucide-react";
+import { Hammer } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile, canWriteMasters } from "@/lib/auth";
 import { getVendors, getComponentsFull, getCustomers } from "@/lib/masters-data";
 import { PageHeader } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { buttonVariants } from "@/components/ui/button";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { formatDate, formatNumber, projectLabel } from "@/lib/utils";
+import { formatNumber, projectLabel } from "@/lib/utils";
 import { NewJwButton } from "./new-jw-button";
-
-const STATUS_VARIANT: Record<string, "secondary" | "warning" | "success" | "destructive"> = {
-  draft: "secondary", sent: "warning", partial: "warning", received: "success", cancelled: "destructive", superseded: "secondary",
-};
+import { JwOrdersTable } from "./jw-orders-table";
 
 export default async function JobWorkPage() {
   const profile = await getProfile();
@@ -71,44 +64,18 @@ export default async function JobWorkPage() {
         </Card>
       )}
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>JW No.</TableHead>
-            <TableHead>Project</TableHead>
-            <TableHead>Vendor</TableHead>
-            <TableHead>Sent</TableHead>
-            <TableHead>Expected</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="w-12" />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {(orders ?? []).length === 0 ? (
-            <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">No job-work orders yet.</TableCell></TableRow>
-          ) : (
-            (orders ?? []).map((o) => (
-              <TableRow key={o.id}>
-                <TableCell className="font-medium">{o.jw_no}</TableCell>
-                <TableCell>
-                  {o.project_id
-                    ? <Link href={`/projects/${o.project_id}`} className="text-primary hover:underline">{projLabel.get(o.project_id) ?? "—"}</Link>
-                    : <span className="text-muted-foreground">stock</span>}
-                </TableCell>
-                <TableCell>{o.vendor_id ? vName.get(o.vendor_id) ?? "—" : <span className="text-muted-foreground">—</span>}</TableCell>
-                <TableCell className="text-muted-foreground">{formatDate(o.sent_date)}</TableCell>
-                <TableCell className="text-muted-foreground">{formatDate(o.expected_date)}</TableCell>
-                <TableCell><Badge variant={STATUS_VARIANT[o.status] ?? "secondary"}>{o.status}</Badge></TableCell>
-                <TableCell className="text-right">
-                  <Link href={`/job-work/${o.id}`} aria-label="Open" className={buttonVariants({ variant: "ghost", size: "icon" })}>
-                    <ArrowRight className="size-4" />
-                  </Link>
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+      <JwOrdersTable
+        orders={(orders ?? []).map((o) => ({
+          id: o.id,
+          jw_no: o.jw_no,
+          project_id: o.project_id,
+          project_label: o.project_id ? projLabel.get(o.project_id) ?? null : null,
+          vendor_name: o.vendor_id ? vName.get(o.vendor_id) ?? null : null,
+          sent_date: o.sent_date,
+          expected_date: o.expected_date,
+          status: o.status,
+        }))}
+      />
     </div>
   );
 }

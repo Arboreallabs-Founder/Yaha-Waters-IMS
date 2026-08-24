@@ -91,8 +91,8 @@ export default async function ComponentsPage() {
     { name: "standard_cost", label: "Standard cost (₹)", type: "number", step: "any", financial: true },
     // ---- job work ----
     { name: "is_job_work", label: "Job Work component (raw → finished)", type: "checkbox" },
-    { name: "raw_supplier_id", label: "Raw supplier", type: "select", options: vendorOptions, help: "Vendor the raw form is bought from." },
-    { name: "jw_vendor_id", label: "Job-work vendor", type: "select", options: vendorOptions, help: "Vendor that finishes the raw into the completed part." },
+    { name: "raw_supplier_id", label: "Raw supplier", type: "combobox", options: vendorOptions, help: "Vendor the raw form is bought from." },
+    { name: "jw_vendor_id", label: "Job-work vendor", type: "combobox", options: vendorOptions, help: "Vendor that finishes the raw into the completed part." },
     { name: "jw_rate", label: "Job-work rate (₹ / unit)", type: "number", step: "any", financial: true },
     {
       name: "inspection_template_id",

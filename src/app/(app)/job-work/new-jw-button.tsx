@@ -6,7 +6,7 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Dialog } from "@/components/ui/dialog";
 import { createJwOrder } from "./actions";
 import { projectLabel } from "@/lib/utils";
@@ -19,6 +19,8 @@ export function NewJwButton({
   projects: { id: string; project_no: string; customer_name?: string | null }[];
 }) {
   const router = useRouter();
+  const vendorItems = React.useMemo(() => vendors.map((v) => ({ value: v.id, label: v.name })), [vendors]);
+  const projectItems = React.useMemo(() => projects.map((p) => ({ value: p.id, label: projectLabel(p) })), [projects]);
   const [open, setOpen] = React.useState(false);
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -44,17 +46,11 @@ export function NewJwButton({
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <Label>Job-work vendor</Label>
-            <Select name="vendor_id" defaultValue="" required>
-              <option value="">— choose vendor —</option>
-              {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
-            </Select>
+            <Combobox items={vendorItems} defaultValue="" name="vendor_id" placeholder="— choose vendor —" required />
           </div>
           <div className="space-y-1.5">
             <Label>Project (optional)</Label>
-            <Select name="project_id" defaultValue="">
-              <option value="">— stock (no project) —</option>
-              {projects.map((p) => <option key={p.id} value={p.id}>{projectLabel(p)}</option>)}
-            </Select>
+            <Combobox items={projectItems} defaultValue="" name="project_id" placeholder="— stock (no project) —" />
           </div>
           <div className="space-y-1.5">
             <Label>Expected back (optional)</Label>

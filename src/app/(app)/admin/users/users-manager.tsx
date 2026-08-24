@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { SearchInput } from "@/components/ui/search-input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
@@ -31,6 +32,12 @@ export function UsersManager({ users }: { users: AppUser[] }) {
   const [editing, setEditing] = React.useState<AppUser | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
+  const [query, setQuery] = React.useState("");
+  const filteredUsers = users.filter((u) => {
+    if (!query) return true;
+    const q = query.toLowerCase();
+    return (u.full_name ?? "").toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || ROLE_LABELS[u.role].toLowerCase().includes(q);
+  });
 
   async function run(action: (fd: FormData) => Promise<ActionResult>, form: HTMLFormElement, onOk: () => void) {
     setPending(true);
@@ -47,9 +54,10 @@ export function UsersManager({ users }: { users: AppUser[] }) {
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">{users.length} users</p>
-        <Button onClick={() => { setError(null); setCreating(true); }}>
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <SearchInput value={query} onChange={setQuery} placeholder="Search name, email, or role…" />
+        <p className="text-sm text-muted-foreground">{filteredUsers.length} of {users.length}</p>
+        <Button className="ml-auto" onClick={() => { setError(null); setCreating(true); }}>
           <Plus className="size-4" /> Add user
         </Button>
       </div>
@@ -66,7 +74,9 @@ export function UsersManager({ users }: { users: AppUser[] }) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {users.map((u) => (
+          {filteredUsers.length === 0 ? (
+            <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">No matches.</TableCell></TableRow>
+          ) : filteredUsers.map((u) => (
             <TableRow key={u.id}>
               <TableCell className="font-medium">{u.full_name ?? "—"}</TableCell>
               <TableCell className="text-muted-foreground">{u.email}</TableCell>

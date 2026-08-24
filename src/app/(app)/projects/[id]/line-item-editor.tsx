@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import type { ActionResult } from "./actions";
@@ -47,6 +48,7 @@ export function LineItemEditor({
   const [pending, setPending] = React.useState(false);
 
   const params = productId ? paramsByProduct[productId] ?? [] : [];
+  const productItems = React.useMemo(() => products.map((p) => ({ value: p.id, label: `${p.sku_code} — ${p.model_name}` })), [products]);
 
   function setVal(name: string, v: string) {
     setValues((prev) => ({ ...prev, [name]: v }));
@@ -100,12 +102,12 @@ export function LineItemEditor({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-1.5">
               <Label>Product</Label>
-              <Select value={productId} onChange={(e) => { setProductId(e.target.value); setValues({}); }}>
-                <option value="">— select —</option>
-                {products.map((p) => (
-                  <option key={p.id} value={p.id}>{p.sku_code} — {p.model_name}</option>
-                ))}
-              </Select>
+              <Combobox
+                items={productItems}
+                value={productId}
+                onChange={(v) => { setProductId(v); setValues({}); }}
+                placeholder="— select —"
+              />
             </div>
 
             {params.map((p) => (
