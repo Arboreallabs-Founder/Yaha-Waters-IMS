@@ -4,6 +4,7 @@ import { ArrowLeft, Printer } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile, canWriteMasters, canSeeFinancials } from "@/lib/auth";
 import { getVendors, getComponentsFull } from "@/lib/masters-data";
+import { getSigningState } from "@/lib/signatures";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -23,14 +24,18 @@ export default async function JobWorkDetailPage({ params }: { params: Promise<{ 
   const finance = canSeeFinancials(profile?.role);
   const supabase = await createClient();
 
-  const [{ data: order }, { data: lines }, componentsAll, { data: lots }, vendorsAll] = await Promise.all([
+  const [{ data: order }, { data: lines }, componentsAll, { data: lots }, vendorsAll, { data: mySignatures }] = await Promise.all([
     supabase.from("job_work_orders").select("*").eq("id", id).single(),
     supabase.from("job_work_lines").select("*").eq("jw_order_id", id).order("created_at"),
     getComponentsFull(),
     supabase.from("inventory_lots").select("id, component_id, lot_code, qty_on_hand, unit_cost").eq("jw_stage", "raw").eq("status", "open").gt("qty_on_hand", 0),
     getVendors(),
+    profile ? supabase.from("signatures").select("id, label, method, image_data_url, is_default").eq("user_id", profile.id).order("is_default", { ascending: false }) : Promise.resolve({ data: [] }),
   ]);
   if (!order) notFound();
+  const signingState = await getSigningState("job_work", id, order.created_by, profile?.id ?? null);
+  const jwInProgress = order.status === "draft" || order.status === "pending_signature";
+  const isBackfillSignature = !signingState.fullySigned && !jwInProgress;
   const comps = componentsAll.filter((c) => c.is_job_work);
   const vendor = order.vendor_id ? vendorsAll.find((v) => v.id === order.vendor_id) ?? null : null;
   const canDelete = canManage && order.status === "draft";
@@ -68,7 +73,7 @@ export default async function JobWorkDetailPage({ params }: { params: Promise<{ 
   // has already deducted qty_on_hand for real via a stock movement, so no
   // extra subtraction is needed (or correct) when adding a line via revision.
   const committedByLot = new Map<string, number>();
-  if (order.status === "draft") {
+  if (order.status === "draft" || order.status === "pending_signature") {
     for (const l of lines ?? []) {
       if (!l.raw_lot_id) continue;
       committedByLot.set(l.raw_lot_id, (committedByLot.get(l.raw_lot_id) ?? 0) + Number(l.qty_sent ?? 0));
@@ -154,6 +159,9 @@ export default async function JobWorkDetailPage({ params }: { params: Promise<{ 
             rawLots={rawLots}
             canManage={canManage}
             finance={finance}
+            mySignatures={mySignatures ?? []}
+            canSignNow={signingState.canSignNow}
+            isBackfillSignature={isBackfillSignature}
           />
         </CardContent>
       </Card>

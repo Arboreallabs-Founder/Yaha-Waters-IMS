@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { PrintButton } from "@/components/print-button";
+import { DocumentSignatureBlock } from "@/components/document-signature-block";
+import { getSigningState } from "@/lib/signatures";
 import { formatNumber } from "@/lib/utils";
 
 // ---- MRIN form's own fixed header block (distinct from the PO print's OUR block) ----
@@ -51,6 +53,21 @@ export default async function GrnPrintPage({ params }: { params: Promise<{ id: s
 
   const { data: grn } = await supabase.from("grns").select("*").eq("id", grnId).single();
   if (!grn) notFound();
+
+  const signingState = await getSigningState("grn", grnId, grn.created_by, null, grn.created_at);
+  if (!signingState.printable) {
+    return (
+      <div className="mx-auto max-w-lg py-16 text-center">
+        <p className="text-lg font-semibold text-amber-700">Cannot print this GRN</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          It still needs {signingState.requiredSlots.length - signingState.signed.length} signature(s) before it can be printed.
+        </p>
+        <Link href={`/grn/${grnId}`} className="mt-4 inline-flex items-center gap-1 text-sm text-primary hover:underline">
+          <ArrowLeft className="size-4" /> Back to GRN
+        </Link>
+      </div>
+    );
+  }
 
   const [{ data: vendor }, { data: grnLines }, { data: checklistFields }] = await Promise.all([
     grn.vendor_id ? supabase.from("vendors").select("name").eq("id", grn.vendor_id).maybeSingle() : Promise.resolve({ data: null }),
@@ -225,11 +242,12 @@ export default async function GrnPrintPage({ params }: { params: Promise<{ id: s
         </div>
 
         {/* Signatures — one block per GRN, appears once at the end of the document */}
-        <div className="grid grid-cols-3 gap-3 break-inside-avoid border-t border-black p-6 pt-16 text-center">
-          <div><div className="mb-1 border-t border-black pt-1">Prepared By (Store)</div></div>
-          <div><div className="mb-1 border-t border-black pt-1">Inspected By (QA/QC)</div></div>
-          <div><div className="mb-1 border-t border-black pt-1">Approved By</div></div>
-        </div>
+        <DocumentSignatureBlock
+          labels={["Prepared By (Store)", "Inspected By (QA/QC)", "Approved By"]}
+          signed={signingState.signed}
+          requiredSlots={signingState.requiredSlots}
+          className="break-inside-avoid"
+        />
       </div>
     </div>
   );

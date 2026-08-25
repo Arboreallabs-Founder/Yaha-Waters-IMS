@@ -13,6 +13,21 @@ async function receiver() {
   return p && RECEIVE.includes(p.role) ? p : null;
 }
 
+/** Sign-off chain (creator, then any configured approvers) — required before the GRN/MRIN can be printed. */
+export async function signGrn(fd: FormData): Promise<ActionResult & { fully_signed?: boolean }> {
+  const p = await getProfile();
+  if (!p) return { error: "Not authorized." };
+  const grn_id = String(fd.get("document_id") ?? "");
+  const signature_id = String(fd.get("signature_id") ?? "");
+  if (!grn_id || !signature_id) return { error: "Missing document or signature." };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("sign_grn", { p_grn_id: grn_id, p_signature_id: signature_id, p_actor: p.id });
+  if (error) return { error: error.message };
+  if (data?.error) return { error: data.error };
+  revalidatePath(`/grn/${grn_id}`);
+  return { ok: true, fully_signed: data?.fully_signed };
+}
+
 function grnDupeError(error: { message: string; code?: string }, challan_no: string | null, invoice_no: string | null): string {
   if (error.code === "23505") {
     if (error.message.includes("uq_grns_challan_per_vendor")) {
@@ -54,6 +69,22 @@ export async function createGrn(fd: FormData): Promise<ActionResult> {
     .select("id")
     .single();
   if (error) return { error: grnDupeError(error, challan_no, invoice_no) };
+
+  // Auto-sign the creator's slot right away — a GRN has no draft stage to
+  // protect (unlike PO/Job-Work, which still require an explicit Sign &
+  // Send/Dispatch), so there's no reason to make them come back and click
+  // Sign separately. Best-effort: if they have no saved signature yet, this
+  // silently no-ops and the manual Sign button on the GRN page covers it.
+  const { data: mySig } = await supabase
+    .from("signatures")
+    .select("id")
+    .eq("user_id", p.id)
+    .order("is_default", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (mySig) {
+    await supabase.rpc("sign_grn", { p_grn_id: data.id, p_signature_id: mySig.id, p_actor: p.id });
+  }
 
   if (!invoice_no) {
     await supabase.rpc("notify_grn_missing_invoice", { p_grn_id: data.id, p_user_id: p.id });

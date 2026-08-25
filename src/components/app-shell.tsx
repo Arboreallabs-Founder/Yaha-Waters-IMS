@@ -7,7 +7,7 @@ import {
   Menu, X, LogOut, ChevronsUpDown, Circle,
   LayoutDashboard, Database,
   FolderKanban, ClipboardList, ShoppingCart, PackageCheck, Warehouse,
-  Package, AlertTriangle, Gauge, UserCog, ScanLine,
+  Package, AlertTriangle, Gauge, UserCog, ScanLine, PenLine,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -243,6 +243,12 @@ function Account({
             </span>
           </div>
           <DropdownMenuSeparator />
+          <Link
+            href="/account/signature"
+            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-foreground transition-colors hover:bg-accent"
+          >
+            <PenLine className="size-4" /> My Signature
+          </Link>
           <form action={logout}>
             <button
               type="submit"

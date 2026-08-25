@@ -70,10 +70,17 @@ export async function approveIrn(fd: FormData): Promise<ActionResult> {
   const p = await approver();
   if (!p) return { error: "Only Admin / Team Lead can approve." };
   const irn_id = String(fd.get("irn_id") ?? "");
+  const signature_id = String(fd.get("signature_id") ?? "");
   if (!irn_id) return { error: "Missing IRN." };
+  if (!signature_id) return { error: "Missing signature." };
   const remarks = String(fd.get("remarks") ?? "").trim() || null;
   const supabase = await createClient();
-  const { data: result, error } = await supabase.rpc("approve_irn", { p_irn_id: irn_id, p_approver_id: p.id, p_remarks: remarks });
+  const { data: result, error } = await supabase.rpc("approve_irn", {
+    p_irn_id: irn_id,
+    p_approver_id: p.id,
+    p_signature_id: signature_id,
+    p_remarks: remarks,
+  });
   if (error) return { error: error.message };
   const res = result as { error?: string };
   if (res?.error) return { error: res.error };

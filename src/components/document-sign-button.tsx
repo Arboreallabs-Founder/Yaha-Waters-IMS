@@ -3,74 +3,65 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, X, PenLine } from "lucide-react";
+import { PenLine } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Dialog } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { approvePoLine, rejectPoLine } from "./actions";
 
-type MySig = { id: string; label: string | null; method: string; image_data_url: string; is_default: boolean };
+export type MySignature = { id: string; label: string | null; method: string; image_data_url: string; is_default: boolean };
+export type SignResult = { ok?: true; error?: string; fully_signed?: boolean };
 
-export function PoLineApprovalActions({ lineId, signatures }: { lineId: string; signatures: MySig[] }) {
+export function DocumentSignButton({
+  documentId,
+  signatures,
+  signAction,
+  label = "Sign",
+  description,
+}: {
+  documentId: string;
+  signatures: MySignature[];
+  signAction: (fd: FormData) => Promise<SignResult>;
+  label?: string;
+  description?: string;
+}) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const defaultSig = signatures.find((s) => s.is_default) ?? signatures[0];
   const [signatureId, setSignatureId] = React.useState(defaultSig?.id ?? "");
-  const [busy, setBusy] = React.useState<string | null>(null);
+  const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  async function onConfirmApprove(e: React.FormEvent) {
+  async function onConfirm(e: React.FormEvent) {
     e.preventDefault();
     if (!signatureId) return;
-    setBusy("approve"); setError(null);
+    setBusy(true);
+    setError(null);
     const fd = new FormData();
-    fd.set("line_id", lineId);
+    fd.set("document_id", documentId);
     fd.set("signature_id", signatureId);
-    const res = await approvePoLine(fd);
-    setBusy(null);
+    const res = await signAction(fd);
+    setBusy(false);
     if (res?.error) { setError(res.error); return; }
     setOpen(false);
     router.refresh();
   }
 
-  async function onReject() {
-    const reason = prompt("Reason for rejection:");
-    if (!reason || !reason.trim()) return;
-    setBusy("reject"); setError(null);
-    const fd = new FormData();
-    fd.set("line_id", lineId);
-    fd.set("reason", reason.trim());
-    const res = await rejectPoLine(fd);
-    setBusy(null);
-    if (res?.error) { setError(res.error); return; }
-    router.refresh();
-  }
-
   if (signatures.length === 0) {
     return (
-      <div>
-        <Link href="/account/signature" className={buttonVariants({ variant: "outline", size: "sm" })}>
-          <PenLine className="size-4" /> Create a signature to approve
-        </Link>
-      </div>
+      <Link href="/account/signature" className={buttonVariants({ variant: "outline" })}>
+        <PenLine className="size-4" /> Create a signature to sign
+      </Link>
     );
   }
 
   return (
-    <div>
-      <div className="flex justify-end gap-1">
-        <Button size="sm" disabled={busy !== null} onClick={() => { setError(null); setOpen(true); }}>
-          <Check className="size-4" /> Approve
-        </Button>
-        <Button size="sm" variant="outline" className="text-destructive" disabled={busy !== null} onClick={onReject}>
-          <X className="size-4" /> Reject
-        </Button>
-      </div>
-      {error && !open && <p className="mt-1 text-xs text-red-700">{error}</p>}
-
-      <Dialog open={open} onClose={() => setOpen(false)} title="Approve price with signature">
-        <form onSubmit={onConfirmApprove} className="space-y-4">
+    <>
+      <Button onClick={() => { setError(null); setOpen(true); }}>
+        <PenLine className="size-4" /> {label}
+      </Button>
+      <Dialog open={open} onClose={() => setOpen(false)} title={label} description={description}>
+        <form onSubmit={onConfirm} className="space-y-4">
           {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
           <div className="space-y-1.5">
             <Label>Signature</Label>
@@ -91,10 +82,10 @@ export function PoLineApprovalActions({ lineId, signatures }: { lineId: string; 
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button type="submit" disabled={busy === "approve" || !signatureId}>{busy === "approve" ? "Approving…" : "Confirm approval"}</Button>
+            <Button type="submit" disabled={busy || !signatureId}>{busy ? "Signing…" : "Confirm signature"}</Button>
           </div>
         </form>
       </Dialog>
-    </div>
+    </>
   );
 }

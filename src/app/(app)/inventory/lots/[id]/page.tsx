@@ -99,7 +99,7 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
 
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Actions</h2>
       <Card className="mb-8"><CardContent className="p-5">
-        <LotActions lotId={id} qtyOnHand={Number(lot.qty_on_hand ?? 0)} projects={projectsWithCustomer} canManage={canManage} isBox={isBox} rawStage={lot.jw_stage === "raw"} />
+        <LotActions lotId={id} qtyOnHand={Number(lot.qty_on_hand ?? 0)} canManage={canManage} />
       </CardContent></Card>
 
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Ledger (immutable)</h2>

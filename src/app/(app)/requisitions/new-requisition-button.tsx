@@ -37,11 +37,11 @@ export function NewRequisitionButton({ projects }: { projects: { id: string; pro
       <Button onClick={() => { setError(null); setOpen(true); }}>
         <Plus className="size-4" /> New requisition
       </Button>
-      <Dialog open={open} onClose={() => setOpen(false)} title="New requisition" description="Leave the project blank for a stock requisition.">
+      <Dialog open={open} onClose={() => setOpen(false)} title="New requisition" description="Every requisition must be tagged to a project.">
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <Label>Project (optional)</Label>
-            <Combobox items={projectItems} defaultValue="" name="project_id" placeholder="— stock (no project) —" />
+            <Label>Project</Label>
+            <Combobox items={projectItems} defaultValue="" name="project_id" placeholder="Select project…" required />
           </div>
           {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">

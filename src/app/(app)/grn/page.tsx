@@ -51,7 +51,7 @@ export default async function GrnPage({
         ))}
       </div>
 
-      {tab === "approval" && <ApprovalTab canApprove={canApprove} />}
+      {tab === "approval" && <ApprovalTab canApprove={canApprove} userId={profile?.id ?? null} />}
       {tab === "register" && <RegisterTab from={from} to={to} q={q} />}
       {tab === "all" && <AllGrnsTab />}
     </div>
@@ -121,13 +121,18 @@ async function AllGrnsTab() {
   );
 }
 
-async function ApprovalTab({ canApprove }: { canApprove: boolean }) {
+async function ApprovalTab({ canApprove, userId }: { canApprove: boolean; userId: string | null }) {
   const supabase = await createClient();
-  const { data: irns } = await supabase
-    .from("irns")
-    .select("id, irn_no, component_id, qty, generated_by, generated_at, grn_id")
-    .eq("status", "pending_approval")
-    .order("generated_at", { ascending: true });
+  const [{ data: irns }, { data: mySignatures }] = await Promise.all([
+    supabase
+      .from("irns")
+      .select("id, irn_no, component_id, qty, generated_by, generated_at, grn_id")
+      .eq("status", "pending_approval")
+      .order("generated_at", { ascending: true }),
+    userId
+      ? supabase.from("signatures").select("id, label, method, image_data_url, is_default").eq("user_id", userId).order("is_default", { ascending: false })
+      : Promise.resolve({ data: [] }),
+  ]);
 
   const componentIds = [...new Set((irns ?? []).map((i) => i.component_id))];
   const generatorIds = [...new Set((irns ?? []).map((i) => i.generated_by))];
@@ -172,7 +177,7 @@ async function ApprovalTab({ canApprove }: { canApprove: boolean }) {
               <TableCell>{formatNumber(i.qty)}</TableCell>
               <TableCell>{i.generated_by ? genName.get(i.generated_by) ?? "—" : "—"}</TableCell>
               <TableCell className="text-muted-foreground">{formatDate(i.generated_at)}</TableCell>
-              <TableCell className="text-right"><IrnApprovalActions irnId={i.id} /></TableCell>
+              <TableCell className="text-right"><IrnApprovalActions irnId={i.id} signatures={mySignatures ?? []} /></TableCell>
             </TableRow>
           ))
         )}

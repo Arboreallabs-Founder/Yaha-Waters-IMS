@@ -44,7 +44,19 @@ export function canDeletePurchaseOrders(
   return false;
 }
 
-/** Approving a PO line's price is admin-only — team_lead is the role the price gate itself governs. */
-export function canApprovePoLine(role: Role | undefined | null) {
+/**
+ * Approving a PO line's price is gated to the configured PO approver
+ * (Masters → Approval Rights, document_type='po', slot 2) — falls back to
+ * Admin-only if that hasn't been configured yet, so nothing breaks before
+ * an admin sets it up. Mirrors the same fallback logic in the
+ * `approve_po_line`/`reject_po_line` RPCs (the real backstop).
+ */
+export function canApprovePoLine(
+  role: Role | undefined | null,
+  userId: string | undefined | null,
+  poApproverId: string | null,
+) {
+  if (!userId) return false;
+  if (poApproverId) return userId === poApproverId;
   return role === "admin";
 }

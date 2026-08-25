@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      approval_rights: {
+        Row: {
+          approver_order: number
+          created_at: string
+          created_by: string | null
+          document_type: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          approver_order: number
+          created_at?: string
+          created_by?: string | null
+          document_type: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          approver_order?: number
+          created_at?: string
+          created_by?: string | null
+          document_type?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_rights_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_rights_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bom_lines: {
         Row: {
           bom_id: string
@@ -706,6 +748,44 @@ export type Database = {
           {
             foreignKeyName: "customers_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_signatures: {
+        Row: {
+          document_id: string
+          document_type: string
+          id: string
+          signature_image_data_url: string
+          signed_at: string
+          slot: number
+          user_id: string
+        }
+        Insert: {
+          document_id: string
+          document_type: string
+          id?: string
+          signature_image_data_url: string
+          signed_at?: string
+          slot: number
+          user_id: string
+        }
+        Update: {
+          document_id?: string
+          document_type?: string
+          id?: string
+          signature_image_data_url?: string
+          signed_at?: string
+          slot?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_signatures_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -1974,6 +2054,7 @@ export type Database = {
       po_lines: {
         Row: {
           amount: number | null
+          approval_signature_data_url: string | null
           approval_status: Database["public"]["Enums"]["po_line_approval_status"]
           approved_at: string | null
           approved_by: string | null
@@ -1994,6 +2075,7 @@ export type Database = {
         }
         Insert: {
           amount?: number | null
+          approval_signature_data_url?: string | null
           approval_status?: Database["public"]["Enums"]["po_line_approval_status"]
           approved_at?: string | null
           approved_by?: string | null
@@ -2014,6 +2096,7 @@ export type Database = {
         }
         Update: {
           amount?: number | null
+          approval_signature_data_url?: string | null
           approval_status?: Database["public"]["Enums"]["po_line_approval_status"]
           approved_at?: string | null
           approved_by?: string | null
@@ -2861,6 +2944,53 @@ export type Database = {
           {
             foreignKeyName: "requisitions_requested_by_fkey"
             columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      signatures: {
+        Row: {
+          created_at: string
+          id: string
+          image_data_url: string
+          is_default: boolean
+          label: string | null
+          method: string
+          typed_font: string | null
+          typed_text: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_data_url: string
+          is_default?: boolean
+          label?: string | null
+          method: string
+          typed_font?: string | null
+          typed_text?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_data_url?: string
+          is_default?: boolean
+          label?: string | null
+          method?: string
+          typed_font?: string | null
+          typed_text?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signatures_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -4555,6 +4685,15 @@ export type Database = {
       }
     }
     Functions: {
+      _record_signature: {
+        Args: {
+          p_actor: string
+          p_document_id: string
+          p_document_type: string
+          p_signature_id: string
+        }
+        Returns: Json
+      }
       admin_list_users: {
         Args: never
         Returns: {
@@ -4567,15 +4706,29 @@ export type Database = {
         }[]
       }
       approve_irn: {
-        Args: { p_approver_id: string; p_irn_id: string; p_remarks?: string }
+        Args: {
+          p_approver_id: string
+          p_irn_id: string
+          p_remarks?: string
+          p_signature_id: string
+        }
         Returns: Json
       }
       approve_po_line: {
-        Args: { p_approver_id: string; p_line_id: string }
+        Args: { p_actor: string; p_line_id: string; p_signature_id: string }
         Returns: Json
       }
       auth_is_staff: { Args: never; Returns: boolean }
       auth_role: { Args: never; Returns: Database["public"]["Enums"]["role"] }
+      backfill_signature: {
+        Args: {
+          p_actor: string
+          p_document_id: string
+          p_document_type: string
+          p_signature_id: string
+        }
+        Returns: Json
+      }
       clone_jw_revision: {
         Args: {
           p_actor: string
@@ -4612,6 +4765,10 @@ export type Database = {
       dispatch_job_work: {
         Args: { p_order_id: string; p_user_id: string }
         Returns: Json
+      }
+      document_fully_signed: {
+        Args: { p_document_id: string; p_document_type: string }
+        Returns: boolean
       }
       dump_migrations: {
         Args: never
@@ -4676,6 +4833,18 @@ export type Database = {
         Args: { p_answers: Json; p_irn_id: string; p_submitter_id: string }
         Returns: Json
       }
+      sign_grn: {
+        Args: { p_actor: string; p_grn_id: string; p_signature_id: string }
+        Returns: Json
+      }
+      sign_job_work: {
+        Args: { p_actor: string; p_jw_id: string; p_signature_id: string }
+        Returns: Json
+      }
+      sign_po: {
+        Args: { p_actor: string; p_po_id: string; p_signature_id: string }
+        Returns: Json
+      }
       submit_irn: {
         Args: {
           p_answers: Json
@@ -4718,6 +4887,7 @@ export type Database = {
         | "completed"
         | "cancelled"
         | "superseded"
+        | "pending_signature"
       project_status:
         | "planning"
         | "doc_approval"
@@ -4878,6 +5048,7 @@ export const Constants = {
         "completed",
         "cancelled",
         "superseded",
+        "pending_signature",
       ],
       project_status: [
         "planning",
@@ -4895,3 +5066,4 @@ export const Constants = {
     },
   },
 } as const
+

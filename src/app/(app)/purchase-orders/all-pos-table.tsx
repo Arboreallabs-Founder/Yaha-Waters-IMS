@@ -25,6 +25,7 @@ export type PoRow = {
   po_date: string | null;
   status: string;
   total_amount: number | null;
+  waiting_on?: string | null;
 };
 
 export function AllPosTable({ pos, finance }: { pos: PoRow[]; finance: boolean }) {
@@ -61,7 +62,10 @@ export function AllPosTable({ pos, finance }: { pos: PoRow[]; finance: boolean }
                 <TableCell className="font-medium">{po.po_no}</TableCell>
                 <TableCell>{po.vendor_name ?? <span className="text-muted-foreground">—</span>}</TableCell>
                 <TableCell className="text-muted-foreground">{formatDate(po.po_date)}</TableCell>
-                <TableCell><Badge variant={STATUS_VARIANT[po.status] ?? "secondary"}>{po.status}</Badge></TableCell>
+                <TableCell>
+                  <Badge variant={STATUS_VARIANT[po.status] ?? "secondary"}>{po.status}</Badge>
+                  {po.waiting_on && <p className="mt-0.5 text-[11px] text-muted-foreground">waiting on {po.waiting_on}</p>}
+                </TableCell>
                 {finance && <TableCell>{formatINR(po.total_amount)}</TableCell>}
                 <TableCell className="text-right">
                   <Link href={`/purchase-orders/${po.id}`} aria-label="Open" className={buttonVariants({ variant: "ghost", size: "icon" })}>

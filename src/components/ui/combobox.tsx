@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -51,6 +52,28 @@ export function Combobox({
   const [open, setOpen] = React.useState(false);
   const [highlighted, setHighlighted] = React.useState(0);
   const containerRef = React.useRef<HTMLDivElement>(null);
+  const listRef = React.useRef<HTMLDivElement>(null);
+  const [rect, setRect] = React.useState<{ top: number; left: number; width: number } | null>(null);
+
+  // Dropdown is portaled to <body> (see below) so it can't be clipped by a
+  // scrollable ancestor like the Dialog body — position it against the
+  // input's live screen coords instead of relying on CSS containment.
+  React.useEffect(() => {
+    if (!open) return;
+    function updateRect() {
+      const el = containerRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setRect({ top: r.bottom, left: r.left, width: r.width });
+    }
+    updateRect();
+    window.addEventListener("scroll", updateRect, true);
+    window.addEventListener("resize", updateRect);
+    return () => {
+      window.removeEventListener("scroll", updateRect, true);
+      window.removeEventListener("resize", updateRect);
+    };
+  }, [open]);
 
   // Keep the visible text in sync when the selection changes externally
   // (e.g. the form resets after a successful add).
@@ -84,7 +107,10 @@ export function Combobox({
 
   React.useEffect(() => {
     function onClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (containerRef.current?.contains(target)) return;
+      if (listRef.current?.contains(target)) return;
+      setOpen(false);
     }
     document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
@@ -123,8 +149,12 @@ export function Combobox({
         onKeyDown={onKeyDown}
         autoComplete="off"
       />
-      {open && results.length > 0 && (
-        <div className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-border bg-card shadow-lg">
+      {open && rect && results.length > 0 && createPortal(
+        <div
+          ref={listRef}
+          style={{ position: "fixed", top: rect.top + 4, left: rect.left, width: rect.width }}
+          className="z-[60] max-h-64 overflow-y-auto rounded-md border border-border bg-card shadow-lg"
+        >
           {results.map((item, i) => (
             <button
               key={item.value}
@@ -143,12 +173,17 @@ export function Combobox({
               {matches.length - results.length} more — refine your search
             </div>
           )}
-        </div>
+        </div>,
+        document.body,
       )}
-      {open && query && results.length === 0 && (
-        <div className="absolute z-20 mt-1 w-full rounded-md border border-border bg-card p-3 text-sm text-muted-foreground shadow-lg">
+      {open && rect && query && results.length === 0 && createPortal(
+        <div
+          style={{ position: "fixed", top: rect.top + 4, left: rect.left, width: rect.width }}
+          className="z-[60] rounded-md border border-border bg-card p-3 text-sm text-muted-foreground shadow-lg"
+        >
           {emptyText}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

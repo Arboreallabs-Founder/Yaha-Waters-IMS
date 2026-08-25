@@ -17,9 +17,10 @@ async function profileWith(roles: string[]) {
 export async function createRequisition(fd: FormData): Promise<ActionResult> {
   const p = await profileWith(REQUEST);
   if (!p) return { error: "Not authorized." };
+  const project_id = String(fd.get("project_id") ?? "") || null;
+  if (!project_id) return { error: "Project is required." };
   const supabase = await createClient();
   const { data: reqNo } = await supabase.rpc("next_req_no");
-  const project_id = String(fd.get("project_id") ?? "") || null;
   const { data, error } = await supabase
     .from("requisitions")
     .insert({ req_no: reqNo, project_id, status: "open", requested_by: p.id, created_by: p.id })

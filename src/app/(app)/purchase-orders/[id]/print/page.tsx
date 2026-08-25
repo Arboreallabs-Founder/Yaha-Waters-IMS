@@ -4,6 +4,8 @@ import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile } from "@/lib/auth";
 import { PrintButton } from "@/components/print-button";
+import { DocumentSignatureBlock } from "@/components/document-signature-block";
+import { getSigningState } from "@/lib/signatures";
 import { formatNumber } from "@/lib/utils";
 import { DownloadExcelButton } from "./download-excel-button";
 
@@ -56,6 +58,7 @@ export default async function PoPrintPage({
 
   const { data: po } = await supabase.from("purchase_orders").select("*").eq("id", id).single();
   if (!po) notFound();
+  const signingState = await getSigningState("po", id, po.created_by, profile?.id ?? null);
 
   // Admin/Founder can browse every revision in this PO's lineage from here.
   const canViewRevisions = profile?.role === "admin" || profile?.role === "founder";
@@ -296,17 +299,7 @@ export default async function PoPrintPage({
         </div>
 
         {/* Signatures */}
-        <div className="grid grid-cols-3 gap-3 border-t border-black p-6 pt-16 text-center">
-          <div>
-            <div className="mb-1 border-t border-black pt-1">PREPARED BY{profile?.full_name ? ` — ${profile.full_name}` : ""}</div>
-          </div>
-          <div>
-            <div className="mb-1 border-t border-black pt-1">VERIFIED BY</div>
-          </div>
-          <div>
-            <div className="mb-1 border-t border-black pt-1">APPROVED BY</div>
-          </div>
-        </div>
+        <DocumentSignatureBlock labels={["PREPARED BY", "VERIFIED BY", "APPROVED BY"]} signed={signingState.signed} requiredSlots={signingState.requiredSlots} />
       </div>
     </div>
   );

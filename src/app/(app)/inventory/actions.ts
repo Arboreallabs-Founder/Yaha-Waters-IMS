@@ -122,30 +122,6 @@ export async function consumeLot(fd: FormData): Promise<ActionResult> {
   return { ok: true };
 }
 
-/** Add pieces into an existing box lot (box-tracked components) — writes a `receipt` movement. */
-export async function addToBox(fd: FormData): Promise<ActionResult> {
-  const p = await operator();
-  if (!p) return { error: "Not authorized." };
-  const lot_id = String(fd.get("lot_id"));
-  const qty = Number(fd.get("qty") ?? 0) || 0;
-  if (qty <= 0) return { error: "Enter a quantity to add." };
-  const supabase = await createClient();
-  const lot = await lotInfo(supabase, lot_id);
-  if (!lot) return { error: "Lot not found." };
-  const { error } = await supabase.from("stock_movements").insert({
-    lot_id,
-    component_id: lot.component_id,
-    movement_type: "receipt",
-    qty,
-    reference_type: "box-add",
-    performed_by: p.id,
-    created_by: p.id,
-  });
-  if (error) return { error: error.message };
-  revalidatePath(`/inventory/lots/${lot_id}`);
-  return { ok: true };
-}
-
 /** Stock-take: set the actual on-hand → writes an `adjustment` movement for the difference. */
 export async function adjustLot(fd: FormData): Promise<ActionResult> {
   const p = await operator();

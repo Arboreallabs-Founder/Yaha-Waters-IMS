@@ -182,16 +182,40 @@ export async function updateJwLineRate(fd: FormData): Promise<ActionResult> {
   return { ok: true, id: res.id, revisedJwId: res.id };
 }
 
-export async function dispatchJwOrder(fd: FormData): Promise<ActionResult> {
-  const p = await manager();
+/** Sign-off chain (creator, then any configured approvers) — dispatch itself happens automatically once fully signed, via sign_job_work → dispatch_job_work. */
+export async function signJobWork(fd: FormData): Promise<ActionResult & { fully_signed?: boolean }> {
+  const p = await getProfile();
   if (!p) return { error: "Not authorized." };
-  const id = String(fd.get("id"));
+  const jw_id = String(fd.get("document_id") ?? "");
+  const signature_id = String(fd.get("signature_id") ?? "");
+  if (!jw_id || !signature_id) return { error: "Missing document or signature." };
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("dispatch_job_work", { p_order_id: id, p_user_id: p.id });
+  const { data, error } = await supabase.rpc("sign_job_work", { p_jw_id: jw_id, p_signature_id: signature_id, p_actor: p.id });
   if (error) return { error: error.message.replace(/^.*JOB_WORK: /, "") };
   if (data?.error) return { error: data.error };
-  revalidatePath(`/job-work/${id}`);
-  return { ok: true };
+  revalidatePath(`/job-work/${jw_id}`);
+  revalidatePath("/job-work");
+  return { ok: true, fully_signed: data?.fully_signed };
+}
+
+// ---- backfill the creator's signature onto a job-work order already dispatched before this feature existed — record only, no dispatch effect ----
+export async function backfillJobWorkSignature(fd: FormData): Promise<ActionResult & { fully_signed?: boolean }> {
+  const p = await getProfile();
+  if (!p) return { error: "Not authorized." };
+  const jw_id = String(fd.get("document_id") ?? "");
+  const signature_id = String(fd.get("signature_id") ?? "");
+  if (!jw_id || !signature_id) return { error: "Missing document or signature." };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("backfill_signature", {
+    p_document_type: "job_work",
+    p_document_id: jw_id,
+    p_signature_id: signature_id,
+    p_actor: p.id,
+  });
+  if (error) return { error: error.message };
+  if (data?.error) return { error: data.error };
+  revalidatePath(`/job-work/${jw_id}`);
+  return { ok: true, fully_signed: data?.fully_signed };
 }
 
 /**

@@ -10,7 +10,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { formatDate } from "@/lib/utils";
 
 const STATUS_VARIANT: Record<string, "secondary" | "warning" | "success" | "destructive"> = {
-  draft: "secondary", sent: "warning", partial: "warning", received: "success", cancelled: "destructive", superseded: "secondary",
+  draft: "secondary", pending_signature: "warning", sent: "warning", partial: "warning", received: "success", cancelled: "destructive", superseded: "secondary",
 };
 
 export type JwOrderRow = {
@@ -22,6 +22,7 @@ export type JwOrderRow = {
   sent_date: string | null;
   expected_date: string | null;
   status: string;
+  waiting_on?: string | null;
 };
 
 export function JwOrdersTable({ orders }: { orders: JwOrderRow[] }) {
@@ -69,7 +70,10 @@ export function JwOrdersTable({ orders }: { orders: JwOrderRow[] }) {
                 <TableCell>{o.vendor_name ?? <span className="text-muted-foreground">—</span>}</TableCell>
                 <TableCell className="text-muted-foreground">{formatDate(o.sent_date)}</TableCell>
                 <TableCell className="text-muted-foreground">{formatDate(o.expected_date)}</TableCell>
-                <TableCell><Badge variant={STATUS_VARIANT[o.status] ?? "secondary"}>{o.status}</Badge></TableCell>
+                <TableCell>
+                  <Badge variant={STATUS_VARIANT[o.status] ?? "secondary"}>{o.status}</Badge>
+                  {o.waiting_on && <p className="mt-0.5 text-[11px] text-muted-foreground">waiting on {o.waiting_on}</p>}
+                </TableCell>
                 <TableCell className="text-right">
                   <Link href={`/job-work/${o.id}`} aria-label="Open" className={buttonVariants({ variant: "ghost", size: "icon" })}>
                     <ArrowRight className="size-4" />

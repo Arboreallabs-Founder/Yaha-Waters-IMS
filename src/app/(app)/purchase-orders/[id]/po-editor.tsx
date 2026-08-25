@@ -32,7 +32,7 @@ type Opt = { id: string; label: string };
 type Suggestion = { vendor: string; price: number | null };
 type ComponentOpt = { id: string; component_no: string; name: string; is_job_work?: boolean; quantity_type?: string | null; uom?: string | null };
 
-const DRAFT_STATUS_CHOICES = ["draft", "sent", "cancelled"];
+const DRAFT_STATUS_CHOICES = ["draft", "cancelled"];
 
 function unitSuffix(qt: string | null | undefined, uom: string | null | undefined) {
   if (qt === "length") return "m";
@@ -167,7 +167,7 @@ export function PoEditor({
               </Select>
             ) : (
               <p className="flex h-9 items-center text-sm text-muted-foreground">
-                {header.status} <span className="ml-1.5 text-xs">(automatic — set via receiving/revisions)</span>
+                {header.status} <span className="ml-1.5 text-xs">(automatic — set via signing/receiving/revisions)</span>
               </p>
             )}
           </div>

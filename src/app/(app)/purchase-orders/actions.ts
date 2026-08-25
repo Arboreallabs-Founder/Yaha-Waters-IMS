@@ -119,12 +119,13 @@ export async function updatePO(fd: FormData): Promise<ActionResult> {
     gst_percent: num(fd, "gst_percent") ?? 18,
   };
   // Status is only ever manually settable while still draft, and only into
-  // draft/sent/cancelled — partial/completed are automation-only outcomes
-  // of GRN receiving. Ignored entirely once status has already moved on,
+  // draft/cancelled — "sent" now only happens via signPo (the sign-off
+  // chain), and partial/completed are automation-only outcomes of GRN
+  // receiving. Ignored entirely once status has already moved on,
   // regardless of what's in the submitted form.
   if (po.status === "draft") {
     const status = String(fd.get("status") ?? "draft");
-    if (!["draft", "sent", "cancelled"].includes(status)) return { error: "Invalid status." };
+    if (!["draft", "cancelled"].includes(status)) return { error: "Invalid status." };
     patch.status = status;
   }
 
@@ -305,19 +306,30 @@ export async function backfillProjectTag(fd: FormData): Promise<ActionResult> {
   return { ok: true };
 }
 
-// ---- price approval: only Admin (the price gate governs team_lead) ----
-async function approver() {
+// ---- price approval: gated to the configured PO approver (Masters →
+// Approval Rights, slot 2) — falls back to Admin-only until that's configured ----
+async function poApprover() {
   const p = await getProfile();
-  return p && canApprovePoLine(p.role) ? p : null;
+  if (!p) return null;
+  const supabase = await createClient();
+  const { data: right } = await supabase
+    .from("approval_rights")
+    .select("user_id")
+    .eq("document_type", "po")
+    .eq("approver_order", 2)
+    .maybeSingle();
+  return canApprovePoLine(p.role, p.id, right?.user_id ?? null) ? p : null;
 }
 
 export async function approvePoLine(fd: FormData): Promise<ActionResult> {
-  const p = await approver();
-  if (!p) return { error: "Only Admin can approve a PO line price." };
+  const p = await poApprover();
+  if (!p) return { error: "You are not the configured PO approver." };
   const line_id = String(fd.get("line_id") ?? "");
+  const signature_id = String(fd.get("signature_id") ?? "");
   if (!line_id) return { error: "Missing PO line." };
+  if (!signature_id) return { error: "Pick a signature." };
   const supabase = await createClient();
-  const { data: result, error } = await supabase.rpc("approve_po_line", { p_line_id: line_id, p_approver_id: p.id });
+  const { data: result, error } = await supabase.rpc("approve_po_line", { p_line_id: line_id, p_signature_id: signature_id, p_actor: p.id });
   if (error) return { error: error.message };
   const res = result as { error?: string };
   if (res?.error) return { error: res.error };
@@ -326,8 +338,8 @@ export async function approvePoLine(fd: FormData): Promise<ActionResult> {
 }
 
 export async function rejectPoLine(fd: FormData): Promise<ActionResult> {
-  const p = await approver();
-  if (!p) return { error: "Only Admin can reject a PO line price." };
+  const p = await poApprover();
+  if (!p) return { error: "You are not the configured PO approver." };
   const line_id = String(fd.get("line_id") ?? "");
   const reason = String(fd.get("reason") ?? "").trim();
   if (!line_id) return { error: "Missing PO line." };
@@ -339,6 +351,44 @@ export async function rejectPoLine(fd: FormData): Promise<ActionResult> {
   if (res?.error) return { error: res.error };
   revalidatePath("/purchase-orders");
   return { ok: true };
+}
+
+// ---- document sign-off chain (creator, then any configured approvers) ----
+export async function signPo(fd: FormData): Promise<ActionResult & { fully_signed?: boolean }> {
+  const p = await getProfile();
+  if (!p) return { error: "Not authorized." };
+  const po_id = String(fd.get("document_id") ?? "");
+  const signature_id = String(fd.get("signature_id") ?? "");
+  if (!po_id || !signature_id) return { error: "Missing document or signature." };
+  const supabase = await createClient();
+  const { data: result, error } = await supabase.rpc("sign_po", { p_po_id: po_id, p_signature_id: signature_id, p_actor: p.id });
+  if (error) return { error: error.message };
+  const res = result as { error?: string; fully_signed?: boolean };
+  if (res?.error) return { error: res.error };
+  revalidatePath(`/purchase-orders/${po_id}`);
+  revalidatePath("/purchase-orders");
+  return { ok: true, fully_signed: res.fully_signed };
+}
+
+// ---- backfill the creator's signature onto a PO that was already sent before this feature existed — record only, no status effect ----
+export async function backfillPoSignature(fd: FormData): Promise<ActionResult & { fully_signed?: boolean }> {
+  const p = await getProfile();
+  if (!p) return { error: "Not authorized." };
+  const po_id = String(fd.get("document_id") ?? "");
+  const signature_id = String(fd.get("signature_id") ?? "");
+  if (!po_id || !signature_id) return { error: "Missing document or signature." };
+  const supabase = await createClient();
+  const { data: result, error } = await supabase.rpc("backfill_signature", {
+    p_document_type: "po",
+    p_document_id: po_id,
+    p_signature_id: signature_id,
+    p_actor: p.id,
+  });
+  if (error) return { error: error.message };
+  const res = result as { error?: string; fully_signed?: boolean };
+  if (res?.error) return { error: res.error };
+  revalidatePath(`/purchase-orders/${po_id}`);
+  return { ok: true, fully_signed: res.fully_signed };
 }
 
 // ---- raise draft PO(s) directly from a project's shortfall — one per supplier ----

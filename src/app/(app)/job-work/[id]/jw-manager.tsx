@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Send, Pencil } from "lucide-react";
+import { Plus, Trash2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,8 +11,9 @@ import { Combobox } from "@/components/ui/combobox";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { DocumentSignButton, type MySignature } from "@/components/document-sign-button";
 import { formatNumber } from "@/lib/utils";
-import { addJwLine, removeJwLine, updateJwLineRate, dispatchJwOrder, type ActionResult } from "../actions";
+import { addJwLine, removeJwLine, updateJwLineRate, signJobWork, backfillJobWorkSignature, type ActionResult } from "../actions";
 
 const EDITABLE_SENT_STATUSES = ["sent", "partial", "received"];
 
@@ -25,10 +26,11 @@ export type JwLine = {
 };
 
 export function JwManager({
-  orderId, status, lines, jwComponents, rawLots, canManage, finance,
+  orderId, status, lines, jwComponents, rawLots, canManage, finance, mySignatures, canSignNow, isBackfillSignature,
 }: {
   orderId: string; status: string; lines: JwLine[];
   jwComponents: JwComponent[]; rawLots: RawLot[]; canManage: boolean; finance: boolean;
+  mySignatures: MySignature[]; canSignNow: boolean; isBackfillSignature: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = React.useState<string | null>(null);
@@ -93,12 +95,6 @@ export function JwManager({
     const fd = new FormData();
     fd.set("jw_order_id", orderId); fd.set("id", id);
     await run(() => removeJwLine(fd), `rm-${id}`);
-  }
-
-  async function onDispatch() {
-    const fd = new FormData();
-    fd.set("id", orderId);
-    await run(() => dispatchJwOrder(fd), "dispatch");
   }
 
   async function onSaveRate(e: React.FormEvent) {
@@ -215,12 +211,33 @@ export function JwManager({
         </TableBody>
       </Table>
 
-      {/* Dispatch (draft only) */}
-      {canManage && isDraft && lines.length > 0 && (
+      {/* Dispatch (draft / pending-signature only) — gated by the sign-off chain */}
+      {canManage && (status === "draft" || status === "pending_signature") && lines.length > 0 && (
         <div className="flex justify-end">
-          <Button onClick={onDispatch} disabled={busy === "dispatch"}>
-            <Send className="size-4" /> Dispatch to vendor
-          </Button>
+          {canSignNow ? (
+            <DocumentSignButton
+              documentId={orderId}
+              signatures={mySignatures}
+              signAction={signJobWork}
+              label="Sign & Dispatch"
+              description="Signing sends this material to the vendor — unless further approvers are configured, in which case it waits for their signature too."
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">Awaiting the required signature before this order can be dispatched.</p>
+          )}
+        </div>
+      )}
+
+      {/* Backfill: order was already dispatched before this feature existed — record-only, no dispatch effect */}
+      {canManage && isBackfillSignature && canSignNow && (
+        <div className="flex justify-end">
+          <DocumentSignButton
+            documentId={orderId}
+            signatures={mySignatures}
+            signAction={backfillJobWorkSignature}
+            label="Sign (for the record)"
+            description="This order was already dispatched before digital signatures existed — add your signature for the record. It won't re-trigger dispatch."
+          />
         </div>
       )}
 

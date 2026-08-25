@@ -2,38 +2,27 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { MinusCircle, MoveRight, ClipboardCheck, PlusCircle } from "lucide-react";
+import { MoveRight, ClipboardCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Combobox } from "@/components/ui/combobox";
-import { consumeLot, transferLot, adjustLot, addToBox, type ActionResult } from "../../actions";
-import { projectLabel } from "@/lib/utils";
+import { transferLot, adjustLot, type ActionResult } from "../../actions";
 
 export function LotActions({
   lotId,
   qtyOnHand,
-  projects,
   canManage,
-  isBox = false,
-  rawStage = false,
   onDone,
 }: {
   lotId: string;
   qtyOnHand: number;
-  projects: { id: string; project_no: string; customer_name?: string | null }[];
   canManage: boolean;
-  /** Box-tracked lot — allow adding pieces into the box. */
-  isBox?: boolean;
-  /** Raw job-work lot — can't be consumed until finished. */
-  rawStage?: boolean;
   /** Called after a successful action (e.g. scan screen re-resolves the lot). */
   onDone?: () => void;
 }) {
   const router = useRouter();
   const [busy, setBusy] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
-  const projectItems = React.useMemo(() => projects.map((p) => ({ value: p.id, label: projectLabel(p) })), [projects]);
 
   async function run(action: (fd: FormData) => Promise<ActionResult>, fd: FormData, key: string, onOk?: () => void) {
     setBusy(key); setError(null);
@@ -49,39 +38,6 @@ export function LotActions({
   return (
     <div className="space-y-4">
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-
-      {rawStage && (
-        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          Raw job-work lot — send it for job work and receive the completed part before it can be consumed.
-        </p>
-      )}
-
-      {/* Add to box (box-tracked lots) */}
-      {isBox && (
-        <form onSubmit={(e) => { e.preventDefault(); run(addToBox, new FormData(e.currentTarget), "addbox", () => e.currentTarget.reset?.()); }}
-          className="flex flex-wrap items-end gap-2 rounded-lg border border-border p-3">
-          <div className="w-32">
-            <Label className="mb-1 block text-xs">Add to box: qty</Label>
-            <Input name="qty" type="number" step="any" min="0" />
-          </div>
-          <Button type="submit" variant="secondary" disabled={busy === "addbox"}><PlusCircle className="size-4" /> Add to box</Button>
-          <span className="text-xs text-muted-foreground">Adds pieces into this box — QR stays the same.</span>
-        </form>
-      )}
-
-      {/* Consume */}
-      <form onSubmit={(e) => { e.preventDefault(); run(consumeLot, new FormData(e.currentTarget), "consume", () => e.currentTarget.reset?.()); }}
-        className="flex flex-wrap items-end gap-2 rounded-lg border border-border p-3">
-        <div className="flex-1 min-w-[160px]">
-          <Label className="mb-1 block text-xs">Consume into project</Label>
-          <Combobox items={projectItems} defaultValue="" name="project_id" placeholder="— project —" required />
-        </div>
-        <div className="w-24">
-          <Label className="mb-1 block text-xs">Qty</Label>
-          <Input name="qty" type="number" step="any" min="0" max={qtyOnHand} defaultValue={qtyOnHand > 0 ? qtyOnHand : ""} />
-        </div>
-        <Button type="submit" disabled={busy === "consume" || qtyOnHand <= 0 || rawStage}><MinusCircle className="size-4" /> Consume</Button>
-      </form>
 
       {/* Stock-take */}
       <form onSubmit={(e) => { e.preventDefault(); run(adjustLot, new FormData(e.currentTarget), "adjust"); }}

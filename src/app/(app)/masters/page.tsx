@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Boxes, Wrench, FolderTree, ListTree, ClipboardCheck, Truck, Users } from "lucide-react";
+import { Boxes, Wrench, FolderTree, ListTree, ClipboardCheck, Truck, Users, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -11,6 +11,7 @@ const MASTERS = [
   { label: "Inspection Templates", href: "/masters/inspection-templates", description: "Per-item receiving checklist, gated by IRN approval.", icon: ClipboardCheck },
   { label: "Vendors", href: "/masters/vendors", description: "Suppliers, contact details, and supplied components.", icon: Truck },
   { label: "Customers", href: "/masters/customers", description: "Customer master for projects/orders.", icon: Users },
+  { label: "Approval Rights", href: "/masters/approval-rights", description: "Who must sign off POs, GRNs, and Job-Work orders.", icon: ShieldCheck },
 ];
 
 export default function MasterDataPage() {

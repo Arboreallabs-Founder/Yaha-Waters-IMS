@@ -6,10 +6,13 @@ import { getProfile, canSeeFinancials } from "@/lib/auth";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
+import { DocumentSignButton, type MySignature } from "@/components/document-sign-button";
+import { getSigningState } from "@/lib/signatures";
 import { formatDate } from "@/lib/utils";
 import { GrnReceiver } from "./grn-receiver";
 import { JwGrnReceiver, type OpenJwLine, type PostedJwLine, type TemplateField } from "./jw-grn-receiver";
 import { submitIrn } from "../irn-actions";
+import { signGrn } from "../actions";
 
 export default async function GrnDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -21,8 +24,22 @@ export default async function GrnDetailPage({ params }: { params: Promise<{ id: 
   const { data: grn } = await supabase.from("grns").select("*").eq("id", id).single();
   if (!grn) notFound();
 
+  const [signingState, { data: mySignatures }] = await Promise.all([
+    getSigningState("grn", id, grn.created_by, profile?.id ?? null, grn.created_at),
+    profile ? supabase.from("signatures").select("id, label, method, image_data_url, is_default").eq("user_id", profile.id).order("is_default", { ascending: false }) : Promise.resolve({ data: [] }),
+  ]);
+
   if (grn.is_job_work) {
-    return <JobWorkGrnPage grnId={id} grn={grn} canReceive={canReceive} canSeeFinancials={canSeeFinancials(role)} />;
+    return (
+      <JobWorkGrnPage
+        grnId={id}
+        grn={grn}
+        canReceive={canReceive}
+        canSeeFinancials={canSeeFinancials(role)}
+        signingState={signingState}
+        mySignatures={mySignatures ?? []}
+      />
+    );
   }
 
   const [{ data: grnLines }, { data: components }, { data: projects }, vendor, { data: allOpenPoLines }, { data: vendorComps }] =
@@ -154,9 +171,27 @@ export default async function GrnDetailPage({ params }: { params: Promise<{ id: 
         title={grn.grn_no}
         description={vendor?.data?.name ?? "no vendor"}
         action={
-          <Link href={`/grn/${id}/print`} className={buttonVariants({ variant: "outline" })}>
-            <Printer className="size-4" /> Print
-          </Link>
+          <div className="flex items-center gap-3">
+            {!signingState.fullySigned && signingState.canSignNow && (
+              <DocumentSignButton
+                documentId={id}
+                signatures={mySignatures ?? []}
+                signAction={signGrn}
+                label={signingState.isBackfill ? "Sign (for the record)" : signingState.nextSlot === 1 ? "Sign" : "Sign as approver"}
+                description={
+                  signingState.isBackfill
+                    ? "This GRN predates digital signatures — it already prints fine without one, but you can add yours for the record."
+                    : "Required before this GRN can be printed."
+                }
+              />
+            )}
+            {!signingState.fullySigned && !signingState.canSignNow && !signingState.isBackfill && (
+              <span className="text-sm text-muted-foreground">Awaiting signature</span>
+            )}
+            <Link href={`/grn/${id}/print`} className={buttonVariants({ variant: "outline" })}>
+              <Printer className="size-4" /> Print
+            </Link>
+          </div>
         }
       />
 
@@ -203,12 +238,14 @@ function Info({ label, value }: { label: string; value: string | null }) {
 // (the vendor is fixed at GRN creation) — a separate, simpler picker than the
 // PO-line-driven GrnReceiver, since there's no quantity-type/manual-cost variation.
 async function JobWorkGrnPage({
-  grnId, grn, canReceive, canSeeFinancials,
+  grnId, grn, canReceive, canSeeFinancials, signingState, mySignatures,
 }: {
   grnId: string;
   grn: { grn_no: string; vendor_id: string | null; challan_no: string | null; received_at: string };
   canReceive: boolean;
   canSeeFinancials: boolean;
+  signingState: Awaited<ReturnType<typeof getSigningState>>;
+  mySignatures: MySignature[];
 }) {
   const supabase = await createClient();
   const [vendor, { data: openLinesRaw }, { data: grnLines }] = await Promise.all([
@@ -355,9 +392,27 @@ async function JobWorkGrnPage({
         title={grn.grn_no}
         description={vendor?.data?.name ? `Job Work · ${vendor.data.name}` : "Job Work"}
         action={
-          <Link href={`/grn/${grnId}/print`} className={buttonVariants({ variant: "outline" })}>
-            <Printer className="size-4" /> Print
-          </Link>
+          <div className="flex items-center gap-3">
+            {!signingState.fullySigned && signingState.canSignNow && (
+              <DocumentSignButton
+                documentId={grnId}
+                signatures={mySignatures}
+                signAction={signGrn}
+                label={signingState.isBackfill ? "Sign (for the record)" : signingState.nextSlot === 1 ? "Sign" : "Sign as approver"}
+                description={
+                  signingState.isBackfill
+                    ? "This GRN predates digital signatures — it already prints fine without one, but you can add yours for the record."
+                    : "Required before this GRN can be printed."
+                }
+              />
+            )}
+            {!signingState.fullySigned && !signingState.canSignNow && !signingState.isBackfill && (
+              <span className="text-sm text-muted-foreground">Awaiting signature</span>
+            )}
+            <Link href={`/grn/${grnId}/print`} className={buttonVariants({ variant: "outline" })}>
+              <Printer className="size-4" /> Print
+            </Link>
+          </div>
         }
       />
 

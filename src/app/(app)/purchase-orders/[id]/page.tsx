@@ -5,12 +5,15 @@ import { createClient } from "@/lib/supabase/server";
 import { getProfile, canSeeFinancials, canWriteMasters } from "@/lib/auth";
 import { canDeletePurchaseOrders } from "@/lib/roles";
 import { getVendors, getComponentsFull, getCustomers } from "@/lib/masters-data";
+import { getSigningState } from "@/lib/signatures";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
+import { DocumentSignButton } from "@/components/document-sign-button";
 import { PoEditor } from "./po-editor";
 import { DeletePoButton } from "./delete-po-button";
+import { signPo, backfillPoSignature } from "../actions";
 import { projectLabel, cn } from "@/lib/utils";
 
 export default async function PoDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -38,7 +41,7 @@ export default async function PoDetailPage({ params }: { params: Promise<{ id: s
     currentRevisionId = (lineage ?? []).find((r) => r.superseded_by === null)?.id ?? null;
   }
 
-  const [{ data: lines }, components, vendorsAll, { data: projects }, { data: vcs }, customers, { data: lastRates }] =
+  const [{ data: lines }, components, vendorsAll, { data: projects }, { data: vcs }, customers, { data: lastRates }, { data: mySignatures }] =
     await Promise.all([
       supabase.from("po_lines").select("*").eq("po_id", id).order("created_at"),
       getComponentsFull(),
@@ -47,7 +50,11 @@ export default async function PoDetailPage({ params }: { params: Promise<{ id: s
       supabase.from("vendor_components").select("component_id, price, vendor_id"),
       getCustomers(),
       supabase.from("v_last_component_rate").select("component_id, rate"),
+      profile ? supabase.from("signatures").select("id, label, method, image_data_url, is_default").eq("user_id", profile.id).order("is_default", { ascending: false }) : Promise.resolve({ data: [] }),
     ]);
+  const signingState = await getSigningState("po", id, po.created_by, profile?.id ?? null);
+  const inProgress = ["draft", "pending_signature"].includes(po.status);
+  const isBackfill = !signingState.fullySigned && !inProgress;
   const vendors = vendorsAll.filter((v) => v.is_active);
   const lastRateByComponent: Record<string, number> = {};
   for (const r of lastRates ?? []) {
@@ -109,10 +116,38 @@ export default async function PoDetailPage({ params }: { params: Promise<{ id: s
                 <Printer className="size-4" /> Print PO
               </span>
             )}
+            {signingState.canSignNow && isBackfill && (
+              <DocumentSignButton
+                documentId={id}
+                signatures={mySignatures ?? []}
+                signAction={backfillPoSignature}
+                label="Sign (for the record)"
+                description="This PO was already sent before digital signatures existed — add your signature for the record. It won't change its status."
+              />
+            )}
+            {signingState.canSignNow && !isBackfill && (
+              <DocumentSignButton
+                documentId={id}
+                signatures={mySignatures ?? []}
+                signAction={signPo}
+                label={signingState.nextSlot === 1 ? "Sign & Send" : "Sign"}
+                description={
+                  signingState.nextSlot === 1
+                    ? "Signing as the creator sends this PO — unless further approvers are configured, in which case it waits for their signature too."
+                    : "Your signature is required to send this PO."
+                }
+              />
+            )}
             {canDelete && <DeletePoButton poId={id} poNo={po.po_no} isRevisioned={po.revision_no > 0 || po.superseded_by !== null} />}
           </div>
         }
       />
+
+      {!signingState.fullySigned && !signingState.canSignNow && !isBackfill && (
+        <p className="mb-4 text-sm text-muted-foreground">
+          Awaiting signature from {signingState.nextSignerName ?? "the next signer"} before this PO can be sent.
+        </p>
+      )}
 
       {po.superseded_by && (
         <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
