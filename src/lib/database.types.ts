@@ -56,6 +56,47 @@ export type Database = {
           },
         ]
       }
+      audit_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          id: string
+          new_data: Json | null
+          occurred_at: string
+          old_data: Json | null
+          row_id: string | null
+          table_name: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          id?: string
+          new_data?: Json | null
+          occurred_at?: string
+          old_data?: Json | null
+          row_id?: string | null
+          table_name: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          id?: string
+          new_data?: Json | null
+          occurred_at?: string
+          old_data?: Json | null
+          row_id?: string | null
+          table_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_log_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bom_lines: {
         Row: {
           bom_id: string
@@ -3435,6 +3476,20 @@ export type Database = {
       }
     }
     Views: {
+      v_activity_log: {
+        Row: {
+          action: string | null
+          actor_id: string | null
+          category: string | null
+          detail: Json | null
+          link_path: string | null
+          occurred_at: string | null
+          row_id: string | null
+          source_table: string | null
+          subject_label: string | null
+        }
+        Relationships: []
+      }
       v_bom_variance: {
         Row: {
           component_id: string | null

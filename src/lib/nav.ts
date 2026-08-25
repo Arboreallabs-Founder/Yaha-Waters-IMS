@@ -44,7 +44,7 @@ export const NAV: NavGroup[] = [
   },
   {
     title: "Admin",
-    items: [{ label: "Users", href: "/admin/users", roles: ["admin"], status: "live" }],
+    items: [{ label: "Users", href: "/admin/users", roles: ["admin", "founder"], status: "live" }],
   },
 ];
 
