@@ -51,6 +51,20 @@ export default async function JwPrintPage({ params }: { params: Promise<{ id: st
   if (!order) notFound();
   const signingState = await getSigningState("job_work", id, order.created_by, profile?.id ?? null);
 
+  if (!signingState.fullySigned) {
+    return (
+      <div className="mx-auto max-w-lg py-16 text-center">
+        <p className="text-lg font-semibold text-amber-700">Cannot print this job-work order</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          It still needs {signingState.requiredSlots.length - signingState.signed.length} signature(s) before it can be printed.
+        </p>
+        <Link href={`/job-work/${id}`} className="mt-4 inline-flex items-center gap-1 text-sm text-primary hover:underline">
+          <ArrowLeft className="size-4" /> Back to job-work order
+        </Link>
+      </div>
+    );
+  }
+
   // Admin/team_lead (the roles that manage job-work) can browse every revision in this order's lineage from here.
   const canViewRevisions = profile?.role === "admin" || profile?.role === "team_lead";
   const rootId = order.root_jw_id ?? order.id;
