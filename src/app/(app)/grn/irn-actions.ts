@@ -37,6 +37,18 @@ export async function submitIrn(fd: FormData): Promise<ActionResult> {
   }
 
   const supabase = await createClient();
+
+  // Best-effort: if the submitter has a saved signature, submit_irn can
+  // auto-approve inline when they're Admin/Team Lead — same silent
+  // no-op-if-missing pattern as createGrn's auto-sign.
+  const { data: mySig } = await supabase
+    .from("signatures")
+    .select("id")
+    .eq("user_id", p.id)
+    .order("is_default", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   const { data: result, error } = await supabase.rpc("submit_irn", {
     p_grn_id: grn_id,
     p_component_id: component_id,
@@ -51,6 +63,7 @@ export async function submitIrn(fd: FormData): Promise<ActionResult> {
     p_submitter_id: p.id,
     p_target_lot_id: String(fd.get("target_lot_id") ?? "") || null,
     p_piece_weight: num(fd, "piece_weight"),
+    p_signature_id: mySig?.id ?? null,
   });
   if (error) return { error: error.message };
   const res = result as { error?: string; id?: string; irn_no?: string; status?: string };

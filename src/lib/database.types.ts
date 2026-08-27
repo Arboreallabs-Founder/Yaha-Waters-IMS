@@ -4911,25 +4911,46 @@ export type Database = {
         Args: { p_actor: string; p_po_id: string; p_signature_id: string }
         Returns: Json
       }
-      submit_irn: {
-        Args: {
-          p_answers: Json
-          p_component_id: string
-          p_grn_id: string
-          p_jw_line_id?: string
-          p_piece_count: number
-          p_piece_length: number
-          p_piece_weight?: number
-          p_piece_width: number
-          p_po_line_id: string
-          p_project_id: string
-          p_qty: number
-          p_submitter_id: string
-          p_target_lot_id?: string
-          p_unit_cost: number
-        }
-        Returns: Json
-      }
+      submit_irn:
+        | {
+            Args: {
+              p_answers: Json
+              p_component_id: string
+              p_grn_id: string
+              p_jw_line_id?: string
+              p_piece_count: number
+              p_piece_length: number
+              p_piece_weight?: number
+              p_piece_width: number
+              p_po_line_id: string
+              p_project_id: string
+              p_qty: number
+              p_submitter_id: string
+              p_target_lot_id?: string
+              p_unit_cost: number
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_answers: Json
+              p_component_id: string
+              p_grn_id: string
+              p_jw_line_id?: string
+              p_piece_count: number
+              p_piece_length: number
+              p_piece_weight?: number
+              p_piece_width: number
+              p_po_line_id: string
+              p_project_id: string
+              p_qty: number
+              p_signature_id?: string
+              p_submitter_id: string
+              p_target_lot_id?: string
+              p_unit_cost: number
+            }
+            Returns: Json
+          }
     }
     Enums: {
       bom_line_source: "template" | "manual" | "site_purchase"
