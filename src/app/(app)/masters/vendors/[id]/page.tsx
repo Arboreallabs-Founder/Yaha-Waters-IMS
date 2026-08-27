@@ -54,7 +54,10 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
       <Card className="mb-6">
         <CardContent className="grid grid-cols-2 gap-4 p-5 text-sm sm:grid-cols-4">
           <Info label="GST No." value={vendor.gst_no} />
+          <Info label="PAN" value={vendor.pan} />
           <Info label="Contact" value={vendor.contact} />
+          <Info label="Email" value={vendor.email} />
+          <Info label="Website" value={vendor.website} />
           <Info label="Lead time" value={vendor.avg_lead_time_days ? `${vendor.avg_lead_time_days} days` : null} />
           <Info label="Rating" value={vendor.rating?.toString()} />
         </CardContent>

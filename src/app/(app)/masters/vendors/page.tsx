@@ -11,7 +11,9 @@ export default async function VendorsPage() {
   const columns: Column[] = [
     { key: "name", label: "Vendor" },
     { key: "gst_no", label: "GST No." },
+    { key: "pan", label: "PAN" },
     { key: "contact", label: "Contact" },
+    { key: "email", label: "Email" },
     { key: "avg_lead_time_days", label: "Lead (days)", format: "number" },
     { key: "rating", label: "Rating", format: "number" },
     { key: "is_active", label: "Active", format: "bool" },
@@ -19,7 +21,10 @@ export default async function VendorsPage() {
   const fields: Field[] = [
     { name: "name", label: "Vendor name", type: "text", required: true },
     { name: "gst_no", label: "GST No.", type: "text" },
+    { name: "pan", label: "PAN", type: "text" },
     { name: "contact", label: "Contact", type: "text" },
+    { name: "email", label: "Email", type: "text" },
+    { name: "website", label: "Website", type: "text" },
     { name: "avg_lead_time_days", label: "Avg lead time (days)", type: "number" },
     { name: "rating", label: "Rating (0–5)", type: "number", step: "any" },
     { name: "is_active", label: "Active", type: "checkbox", defaultChecked: true },

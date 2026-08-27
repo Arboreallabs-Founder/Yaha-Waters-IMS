@@ -5,7 +5,10 @@ import { upsertRecord, deleteRecord, type ActionResult } from "@/lib/server/crud
 const VENDOR_FIELDS = {
   name: "string",
   gst_no: "string",
+  pan: "string",
   contact: "string",
+  email: "string",
+  website: "string",
   address: "string",
   avg_lead_time_days: "number",
   rating: "number",
