@@ -3515,6 +3515,7 @@ export type Database = {
         Row: {
           component_id: string | null
           component_no: string | null
+          has_stock_history: boolean | null
           lot_count: number | null
           name: string | null
           qty_on_hand: number | null
@@ -3527,6 +3528,7 @@ export type Database = {
         Row: {
           component_id: string | null
           component_no: string | null
+          has_stock_history: boolean | null
           lot_count: number | null
           name: string | null
           qty_on_hand: number | null

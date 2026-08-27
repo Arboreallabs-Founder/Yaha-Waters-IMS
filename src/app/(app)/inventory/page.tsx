@@ -16,6 +16,7 @@ export default async function InventoryPage() {
     qty_on_hand: Number(r.qty_on_hand ?? 0),
     lot_count: (r as { lot_count?: number }).lot_count ?? 0,
     stock_value: (r as { stock_value?: number }).stock_value ?? null,
+    has_stock_history: (r as { has_stock_history?: boolean }).has_stock_history ?? false,
   }));
 
   const totalValue = finance ? allComponents.reduce((s, r) => s + Number(r.stock_value ?? 0), 0) : null;
@@ -110,14 +111,14 @@ export default async function InventoryPage() {
   }
 
   const onHandRows: InventoryRow[] = allComponents
-    .filter((r) => r.qty_on_hand !== 0 || (r.lot_count ?? 0) > 0)
+    .filter((r) => r.qty_on_hand !== 0 || r.has_stock_history)
     .sort((a, b) => b.qty_on_hand - a.qty_on_hand)
     .map((r) => toRow(r, breakdownByComponent));
 
   const exportRows: InventoryRow[] = [
     ...onHandRows,
     ...allComponents
-      .filter((r) => r.qty_on_hand === 0 && (r.lot_count ?? 0) === 0)
+      .filter((r) => !r.has_stock_history)
       .sort((a, b) => a.component_no.localeCompare(b.component_no))
       .map((r) => toRow(r, breakdownByComponent)),
   ];
