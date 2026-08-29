@@ -90,3 +90,50 @@ export async function getSigningState(
     isBackfill: !fullySigned && grandfathered,
   };
 }
+
+/**
+ * Batched sibling of `getSigningState` for list views (e.g. a "pending
+ * approval" tab) — one query on `approval_rights` + one on
+ * `document_signatures` for the whole set, instead of a round trip per
+ * document.
+ */
+export async function getSigningStatesBatch(
+  documentType: DocumentType,
+  docs: { id: string; created_by: string | null }[],
+  actorId: string | null,
+): Promise<Map<string, { fullySigned: boolean; canSignNow: boolean }>> {
+  const result = new Map<string, { fullySigned: boolean; canSignNow: boolean }>();
+  if (!actorId || docs.length === 0) return result;
+
+  const supabase = await createClient();
+  const [{ data: rights }, { data: sigsRaw }] = await Promise.all([
+    supabase.from("approval_rights").select("approver_order, user_id").eq("document_type", documentType),
+    supabase
+      .from("document_signatures")
+      .select("document_id, slot")
+      .eq("document_type", documentType)
+      .in("document_id", docs.map((d) => d.id)),
+  ]);
+
+  const requiredSlots = [...new Set([1, ...(rights ?? []).map((r) => r.approver_order)])].sort((a, b) => a - b);
+  const rightsByOrder = new Map((rights ?? []).map((r) => [r.approver_order, r.user_id]));
+
+  const signedSlotsByDoc = new Map<string, Set<number>>();
+  for (const s of sigsRaw ?? []) {
+    const set = signedSlotsByDoc.get(s.document_id) ?? new Set<number>();
+    set.add(s.slot);
+    signedSlotsByDoc.set(s.document_id, set);
+  }
+
+  for (const doc of docs) {
+    const signedSlots = signedSlotsByDoc.get(doc.id) ?? new Set<number>();
+    const nextSlot = requiredSlots.find((s) => !signedSlots.has(s)) ?? null;
+    const fullySigned = nextSlot === null;
+    const canSignNow =
+      nextSlot !== null &&
+      (nextSlot === 1 ? actorId === doc.created_by : actorId === rightsByOrder.get(nextSlot));
+    result.set(doc.id, { fullySigned, canSignNow });
+  }
+
+  return result;
+}
