@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.17"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -2034,6 +2034,7 @@ export type Database = {
           link_path: string | null
           message: string
           project_id: string | null
+          recipient_id: string | null
           type: string
         }
         Insert: {
@@ -2043,6 +2044,7 @@ export type Database = {
           link_path?: string | null
           message: string
           project_id?: string | null
+          recipient_id?: string | null
           type: string
         }
         Update: {
@@ -2052,6 +2054,7 @@ export type Database = {
           link_path?: string | null
           message?: string
           project_id?: string | null
+          recipient_id?: string | null
           type?: string
         }
         Relationships: [
@@ -2088,6 +2091,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "v_projects_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -2829,6 +2839,44 @@ export type Database = {
           },
         ]
       }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          p256dh: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          p256dh: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          p256dh?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       requisition_lines: {
         Row: {
           bom_line_id: string | null
@@ -3502,12 +3550,15 @@ export type Database = {
       v_bom_variance: {
         Row: {
           component_id: string | null
+          consumed_qty: number | null
+          on_hand_qty: number | null
           order_gap: number | null
           ordered_qty: number | null
           project_id: string | null
           receive_gap: number | null
           received_qty: number | null
           required_qty: number | null
+          uncovered_qty: number | null
         }
         Relationships: []
       }
@@ -4031,11 +4082,14 @@ export type Database = {
           component_id: string | null
           component_name: string | null
           component_no: string | null
+          consumed_qty: number | null
+          on_hand_qty: number | null
           order_gap: number | null
           ordered_qty: number | null
           project_id: string | null
           received_qty: number | null
           required_qty: number | null
+          uncovered_qty: number | null
         }
         Relationships: []
       }

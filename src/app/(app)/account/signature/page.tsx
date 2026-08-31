@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { PageHeader } from "@/components/page-header";
 import { SignatureManager } from "./signature-manager";
+import { PushNotificationsToggle } from "../push-notifications-toggle";
 
 export default async function MySignaturePage() {
   const profile = await requireProfile();
@@ -24,6 +25,11 @@ export default async function MySignaturePage() {
         description="Saved here, used to sign off Purchase Orders, GRNs, and Job-Work orders."
       />
       <SignatureManager signatures={signatures ?? []} />
+
+      <h2 className="mb-3 mt-8 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+        Notifications
+      </h2>
+      <PushNotificationsToggle />
     </div>
   );
 }

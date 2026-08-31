@@ -69,3 +69,34 @@ export async function setDefaultSignature(fd: FormData): Promise<ActionResult> {
   revalidatePath("/account/signature");
   return { ok: true };
 }
+
+/** Save this device's Web Push subscription for the current user (called right after the browser grants permission). */
+export async function savePushSubscription(fd: FormData): Promise<ActionResult> {
+  const p = await getProfile();
+  if (!p) return { error: "Not authorized." };
+  const endpoint = String(fd.get("endpoint") ?? "");
+  const p256dh = String(fd.get("p256dh") ?? "");
+  const auth = String(fd.get("auth") ?? "");
+  const user_agent = String(fd.get("user_agent") ?? "").slice(0, 255) || null;
+  if (!endpoint || !p256dh || !auth) return { error: "Invalid subscription." };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("push_subscriptions")
+    .upsert({ user_id: p.id, endpoint, p256dh, auth, user_agent }, { onConflict: "endpoint" });
+  if (error) return { error: error.message };
+  return { ok: true };
+}
+
+/** Remove this device's Web Push subscription (e.g. user disables notifications). */
+export async function removePushSubscription(fd: FormData): Promise<ActionResult> {
+  const p = await getProfile();
+  if (!p) return { error: "Not authorized." };
+  const endpoint = String(fd.get("endpoint") ?? "");
+  if (!endpoint) return { error: "Missing endpoint." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("push_subscriptions").delete().eq("user_id", p.id).eq("endpoint", endpoint);
+  if (error) return { error: error.message };
+  return { ok: true };
+}
