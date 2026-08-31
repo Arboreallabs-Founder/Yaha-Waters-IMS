@@ -7,6 +7,8 @@ import { getVendors, getComponentsFull, getCustomers } from "@/lib/masters-data"
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
+import { FileSpreadsheet } from "lucide-react";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { formatDate, formatINR, projectLabel } from "@/lib/utils";
 import { LineItemEditor, type VariantParam } from "./line-item-editor";
@@ -320,7 +322,14 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       <PageHeader
         title={project.project_no}
         description={customer?.name ?? undefined}
-        action={<Badge variant="secondary">{project.status}</Badge>}
+        action={
+          <div className="flex items-center gap-3">
+            <Link href={`/projects/${id}/reports`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+              <FileSpreadsheet className="size-4" /> Reports
+            </Link>
+            <Badge variant="secondary">{project.status}</Badge>
+          </div>
+        }
       />
 
       <PhaseBanner

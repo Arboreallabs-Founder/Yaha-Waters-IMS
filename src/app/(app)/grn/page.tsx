@@ -1,11 +1,10 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile, canWriteMasters } from "@/lib/auth";
 import { getVendors } from "@/lib/masters-data";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
@@ -14,6 +13,7 @@ import { getSigningStatesBatch } from "@/lib/signatures";
 import { DocumentSignButton } from "@/components/document-sign-button";
 import { NewGrnButton } from "./new-grn-button";
 import { IrnApprovalActions } from "./irn-approval-actions";
+import { AllGrnsTable, type GrnRow } from "./all-grns-table";
 import { signGrn } from "./actions";
 
 const TABS = [
@@ -78,50 +78,18 @@ async function AllGrnsTab() {
   const lineCount = new Map<string, number>();
   for (const l of lines ?? []) lineCount.set(l.grn_id, (lineCount.get(l.grn_id) ?? 0) + 1);
 
-  return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>GRN No.</TableHead>
-          <TableHead>Type</TableHead>
-          <TableHead>Vendor</TableHead>
-          <TableHead>Challan</TableHead>
-          <TableHead>Invoice</TableHead>
-          <TableHead>Lines</TableHead>
-          <TableHead>Received</TableHead>
-          <TableHead className="w-12" />
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {(grns ?? []).length === 0 ? (
-          <TableRow><TableCell colSpan={8} className="py-8 text-center text-muted-foreground">No goods receipts yet.</TableCell></TableRow>
-        ) : (
-          (grns ?? []).map((g) => (
-            <TableRow key={g.id}>
-              <TableCell className="font-medium">{g.grn_no}</TableCell>
-              <TableCell>
-                {g.is_job_work ? (
-                  <Badge variant="secondary">Job Work</Badge>
-                ) : (
-                  <Badge variant="outline">Purchase</Badge>
-                )}
-              </TableCell>
-              <TableCell>{g.vendor_id ? vName.get(g.vendor_id) ?? "—" : <span className="text-muted-foreground">—</span>}</TableCell>
-              <TableCell className="text-muted-foreground">{g.challan_no ?? "—"}</TableCell>
-              <TableCell className="text-muted-foreground">{g.invoice_no ?? "—"}</TableCell>
-              <TableCell>{formatNumber(lineCount.get(g.id) ?? 0)}</TableCell>
-              <TableCell className="text-muted-foreground">{formatDate(g.received_at)}</TableCell>
-              <TableCell className="text-right">
-                <Link href={`/grn/${g.id}`} aria-label="Open" className={buttonVariants({ variant: "ghost", size: "icon" })}>
-                  <ArrowRight className="size-4" />
-                </Link>
-              </TableCell>
-            </TableRow>
-          ))
-        )}
-      </TableBody>
-    </Table>
-  );
+  const rows: GrnRow[] = (grns ?? []).map((g) => ({
+    id: g.id,
+    grn_no: g.grn_no,
+    is_job_work: g.is_job_work,
+    vendor_name: g.vendor_id ? vName.get(g.vendor_id) ?? null : null,
+    challan_no: g.challan_no,
+    invoice_no: g.invoice_no,
+    line_count: lineCount.get(g.id) ?? 0,
+    received_at: g.received_at,
+  }));
+
+  return <AllGrnsTable rows={rows} />;
 }
 
 async function ApprovalTab({ canApprove, userId }: { canApprove: boolean; userId: string | null }) {
