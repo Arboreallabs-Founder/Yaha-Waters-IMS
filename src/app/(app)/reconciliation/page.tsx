@@ -23,7 +23,7 @@ export default async function ReconciliationPage() {
     { data: components },
     { data: customers },
   ] = await Promise.all([
-    supabase.from("v_bom_variance").select("*").or("order_gap.gt.0,receive_gap.gt.0"),
+    supabase.from("v_bom_variance").select("*").or("uncovered_qty.gt.0,receive_gap.gt.0"),
     supabase.from("v_untagged_receipts").select("*").order("received_at", { ascending: false }),
     supabase.from("v_missing_po").select("*"),
     supabase.from("v_stale_stock").select("*").order("age_days", { ascending: false }),
@@ -67,7 +67,8 @@ export default async function ReconciliationPage() {
         <Table>
           <TableHeader><TableRow>
             <TableHead>Project</TableHead><TableHead>Component</TableHead><TableHead>Required</TableHead>
-            <TableHead>Ordered</TableHead><TableHead>Received</TableHead><TableHead>Order gap</TableHead><TableHead>Receive gap</TableHead>
+            <TableHead>Ordered</TableHead><TableHead>Received</TableHead><TableHead>Consumed / stock</TableHead>
+            <TableHead>Still to order</TableHead><TableHead>Receive gap</TableHead>
           </TableRow></TableHeader>
           <TableBody>
             {(variance ?? []).slice(0, 100).map((r, i) => (
@@ -77,7 +78,8 @@ export default async function ReconciliationPage() {
                 <TableCell>{formatNumber(r.required_qty)}</TableCell>
                 <TableCell>{formatNumber(r.ordered_qty)}</TableCell>
                 <TableCell>{formatNumber(r.received_qty)}</TableCell>
-                <TableCell>{Number(r.order_gap) > 0 ? <Badge variant="warning">{formatNumber(r.order_gap)}</Badge> : "—"}</TableCell>
+                <TableCell className="text-muted-foreground">{formatNumber(Number(r.consumed_qty ?? 0) + Number(r.on_hand_qty ?? 0))}</TableCell>
+                <TableCell>{Number(r.uncovered_qty) > 0 ? <Badge variant="warning">{formatNumber(r.uncovered_qty)}</Badge> : "—"}</TableCell>
                 <TableCell>{Number(r.receive_gap) > 0 ? <Badge variant="secondary">{formatNumber(r.receive_gap)}</Badge> : "—"}</TableCell>
               </TableRow>
             ))}
@@ -93,9 +95,9 @@ export default async function ReconciliationPage() {
         />
       </Check>
 
-      <Check id="missing-po" title="Missing PO (BOM demand not yet ordered)" empty={(missingPo?.length ?? 0) === 0}>
+      <Check id="missing-po" title="Missing PO (BOM demand not ordered and not covered by stock)" empty={(missingPo?.length ?? 0) === 0}>
         <Table>
-          <TableHeader><TableRow><TableHead>Project</TableHead><TableHead>Component</TableHead><TableHead>Required</TableHead><TableHead>Received</TableHead><TableHead>Gap</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>Project</TableHead><TableHead>Component</TableHead><TableHead>Required</TableHead><TableHead>Received</TableHead><TableHead>Consumed / stock</TableHead><TableHead>Still to order</TableHead></TableRow></TableHeader>
           <TableBody>
             {(missingPo ?? []).slice(0, 100).map((r, i) => (
               <TableRow key={i}>
@@ -103,7 +105,8 @@ export default async function ReconciliationPage() {
                 <TableCell className="font-medium">{r.component_name ?? r.component_no}</TableCell>
                 <TableCell>{formatNumber(r.required_qty)}</TableCell>
                 <TableCell>{formatNumber(r.received_qty)}</TableCell>
-                <TableCell><Badge variant="warning">{formatNumber(r.order_gap)}</Badge></TableCell>
+                <TableCell className="text-muted-foreground">{formatNumber(Number(r.consumed_qty ?? 0) + Number(r.on_hand_qty ?? 0))}</TableCell>
+                <TableCell><Badge variant="warning">{formatNumber(r.uncovered_qty)}</Badge></TableCell>
               </TableRow>
             ))}
           </TableBody>

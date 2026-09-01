@@ -20,7 +20,7 @@ export default async function DashboardPage() {
       supabase.from("v_untagged_receipts").select("*", { count: "exact", head: true }),
       supabase.from("v_missing_po").select("*", { count: "exact", head: true }),
       supabase.from("v_stale_stock").select("*", { count: "exact", head: true }),
-      supabase.from("v_bom_variance").select("*", { count: "exact", head: true }).or("order_gap.gt.0,receive_gap.gt.0"),
+      supabase.from("v_bom_variance").select("*", { count: "exact", head: true }).or("uncovered_qty.gt.0,receive_gap.gt.0"),
       supabase.from("v_project_costing").select("*"),
       finance ? supabase.from("v_component_on_hand").select("stock_value") : Promise.resolve({ data: [] }),
       supabase.from("projects").select("id, customer_id"),
