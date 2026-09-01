@@ -1,0 +1,1828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arboreal Labs IMS — Overview</title>
+<style>
+  :root{
+    color-scheme: light;
+    --paper:#ffffff;
+    --surface:#f2f6f5;
+    --surface-2:#e7efec;
+    --border:#d2ddd9;
+    --ink:#16221f;
+    --ink-soft:#4d5e59;
+    --accent:#0d6e68;
+    --accent-ink:#0a544f;
+    --accent-soft:#dcecea;
+    --font-head:Georgia,"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",serif;
+    --font-body:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --font-mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme: dark;
+      --paper:#111716;--surface:#19211f;--surface-2:#212b28;--border:#2c3a36;
+      --ink:#e7eceb;--ink-soft:#a2b2ad;--accent:#4fb9af;--accent-ink:#82d1c8;--accent-soft:#16302c;
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme: dark;
+    --paper:#111716;--surface:#19211f;--surface-2:#212b28;--border:#2c3a36;
+    --ink:#e7eceb;--ink-soft:#a2b2ad;--accent:#4fb9af;--accent-ink:#82d1c8;--accent-soft:#16302c;
+  }
+
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  @media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--font-body);font-size:16px;line-height:1.62;-webkit-font-smoothing:antialiased;
+  }
+  .doc{max-width:46rem;margin:0 auto;padding:3.5rem 1.5rem 6rem}
+
+  h1,h2,h3{font-family:var(--font-head);line-height:1.2;text-wrap:balance;font-weight:600}
+  h1{font-size:2.1rem;margin:0 0 .6rem;letter-spacing:-.01em}
+  h2{font-size:1.5rem;margin:0 0 1.1rem;padding-bottom:.4rem;border-bottom:2px solid var(--accent)}
+  h3{font-size:1.17rem;margin:2.6rem 0 .5rem;color:var(--accent-ink)}
+  h4{font-family:var(--font-body);font-weight:700;font-size:1rem;margin:1.7rem 0 .3rem}
+  p{margin:0 0 1rem}
+  ul{margin:0 0 1rem}
+  li{margin:.25rem 0}
+  strong{font-weight:650}
+
+  .s-num{display:inline-block;min-width:1.7rem;margin-right:.45rem;font-family:var(--font-mono);font-size:.85rem;font-weight:400;color:var(--accent)}
+  .kicker{font-family:var(--font-mono);font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 1.1rem}
+  .lede{font-size:1.16rem;line-height:1.55}
+  .meta{font-family:var(--font-mono);font-size:.75rem;color:var(--ink-soft);margin-top:1.6rem;border-top:1px solid var(--border);padding-top:1rem}
+
+  .toc{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.2rem 1.5rem;margin:2.5rem 0 2rem}
+  .toc .toc-h{font-family:var(--font-head);font-size:1rem;font-weight:700;margin-bottom:.6rem}
+  .toc ol{margin:0;padding-left:1.4rem;columns:2;column-gap:2rem;font-size:.92rem}
+  .toc li{margin:.22rem 0;break-inside:avoid}
+  .toc a{color:var(--ink);text-decoration:none}
+  .toc a:hover{color:var(--accent-ink);text-decoration:underline}
+
+  .note{border-left:3px solid var(--accent);background:var(--surface);padding:.8rem 1rem;font-size:.92rem;border-radius:0 6px 6px 0;margin:1.5rem 0}
+
+  section{margin:0 0 3rem}
+  .feature{margin:1.3rem 0 1.9rem}
+  .why{font-size:.95rem;color:var(--ink-soft);margin:.2rem 0 .9rem;padding-left:.9rem;border-left:3px solid var(--accent-soft)}
+  .why .lbl{display:block;font-family:var(--font-mono);font-size:.66rem;letter-spacing:.13em;text-transform:uppercase;color:var(--accent);margin-bottom:.15rem}
+  .why b{color:var(--ink);font-weight:600}
+
+  figure{margin:1.1rem 0 1.5rem}
+  figcaption{font-size:.74rem;color:var(--ink-soft);margin-top:.45rem;font-style:italic}
+
+  .callout{background:var(--accent-soft);border:1px solid var(--border);border-radius:10px;padding:1.05rem 1.3rem;margin:1.5rem 0;font-size:1rem}
+  .callout p:last-child{margin-bottom:0}
+  .callout .big{font-family:var(--font-head);font-size:1.12rem;font-weight:600}
+
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:1.6rem;margin:1.2rem 0}
+  .cols h4{margin-top:0}
+  .cols ul{margin:.3rem 0 0;padding-left:1.1rem;font-size:.93rem}
+  @media (max-width:640px){.cols{grid-template-columns:1fr}}
+
+  .app{margin:1.4rem 0}
+  .app h4{margin-bottom:.2rem}
+  .app .modline{font-size:.88rem;color:var(--ink-soft);margin:.35rem 0 0}
+  .app .modline b{color:var(--ink)}
+
+  .flow{margin:1.6rem 0;display:flex;flex-direction:column}
+  .node{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.65rem 1rem}
+  .node b{display:block;font-family:var(--font-head);font-size:1.02rem}
+  .node span{font-size:.85rem;color:var(--ink-soft)}
+  .node + .node{margin-top:2rem;position:relative}
+  .node + .node::before{content:"";position:absolute;left:50%;top:-1.6rem;height:1.2rem;width:2px;background:var(--accent)}
+  .node + .node::after{content:"";position:absolute;left:calc(50% - 4px);top:-.45rem;border:4px solid transparent;border-top-color:var(--accent)}
+  .node.gate{border:2px solid var(--accent);background:var(--accent-soft)}
+  .rail-note{margin-top:1.3rem;font-size:.92rem;color:var(--ink-soft);border-left:3px solid var(--accent);padding-left:.9rem}
+
+  .wrap{overflow-x:auto;margin:1rem 0 1.5rem}
+  .tbl{width:100%;border-collapse:collapse;font-size:.88rem}
+  .tbl th,.tbl td{text-align:left;vertical-align:top;padding:.5rem .6rem;border-bottom:1px solid var(--border)}
+  .tbl th{font-family:var(--font-mono);font-size:.68rem;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-soft);border-bottom:2px solid var(--accent)}
+  .tbl td:first-child{font-weight:600;white-space:nowrap}
+
+  .glossary dt{font-weight:700;margin-top:.9rem}
+  .glossary dd{margin:.1rem 0 0;color:var(--ink-soft);font-size:.95rem}
+
+  .toolbar{position:fixed;top:1rem;right:1rem;z-index:10;display:flex;gap:.5rem}
+  .toolbar button{font-family:var(--font-mono);font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--surface);color:var(--ink);border:1px solid var(--border);border-radius:999px;padding:.4rem .8rem;cursor:pointer}
+  .toolbar button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .toolbar .print-btn{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+  footer{margin-top:4rem;padding-top:1.2rem;border-top:1px solid var(--border);font-size:.8rem;color:var(--ink-soft)}
+
+  /* ============================================================
+     App-screen reproductions — always rendered in the real app's
+     light palette (#f8fafc ground, #0369a1 primary blue),
+     regardless of the document's own theme.
+     ============================================================ */
+  .appwin{
+    --p:#0369a1;--pfg:#f0f9ff;--g:#f8fafc;--bd:#e2e8f0;--bd2:#eef2f6;
+    --fg:#0f172a;--mut:#64748b;--mutbg:#f1f5f9;--acc:#e0f2fe;--accfg:#0c4a6e;
+    border:1px solid #cbd5e1;border-radius:10px;overflow:hidden;background:#fff;
+    color:var(--fg);font-family:var(--font-body);font-size:12.5px;line-height:1.45;
+    box-shadow:0 4px 16px rgba(15,23,42,.08)
+  }
+  .appwin .titlebar{display:flex;align-items:center;gap:6px;background:#f1f5f9;border-bottom:1px solid #e2e8f0;padding:7px 12px;font-size:10.5px;color:#64748b}
+  .appwin .titlebar .d{width:9px;height:9px;border-radius:50%}
+  .appwin .titlebar .d.r{background:#f87171}.appwin .titlebar .d.y{background:#fbbf24}.appwin .titlebar .d.g{background:#34d399}
+  .appwin .titlebar .u{margin-left:6px;font-family:var(--font-mono)}
+  .appwin .body{display:flex}
+  .appwin .rail{width:46px;flex:none;background:#fff;border-right:1px solid #e2e8f0;padding:8px 0;display:flex;flex-direction:column;align-items:center;gap:3px}
+  .appwin .rail .logo{width:30px;height:30px;border-radius:7px;background:#0369a1;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-bottom:5px}
+  .appwin .rail .ic{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#475569}
+  .appwin .rail .ic svg{width:16px;height:16px}
+  .appwin .rail .sep{width:20px;height:1px;background:#e2e8f0;margin:3px 0}
+  .appwin .pane{flex:1;min-width:0;display:flex;flex-direction:column}
+  .appwin .topbar{display:flex;align-items:center;justify-content:flex-end;gap:8px;height:33px;background:#fff;border-bottom:1px solid #e2e8f0;padding:0 14px;font-size:10.5px;color:#64748b}
+  .appwin .topbar .rolechip{background:#e0f2fe;color:#0c4a6e;border-radius:999px;padding:2px 8px;font-weight:500;font-size:9.5px}
+  .appwin .main{background:#f8fafc;padding:16px 18px;flex:1}
+
+  .appwin[data-nav="dash"] .ic-dash,
+  .appwin[data-nav="masters"] .ic-masters,
+  .appwin[data-nav="projects"] .ic-projects,
+  .appwin[data-nav="requisitions"] .ic-requisitions,
+  .appwin[data-nav="po"] .ic-po,
+  .appwin[data-nav="jobwork"] .ic-jobwork,
+  .appwin[data-nav="grn"] .ic-grn,
+  .appwin[data-nav="inventory"] .ic-inventory,
+  .appwin[data-nav="traceability"] .ic-traceability,
+  .appwin[data-nav="fg"] .ic-fg,
+  .appwin[data-nav="reconciliation"] .ic-reconciliation,
+  .appwin[data-nav="suppliers"] .ic-suppliers,
+  .appwin[data-nav="users"] .ic-users{background:#0369a1;color:#fff}
+
+  .appwin .ph{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+  .appwin .ph h1{font-family:var(--font-body);font-size:18px;font-weight:600;letter-spacing:-.01em;margin:0;color:#0f172a}
+  .appwin .ph p{font-size:11.5px;color:#64748b;margin:3px 0 0}
+  .appwin .btn{background:#0369a1;color:#fff;border-radius:6px;padding:6px 11px;font-size:11px;font-weight:500;white-space:nowrap}
+  .appwin .btn.o{background:#fff;color:#0f172a;border:1px solid #cbd5e1}
+
+  .appwin .tabs{display:flex;gap:16px;border-bottom:1px solid #e2e8f0;margin-bottom:14px;font-size:11.5px}
+  .appwin .tabs span{padding:0 0 7px;color:#64748b}
+  .appwin .tabs span.on{color:#0369a1;border-bottom:2px solid #0369a1;font-weight:600}
+
+  .appwin .cards{display:grid;gap:10px;margin-bottom:14px}
+  .appwin .g5{grid-template-columns:repeat(5,1fr)}
+  .appwin .g6{grid-template-columns:repeat(6,1fr)}
+  .appwin .g4{grid-template-columns:repeat(4,1fr)}
+  .appwin .g3{grid-template-columns:repeat(3,1fr)}
+  .appwin .g2{grid-template-columns:1fr 1fr}
+  .appwin .card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .appwin .card.p{padding:13px}
+  .appwin .stat-l{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:#64748b;margin:0}
+  .appwin .stat-v{font-size:19px;font-weight:600;margin:5px 0 0;color:#0f172a}
+  .appwin .stat-v.red{color:#dc2626}.appwin .stat-v.amber{color:#d97706}.appwin .stat-v.green{color:#15803d}
+
+  .appwin .sh{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#64748b;margin:16px 0 8px}
+  .appwin .sub{font-size:11px;color:#64748b;margin:-2px 0 10px}
+
+  .appwin .t{width:100%;border-collapse:collapse;font-size:11px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden}
+  .appwin .t th{background:#f1f5f9;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.03em;color:#64748b;font-weight:700;padding:7px 9px;border-bottom:1px solid #e2e8f0;white-space:nowrap}
+  .appwin .t td{padding:7px 9px;border-bottom:1px solid #eef2f6;vertical-align:top}
+  .appwin .t tr:last-child td{border-bottom:0}
+  .appwin .t .lnk{color:#0369a1;font-weight:500}
+  .appwin .t .m{color:#64748b}
+  .appwin .t .strong{font-weight:600}
+  .appwin .mono{font-family:var(--font-mono);font-size:10px}
+
+  .appwin .bd{display:inline-block;border-radius:999px;padding:1px 8px;font-size:9.5px;font-weight:500;white-space:nowrap}
+  .appwin .bd.def{background:#dcebf5;color:#0369a1}
+  .appwin .bd.sec{background:#e2e8f0;color:#0f172a}
+  .appwin .bd.out{background:#fff;border:1px solid #cbd5e1;color:#0f172a}
+  .appwin .bd.ok{background:#dcfce7;color:#15803d}
+  .appwin .bd.warn{background:#fef3c7;color:#b45309}
+  .appwin .bd.bad{background:#fee2e2;color:#b91c1c}
+
+  .appwin .clear{border:1px solid #bbf7d0;background:#f0fdf4;color:#15803d;border-radius:8px;padding:8px 11px;font-size:11px;margin-bottom:12px}
+  .appwin .chips{display:flex;flex-wrap:wrap;gap:7px}
+  .appwin .chip{border:1px solid #e2e8f0;background:#fff;border-radius:7px;padding:6px 10px;font-size:11px}
+  .appwin .field{border:1px solid #cbd5e1;border-radius:6px;background:#fff;padding:7px 10px;font-size:11px;color:#94a3b8}
+
+  .appwin .stepper{display:flex;align-items:center;gap:0;margin:2px 0 3px}
+  .appwin .stepper i{width:7px;height:7px;border-radius:50%;background:#e2e8f0;flex:none}
+  .appwin .stepper i.done{background:#0369a1}
+  .appwin .stepper i.now{background:#0369a1;box-shadow:0 0 0 3px rgba(3,105,161,.2)}
+  .appwin .stepper span{height:2px;flex:1;background:#e2e8f0}
+  .appwin .stepper span.done{background:#0369a1}
+  .appwin .phlabel{font-size:9.5px;font-weight:600;color:#0369a1}
+
+  .appwin .panel{border:1px solid #e2e8f0;background:#fff;border-radius:10px;margin-bottom:9px;overflow:hidden}
+  .appwin .panel .pt{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;font-size:11.5px;font-weight:600}
+  .appwin .panel .pt .bd{font-weight:500}
+  .appwin .panel .pc{padding:0 12px 11px;font-size:11px;color:#475569}
+  .appwin .panel.open .pt{border-bottom:1px solid #eef2f6}
+
+  .appwin .sig{border:1px dashed #cbd5e1;border-radius:8px;background:#fff;height:70px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:11px}
+  .appwin .signame{font-family:"Segoe Script","Bradley Hand","Snell Roundhand",cursive;font-size:22px;color:#0f172a}
+
+  @media (max-width:560px){
+    .appwin{font-size:11.5px}
+    .appwin .g5,.appwin .g6,.appwin .g4{grid-template-columns:1fr 1fr}
+    .appwin .cols2{grid-template-columns:1fr}
+  }
+
+  @media print{
+    :root{
+      --paper:#fff;--surface:#f5f5f5;--surface-2:#ececec;--border:#c8c8c8;
+      --ink:#000;--ink-soft:#333;--accent:#0a544f;--accent-ink:#0a544f;--accent-soft:#eef4f3;
+      color-scheme:light;
+    }
+    body{font-size:10.5pt;line-height:1.5;background:#fff}
+    .doc{max-width:none;margin:0;padding:0}
+    .toolbar{display:none}
+    section{break-before:page}
+    h1,h2,h3,h4{break-after:avoid}
+    .feature,figure,.appwin,.callout,.app,.node,.tbl tr{break-inside:avoid}
+    .appwin{box-shadow:none}
+    a{color:inherit;text-decoration:none}
+    .toc ol{font-size:9pt}
+  }
+  @page{size:A4;margin:15mm 16mm}
+</style>
+</head>
+<body>
+<div class="toolbar">
+  <button class="print-btn" type="button" onclick="window.print()">Print / PDF</button>
+  <button class="theme-toggle" type="button" id="themeToggle" aria-label="Switch colour theme">Theme</button>
+</div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-dash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></symbol>
+    <symbol id="i-db" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/><path d="M8 10v11"/></symbol>
+    <symbol id="i-clip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M8 11h8M8 15h5"/></symbol>
+    <symbol id="i-cart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></symbol>
+    <symbol id="i-boxcheck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 16 21 21M21 16 16 21"/><path d="M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></symbol>
+    <symbol id="i-wh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 8.35V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8.35A2 2 0 0 1 3.26 6.5l8-3.2a2 2 0 0 1 1.48 0l8 3.2A2 2 0 0 1 22 8.35Z"/><path d="M6 18h12M6 14h12M6 22V10h12v12"/></symbol>
+    <symbol id="i-scan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4M12 17h.01"/></symbol>
+    <symbol id="i-gauge" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  </defs>
+</svg>
+
+<div class="doc">
+
+  <header>
+    <p class="kicker">Inventory &amp; Operations Management System</p>
+    <h1>The Arboreal Labs IMS</h1>
+    <p class="lede">
+      One system that runs a manufacturing or distribution business end to end &mdash; from a
+      customer order, through the bill of materials, purchasing, goods receipt and quality
+      inspection, into QR-tracked stock, job work, finished goods and dispatch. Every stock number
+      is derived from an unchangeable ledger, and every document is signed off before it can leave
+      the building.
+    </p>
+    <p>
+      It is built by <strong>Arboreal Labs</strong>, which makes custom operations software for
+      manufacturers and distributors. The first deployment runs the operation of a water-treatment
+      equipment manufacturer &mdash; but nothing in it is specific to water treatment. The same
+      system fits any business that buys parts, holds stock, builds or resells, and needs to know
+      where its material and money went. This document walks through every screen, in plain
+      language.
+    </p>
+    <div class="note">
+      <strong>This is a demo view.</strong> Every screen is a faithful reproduction of the
+      application's real layout &mdash; page titles, columns, status labels and the navigation are
+      taken straight from the software &mdash; filled with <strong>invented sample data</strong>. It
+      is not any real company's records.
+    </div>
+    <p class="meta">
+      Prepared August 2026 &nbsp;&middot;&nbsp; Next.js 15 + Supabase (PostgreSQL) &nbsp;&middot;&nbsp;
+      runs in any modern browser, phone or desktop
+    </p>
+  </header>
+
+  <nav class="toc" aria-label="Contents">
+    <div class="toc-h">Contents</div>
+    <ol>
+      <li><a href="#s1">What the IMS is</a></li>
+      <li><a href="#s2">Who it is for</a></li>
+      <li><a href="#s3">Built for one client, fitted to the next</a></li>
+      <li><a href="#s4">How the pieces fit together</a></li>
+      <li><a href="#s5">The screens, one by one</a></li>
+      <li><a href="#s6">The backbone: one ledger, one audit trail</a></li>
+      <li><a href="#s7">Security &amp; access control</a></li>
+      <li><a href="#s8">Technology</a></li>
+      <li><a href="#s9">Adapting it to your business</a></li>
+      <li><a href="#sa">Appendix A &mdash; Module list</a></li>
+      <li><a href="#sb">Appendix B &mdash; Glossary</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+  <!-- ===================== 1 ===================== -->
+  <section id="s1">
+    <h2><span class="s-num">1</span>What the IMS is</h2>
+    <p>
+      Most small manufacturers run on a stack of spreadsheets, a WhatsApp group and a few people
+      who "just know" where things are. That works until it doesn't &mdash; a job ships short, a
+      payment goes out twice, stock is counted but can't be found, and nobody can say which customer
+      a batch of material was consumed on.
+    </p>
+    <p>The IMS replaces that with one connected record of the business. It covers:</p>
+    <ul>
+      <li><strong>Master data</strong> &mdash; your products, the parts inside them, your suppliers, reusable bills of materials and inspection checklists.</li>
+      <li><strong>Orders &amp; planning</strong> &mdash; a customer order becomes a project; the project explodes into a bill of materials; the BOM is compared against stock to find the shortfall.</li>
+      <li><strong>Procurement</strong> &mdash; purchase orders with per-line price approval and a digital signature chain; nothing prints until it is approved and signed.</li>
+      <li><strong>Receiving &amp; quality</strong> &mdash; goods receipt against the PO, an optional inspection gate, then automatic creation of QR-labelled stock lots.</li>
+      <li><strong>Stock</strong> &mdash; every lot is a QR code; on-hand quantity is recomputed from an immutable movement ledger, never edited by hand.</li>
+      <li><strong>Job work</strong> &mdash; send raw material to an outside vendor and receive the finished part back, cost = raw + process rate.</li>
+      <li><strong>Output</strong> &mdash; serialised finished units, dispatch, and a scan-the-QR traceability history.</li>
+      <li><strong>Oversight</strong> &mdash; a live "action center" of discrepancies, supplier scorecards, per-project costing, and an activity log that even catches direct database edits.</li>
+    </ul>
+    <p>
+      Two ideas hold it together and run through every screen: <strong>one ledger</strong> (stock
+      quantity is only ever the sum of signed movement rows) and <strong>one audit trail</strong>
+      (every record change is logged with who and when). Section&nbsp;6 covers both.
+    </p>
+
+    <figure>
+      <div class="appwin" data-nav="dash">
+        <div class="titlebar"><span class="d r"></span><span class="d y"></span><span class="d g"></span><span class="u">demo.arboreallabs.example / dashboard</span></div>
+        <div class="body">
+          <div class="rail">
+            <div class="logo">AL</div>
+            <div class="ic ic-dash"><svg><use href="#i-dash"/></svg></div>
+            <div class="ic ic-masters"><svg><use href="#i-db"/></svg></div>
+            <div class="sep"></div>
+            <div class="ic ic-projects"><svg><use href="#i-folder"/></svg></div>
+            <div class="ic ic-requisitions"><svg><use href="#i-clip"/></svg></div>
+            <div class="ic ic-po"><svg><use href="#i-cart"/></svg></div>
+            <div class="ic ic-jobwork"><svg><use href="#i-box"/></svg></div>
+            <div class="ic ic-grn"><svg><use href="#i-boxcheck"/></svg></div>
+            <div class="ic ic-inventory"><svg><use href="#i-wh"/></svg></div>
+            <div class="ic ic-traceability"><svg><use href="#i-scan"/></svg></div>
+            <div class="ic ic-fg"><svg><use href="#i-box"/></svg></div>
+            <div class="sep"></div>
+            <div class="ic ic-reconciliation"><svg><use href="#i-alert"/></svg></div>
+            <div class="ic ic-suppliers"><svg><use href="#i-gauge"/></svg></div>
+            <div class="sep"></div>
+            <div class="ic ic-users"><svg><use href="#i-user"/></svg></div>
+          </div>
+          <div class="pane">
+            <div class="topbar"><span>Rahul Menon</span><span class="rolechip">Admin</span></div>
+            <div class="main">
+              <div class="ph"><div><h1>Welcome, Rahul</h1><p>Live operations snapshot, straight off the ledger.</p></div></div>
+              <div class="cards g5">
+                <div class="card p"><p class="stat-l">Live stock value</p><p class="stat-v">₹ 48,20,650</p></div>
+                <div class="card p"><p class="stat-l">Active projects</p><p class="stat-v">7</p></div>
+                <div class="card p"><p class="stat-l">Open PO lines</p><p class="stat-v">23</p></div>
+                <div class="card p"><p class="stat-l">Overdue POs</p><p class="stat-v red">2</p></div>
+                <div class="card p"><p class="stat-l">Untagged receipts</p><p class="stat-v amber">3</p></div>
+              </div>
+              <div class="cards g2">
+                <div class="card p">
+                  <div style="display:flex;justify-content:space-between"><span class="sh" style="margin:0">Action Center</span><span class="lnk" style="color:#0369a1;font-size:11px">Open →</span></div>
+                  <div class="cards g3" style="margin:8px 0 0">
+                    <span class="chip" style="display:flex;justify-content:space-between">BOM variance <span class="bd warn">4</span></span>
+                    <span class="chip" style="display:flex;justify-content:space-between">Untagged <span class="bd warn">3</span></span>
+                    <span class="chip" style="display:flex;justify-content:space-between">Missing PO <span class="bd ok">0</span></span>
+                    <span class="chip" style="display:flex;justify-content:space-between">Stale stock <span class="bd warn">6</span></span>
+                    <span class="chip" style="display:flex;justify-content:space-between">PO overdue <span class="bd warn">2</span></span>
+                  </div>
+                </div>
+                <div class="card p">
+                  <span class="sh" style="margin:0 0 8px">Project costing</span>
+                  <table class="t">
+                    <tr><th>Project</th><th>Budgeted</th><th>Ordered</th><th>Consumed</th></tr>
+                    <tr><td><span class="lnk">AL-2612</span> <span class="m">— Nirmal Dairy</span></td><td>₹ 18,40,000</td><td>₹ 12,10,400</td><td>₹ 7,88,200</td></tr>
+                    <tr><td><span class="lnk">AL-2607</span> <span class="m">— Coastal Beverages</span></td><td>₹ 9,75,000</td><td>₹ 8,02,000</td><td>₹ 6,41,500</td></tr>
+                    <tr><td><span class="lnk">AL-2559</span> <span class="m">— GreenField Pharma</span></td><td>₹ 24,00,000</td><td>₹ 5,66,000</td><td>₹ 2,10,000</td></tr>
+                  </table>
+                </div>
+              </div>
+              <span class="sh">Master data</span>
+              <div class="chips"><span class="chip">Products</span><span class="chip">Components</span><span class="chip">Vendors</span><span class="chip">BOM Templates</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <figcaption>Dashboard (<code>/</code>) &mdash; layout reproduced from the app, sample data. The stat strip, Action Center tiles and project-costing table all read live from the ledger; the cost figures are hidden for non-finance roles.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ===================== 2 ===================== -->
+  <section id="s2">
+    <h2><span class="s-num">2</span>Who it is for</h2>
+    <p>
+      The system is modular. A screen you don't need is simply not used &mdash; there is no penalty
+      for leaving job work, inspection, or the BOM engine switched off.
+    </p>
+
+    <div class="app">
+      <h4>Assemble-to-order equipment manufacturers</h4>
+      <p>
+        You sell configurable products &mdash; a machine, a plant, a panel &mdash; where each order
+        has options, and the parts list changes with those options. The first deployment is exactly
+        this &mdash; a water-treatment manufacturer where every system is a model plus a set of
+        choices, and the bill of materials follows the choices.
+      </p>
+      <p class="modline"><b>Central:</b> Master data, BOM templates, Projects, Requisitions, POs, GRN, Inventory, Finished Goods. &nbsp; <b>Optional:</b> Job Work, Inspection.</p>
+    </div>
+    <div class="app">
+      <h4>Fabrication shops &amp; job shops</h4>
+      <p>
+        Your work is cutting, machining, bending, plating &mdash; often with steps sent out to
+        specialists. Raw stock is issued out against a signed job-work order, the finished part
+        comes back through goods receipt, and its cost carries both the raw material and the process
+        rate.
+      </p>
+      <p class="modline"><b>Central:</b> Components, Vendors, Job Work, GRN, Inventory, Traceability.</p>
+    </div>
+    <div class="app">
+      <h4>Distributors &amp; trading businesses</h4>
+      <p>
+        You buy, store and resell &mdash; no production. Run purchase orders into goods receipt into
+        QR-tracked stock, issue against customer orders, and use supplier KPIs and the
+        reconciliation checks to keep the operation honest.
+      </p>
+      <p class="modline"><b>Central:</b> Vendors, POs, GRN, Inventory, Traceability, Supplier KPIs, Action Center. &nbsp; <b>Switched off:</b> BOM templates, Job Work, Finished Goods.</p>
+    </div>
+    <div class="app">
+      <h4>Multi-project / contract manufacturers</h4>
+      <p>
+        You run several customer jobs at once and need to keep their material and cost separate.
+        Every requisition, PO line, goods receipt and stock movement can be tagged to a project;
+        stock can be <em>blocked</em> so it is reserved to one job; per-project costing shows
+        budgeted vs ordered vs received vs consumed at any moment.
+      </p>
+      <p class="modline"><b>Central:</b> Projects, project-tagged Requisitions/POs, stock blocking, Project Reports, per-project costing.</p>
+    </div>
+    <div class="app">
+      <h4>Quality-regulated production</h4>
+      <p>
+        Incoming material must pass inspection before it can be used, and you need the paperwork to
+        prove it. Attach a checklist to a component and its goods receipt becomes a gated flow: no
+        stock lot exists until a manager approves the inspection with their signature.
+      </p>
+      <p class="modline"><b>Central:</b> Inspection Templates, the inspection gate at GRN, the auto-generated inspection report, Traceability.</p>
+    </div>
+  </section>
+
+  <!-- ===================== 3 ===================== -->
+  <section id="s3">
+    <h2><span class="s-num">3</span>Built for one client, fitted to the next</h2>
+    <p>
+      The first client is a water-treatment equipment manufacturer, and the system was shaped around
+      how they work &mdash; their product families, their annotated bill-of-materials sheet, their
+      incoming-inspection form and its document number, their fiscal-year numbering
+      (<code>JW/2026-27/0001</code>). None of that is hard-wired into the product. Those are examples
+      of the system being fitted to one business's process &mdash; and the same fitting is done for
+      the next.
+    </p>
+    <div class="cols">
+      <div>
+        <h4>Change by configuration</h4>
+        <ul>
+          <li>Roles, and which roles see pricing and cost</li>
+          <li>Who signs each document type, and in what order</li>
+          <li>Inspection checklists &mdash; per component, per field</li>
+          <li>How each part is tracked: one QR per piece, per box, or measured bulk</li>
+          <li>How a part is counted: numbers, length, or weight</li>
+          <li>Which supplier supplies which part, at what price and lead time</li>
+          <li>BOM templates and the rules that pick parts from an order's options</li>
+          <li>Which parts are job-work, their raw supplier, process vendor and rate</li>
+          <li>Purchase-order terms, GST rate and delivery text</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Change by adapting the build</h4>
+        <ul>
+          <li>Printed document layouts &mdash; the PO template, the inspection report</li>
+          <li>The names and gates of the project phases</li>
+          <li>Document numbering schemes and prefixes</li>
+          <li>Whether a given step must reference a PO, or may stand alone</li>
+          <li>The rules behind each reconciliation / discrepancy check</li>
+          <li>Entirely new screens for a step unique to your business</li>
+        </ul>
+      </div>
+    </div>
+    <div class="callout">
+      <p class="big">You do not adopt someone else's process.</p>
+      <p>
+        The system is fitted to how you already work. Where your process is genuinely different, the
+        configuration bends to it; where it needs code, the code is written for your process rather
+        than the other way around. There is no "standard workflow" you are forced to follow.
+      </p>
+    </div>
+  </section>
+
+  <!-- ===================== 4 ===================== -->
+  <section id="s4">
+    <h2><span class="s-num">4</span>How the pieces fit together</h2>
+    <p>
+      The normal path of material through the business, top to bottom. Not every business uses every
+      step &mdash; a distributor skips the BOM and job-work boxes; a shop with no incoming
+      inspection skips the gate.
+    </p>
+    <div class="flow" role="img" aria-label="Flow from master data through order, BOM, purchasing, receipt, inspection, stock, and out to finished goods and dispatch.">
+      <div class="node"><b>Master data</b><span>Products &middot; components &middot; BOM templates &middot; vendors &middot; inspection checklists</span></div>
+      <div class="node"><b>Customer order &rarr; Project</b><span>The order, its options, its delivery date</span></div>
+      <div class="node"><b>Bill of materials</b><span>Order options expand into an exact parts list &middot; draft &rarr; approved</span></div>
+      <div class="node"><b>Requisition &amp; shortfall</b><span>Required vs on-hand vs already-ordered &rarr; what still needs buying</span></div>
+      <div class="node"><b>Purchase order</b><span>Per-line price approval &middot; signature chain &middot; nothing prints until approved &amp; signed</span></div>
+      <div class="node"><b>Goods receipt (against the PO)</b><span>Challan / invoice recorded &middot; received line by line</span></div>
+      <div class="node gate"><b>Inspection gate (if required)</b><span>No stock lot exists until a manager approves the checklist with a signature</span></div>
+      <div class="node"><b>QR stock lot</b><span>Created automatically &middot; quantity comes from the movement ledger</span></div>
+      <div class="node"><b>Issue to project &nbsp;/&nbsp; send for job work</b><span>Consume against a job &mdash; or issue raw stock out to a vendor and receive the finished part back</span></div>
+      <div class="node"><b>Finished goods &rarr; dispatch</b><span>Serialised units, each with its own QR &middot; in production &rarr; ready &rarr; dispatched</span></div>
+    </div>
+    <p class="rail-note">
+      Underneath all of it: every change in quantity is one signed row in the stock-movement ledger,
+      and every change to a record is written to the audit log &mdash; including edits made straight
+      to the database.
+    </p>
+  </section>
+
+  <!-- ===================== 5 ===================== -->
+  <section id="s5">
+    <h2><span class="s-num">5</span>The screens, one by one</h2>
+    <p>
+      Each feature is described in plain terms &mdash; what it does and why it matters &mdash;
+      beside a reproduction of the actual screen with sample data.
+    </p>
+
+    <!-- 5.1 -->
+    <h3>5.1&nbsp;&nbsp;Signing in &amp; who sees what</h3>
+    <div class="feature">
+      <h4>Four roles, and a pricing curtain</h4>
+      <p>
+        Everyone signs in with an email and password &mdash; there is no public sign-up; accounts
+        are created by an admin. Each person is <strong>Admin</strong>, <strong>Founder</strong>,
+        <strong>Team Lead</strong> or <strong>Team Member</strong>. Roles decide what you can change
+        and whether you can see money. A Team Member works the shop floor &mdash; receives goods,
+        scans and consumes stock &mdash; but every price and cost column is hidden from them.
+      </p>
+      <p class="why"><span class="lbl">Why it matters</span>
+        Cost data is commercially sensitive. The curtain is drawn in the database view layer, not
+        just hidden in the screen, so it holds even if someone pokes at the raw data.</p>
+      <figure>
+        <div class="appwin">
+          <div class="titlebar"><span class="d r"></span><span class="d y"></span><span class="d g"></span><span class="u">demo.arboreallabs.example / login</span></div>
+          <div class="main" style="background:#f8fafc;padding:34px 18px;display:flex;justify-content:center">
+            <div class="card p" style="max-width:280px;width:100%;padding:22px">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="width:26px;height:26px;border-radius:6px;background:#0369a1;color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center">AL</span><strong style="font-size:13px">Arboreal Labs IMS</strong></div>
+              <p style="font-size:11px;color:#64748b;margin:0 0 14px">Sign in to continue. Accounts are provisioned by an admin.</p>
+              <p class="stat-l" style="margin:0 0 3px">Email</p>
+              <div class="field" style="margin-bottom:9px">rahul@arboreallabs.example</div>
+              <p class="stat-l" style="margin:0 0 3px">Password</p>
+              <div class="field" style="margin-bottom:13px">••••••••••</div>
+              <div class="btn" style="display:block;text-align:center">Sign in</div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Login (<code>/login</code>). There is no "create account" link &mdash; provisioning is admin-only. After sign-in the role badge (top-right of every screen) reflects what that person can see and do.</figcaption>
+      </figure>
+    </div>
+
+    <!-- 5.2 Master Data -->
+    <h3>5.2&nbsp;&nbsp;Master Data</h3>
+    <div class="feature">
+      <h4>The hub, and the parts master</h4>
+      <p>
+        Master Data is the reference everything else is built from: <strong>products</strong> and
+        their options, <strong>components</strong> (the parts), <strong>categories</strong>,
+        <strong>BOM templates</strong>, <strong>inspection templates</strong>,
+        <strong>vendors</strong> and which parts they supply, <strong>customers</strong>, and
+        <strong>approval rights</strong> (who signs what). Each component carries the attributes that
+        make the rest of the system behave: its tracking mode (QR per piece / per box / bulk),
+        whether it is a job-work part, and whether it needs inspection before becoming stock.
+      </p>
+      <p class="why"><span class="lbl">Why it matters</span>
+        Set a part up once and goods receipt, inspection, costing and QR labelling all do the right
+        thing for it automatically.</p>
+      <figure>
+        <div class="appwin" data-nav="masters">
+          <div class="titlebar"><span class="d r"></span><span class="d y"></span><span class="d g"></span><span class="u">demo.arboreallabs.example / masters / components</span></div>
+          <div class="body">
+            <div class="rail">
+              <div class="logo">AL</div>
+              <div class="ic ic-dash"><svg><use href="#i-dash"/></svg></div>
+              <div class="ic ic-masters"><svg><use href="#i-db"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-projects"><svg><use href="#i-folder"/></svg></div>
+              <div class="ic ic-requisitions"><svg><use href="#i-clip"/></svg></div>
+              <div class="ic ic-po"><svg><use href="#i-cart"/></svg></div>
+              <div class="ic ic-jobwork"><svg><use href="#i-box"/></svg></div>
+              <div class="ic ic-grn"><svg><use href="#i-boxcheck"/></svg></div>
+              <div class="ic ic-inventory"><svg><use href="#i-wh"/></svg></div>
+              <div class="ic ic-traceability"><svg><use href="#i-scan"/></svg></div>
+              <div class="ic ic-fg"><svg><use href="#i-box"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-reconciliation"><svg><use href="#i-alert"/></svg></div>
+              <div class="ic ic-suppliers"><svg><use href="#i-gauge"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-users"><svg><use href="#i-user"/></svg></div>
+            </div>
+            <div class="pane">
+              <div class="topbar"><span>Rahul Menon</span><span class="rolechip">Admin</span></div>
+              <div class="main">
+                <div class="ph"><div><h1>Components</h1><p>The component numbers that BOM lines, POs and inventory lots reference.</p></div><span class="btn">New component</span></div>
+                <div class="field" style="max-width:230px;margin-bottom:10px">Search component no. or name…</div>
+                <table class="t">
+                  <tr><th>Component No.</th><th>Name</th><th>UoM</th><th>Tracking</th><th>Job Work</th><th>Inspection</th></tr>
+                  <tr><td class="strong">TR-3600-VSL</td><td>FRP Pressure Vessel 3600</td><td class="m">nos</td><td><span class="bd sec">box</span></td><td class="m">—</td><td><span class="bd def">Vessel QAP</span></td></tr>
+                  <tr><td class="strong">PMP-CI-05</td><td>Centrifugal Pump 5 HP</td><td class="m">nos</td><td><span class="bd sec">item</span></td><td class="m">—</td><td class="m">—</td></tr>
+                  <tr><td class="strong">MV-SS-1.5</td><td>SS Butterfly Valve 1.5&Prime;</td><td class="m">nos</td><td><span class="bd sec">item</span></td><td class="m">—</td><td class="m">—</td></tr>
+                  <tr><td class="strong">PL-MS-6MM</td><td>MS Plate 6 mm (cut from plate)</td><td class="m">kg</td><td><span class="bd sec">bulk</span></td><td><span class="bd warn">Laser cut — Suparshva</span></td><td><span class="bd def">MTC check</span></td></tr>
+                  <tr><td class="strong">MEDIA-AC-25</td><td>Activated Carbon 25 kg</td><td class="m">bag</td><td><span class="bd sec">box</span></td><td class="m">—</td><td class="m">—</td></tr>
+                </table>
+                <p class="sub" style="margin-top:10px">Cards on the Master Data hub: Products &middot; Components &middot; Categories &middot; BOM Templates &middot; Inspection Templates &middot; Vendors &middot; Customers &middot; Approval Rights.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Master Data &rarr; Components (<code>/masters/components</code>). "Tracking", "Job Work" and "Inspection" here are the switches that drive goods receipt, costing and QR behaviour for each part. Team Members see this list with cost columns removed.</figcaption>
+      </figure>
+    </div>
+
+    <div class="feature">
+      <h4>BOM templates &mdash; one template, every configuration</h4>
+      <p>
+        A template line is <strong>common</strong> (always included), <strong>variant-driven</strong>
+        (the part and quantity are chosen from a rule based on the order's options), or an
+        <strong>assembly</strong> line that pulls in a sub-assembly's own template. When a project
+        BOM is generated, the engine resolves every variant line against the options the customer
+        actually chose.
+      </p>
+      <p class="why"><span class="lbl">Why it matters</span>
+        A ten-option product has hundreds of possible parts lists. You maintain one template with
+        rules; the system produces the exact list for each order.</p>
+      <figure>
+        <div class="appwin" data-nav="masters">
+          <div class="titlebar"><span class="d r"></span><span class="d y"></span><span class="d g"></span><span class="u">demo.arboreallabs.example / masters / bom-templates / triton-3600</span></div>
+          <div class="body">
+            <div class="rail">
+              <div class="logo">AL</div>
+              <div class="ic ic-dash"><svg><use href="#i-dash"/></svg></div>
+              <div class="ic ic-masters"><svg><use href="#i-db"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-projects"><svg><use href="#i-folder"/></svg></div>
+              <div class="ic ic-requisitions"><svg><use href="#i-clip"/></svg></div>
+              <div class="ic ic-po"><svg><use href="#i-cart"/></svg></div>
+              <div class="ic ic-jobwork"><svg><use href="#i-box"/></svg></div>
+              <div class="ic ic-grn"><svg><use href="#i-boxcheck"/></svg></div>
+              <div class="ic ic-inventory"><svg><use href="#i-wh"/></svg></div>
+              <div class="ic ic-traceability"><svg><use href="#i-scan"/></svg></div>
+              <div class="ic ic-fg"><svg><use href="#i-box"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-reconciliation"><svg><use href="#i-alert"/></svg></div>
+              <div class="ic ic-suppliers"><svg><use href="#i-gauge"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-users"><svg><use href="#i-user"/></svg></div>
+            </div>
+            <div class="pane">
+              <div class="topbar"><span>Rahul Menon</span><span class="rolechip">Admin</span></div>
+              <div class="main">
+                <div class="ph"><div><h1>Triton 3600 — BOM template</h1><p>Version 3 &middot; active &middot; 42 lines</p></div><span class="btn o">Add line</span></div>
+                <table class="t">
+                  <tr><th>Section</th><th>Component</th><th>Qty</th><th>Kind</th><th>Rule</th></tr>
+                  <tr><td class="m">Vessel</td><td class="strong">TR-3600-VSL — FRP Vessel 3600</td><td>1</td><td><span class="bd def">common</span></td><td class="m">—</td></tr>
+                  <tr><td class="m">Pumping</td><td class="strong">PMP-CI-05 / PMP-CI-07 / PMP-CI-10</td><td>1</td><td><span class="bd warn">variant-driven</span></td><td class="m">by <span class="mono">flow_rate</span></td></tr>
+                  <tr><td class="m">Media</td><td class="strong">MEDIA-AC-25</td><td>12</td><td><span class="bd warn">variant-driven</span></td><td class="m">by <span class="mono">vessel_size</span></td></tr>
+                  <tr><td class="m">Skid</td><td class="strong">SUBASM-SKID-36 (sub-assembly)</td><td>1</td><td><span class="bd sec">assembly</span></td><td class="m">expands its own template</td></tr>
+                  <tr><td class="m">Valves</td><td class="strong">MV-SS-1.5</td><td>6</td><td><span class="bd def">common</span></td><td class="m">—</td></tr>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Master Data &rarr; BOM Templates &rarr; detail (<code>/masters/bom-templates/[id]</code>). Variant-driven lines carry a rule keyed off a product option; assembly lines recurse into a sub-assembly's own template.</figcaption>
+      </figure>
+    </div>
+
+    <!-- 5.3 Projects -->
+    <h3>5.3&nbsp;&nbsp;Projects / Orders</h3>
+    <div class="feature">
+      <h4>The project list &amp; phase stepper</h4>
+      <p>
+        A customer order becomes a project with a number, a customer, the customer's PO number and
+        value, and a <strong>phase</strong>: planning &rarr; document approval &rarr; procurement
+        &rarr; production &rarr; dispatched &rarr; closed (with an on-hold override). The stepper on
+        each row shows exactly where the job is.
+      </p>
+      <p class="why"><span class="lbl">Why it matters</span>
+        Anyone can open the list and see which jobs are moving and which are stuck.</p>
+      <figure>
+        <div class="appwin" data-nav="projects">
+          <div class="titlebar"><span class="d r"></span><span class="d y"></span><span class="d g"></span><span class="u">demo.arboreallabs.example / projects</span></div>
+          <div class="body">
+            <div class="rail">
+              <div class="logo">AL</div>
+              <div class="ic ic-dash"><svg><use href="#i-dash"/></svg></div>
+              <div class="ic ic-masters"><svg><use href="#i-db"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-projects"><svg><use href="#i-folder"/></svg></div>
+              <div class="ic ic-requisitions"><svg><use href="#i-clip"/></svg></div>
+              <div class="ic ic-po"><svg><use href="#i-cart"/></svg></div>
+              <div class="ic ic-jobwork"><svg><use href="#i-box"/></svg></div>
+              <div class="ic ic-grn"><svg><use href="#i-boxcheck"/></svg></div>
+              <div class="ic ic-inventory"><svg><use href="#i-wh"/></svg></div>
+              <div class="ic ic-traceability"><svg><use href="#i-scan"/></svg></div>
+              <div class="ic ic-fg"><svg><use href="#i-box"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-reconciliation"><svg><use href="#i-alert"/></svg></div>
+              <div class="ic ic-suppliers"><svg><use href="#i-gauge"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-users"><svg><use href="#i-user"/></svg></div>
+            </div>
+            <div class="pane">
+              <div class="topbar"><span>Rahul Menon</span><span class="rolechip">Admin</span></div>
+              <div class="main">
+                <div class="ph"><div><h1>Projects / Orders</h1><p>Customer orders, tracked from planning to dispatch.</p></div><span class="btn">New project</span></div>
+                <div class="field" style="max-width:230px;margin-bottom:10px">Search project no. or customer…</div>
+                <table class="t">
+                  <tr><th>Project</th><th>Customer</th><th>Phase</th><th>Next step</th></tr>
+                  <tr>
+                    <td class="strong">AL-2612</td><td>Nirmal Dairy Pvt Ltd</td>
+                    <td style="min-width:130px"><div class="stepper"><i class="done"></i><span class="done"></span><i class="done"></i><span class="done"></span><i class="now"></i><span></span><i></i><span></span><i></i></div><div class="phlabel">Procurement</div></td>
+                    <td><span class="lnk">View shortfall</span></td>
+                  </tr>
+                  <tr>
+                    <td class="strong">AL-2607</td><td>Coastal Beverages</td>
+                    <td><div class="stepper"><i class="done"></i><span class="done"></span><i class="done"></i><span class="done"></span><i class="done"></i><span class="done"></span><i class="now"></i><span></span><i></i></div><div class="phlabel">Production</div></td>
+                    <td><span class="lnk">Open project</span></td>
+                  </tr>
+                  <tr>
+                    <td class="strong">AL-2559</td><td>GreenField Pharma</td>
+                    <td><div class="stepper"><i class="done"></i><span class="done"></span><i class="now"></i><span></span><i></i><span></span><i></i><span></span><i></i></div><div class="phlabel">Doc approval</div></td>
+                    <td><span class="lnk">Review BOM</span></td>
+                  </tr>
+                  <tr>
+                    <td class="strong">AL-2555</td><td>Sahyadri Foods</td>
+                    <td><div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;display:inline-block"></span><span style="color:#b45309;font-weight:600;font-size:10px">On Hold</span></div></td>
+                    <td class="m">—</td>
+                  </tr>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Projects list (<code>/projects</code>). The dotted stepper is the live phase; the "next step" link is contextual to that phase.</figcaption>
+      </figure>
+    </div>
+
+    <div class="feature">
+      <h4>The project workspace</h4>
+      <p>
+        The project detail page is the operational heart of a job. A phase banner nudges the next
+        action; below it, collapsible panels cover <strong>line items</strong>, the
+        <strong>bill of materials</strong> (Not generated &rarr; Draft &rarr; Approved),
+        <strong>job work</strong>, <strong>stock status &amp; blocking</strong>,
+        <strong>materials issued</strong>, <strong>shortfall</strong>, and
+        <strong>site purchase</strong>. Finance roles also see a costing card.
+      </p>
+      <p class="why"><span class="lbl">Why it matters</span>
+        Everything about a job &mdash; what it needs, what's on order, what's short, what's been
+        consumed &mdash; is on one page, measured against the approved BOM.</p>
+      <figure>
+        <div class="appwin" data-nav="projects">
+          <div class="titlebar"><span class="d r"></span><span class="d y"></span><span class="d g"></span><span class="u">demo.arboreallabs.example / projects / AL-2612</span></div>
+          <div class="body">
+            <div class="rail">
+              <div class="logo">AL</div>
+              <div class="ic ic-dash"><svg><use href="#i-dash"/></svg></div>
+              <div class="ic ic-masters"><svg><use href="#i-db"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-projects"><svg><use href="#i-folder"/></svg></div>
+              <div class="ic ic-requisitions"><svg><use href="#i-clip"/></svg></div>
+              <div class="ic ic-po"><svg><use href="#i-cart"/></svg></div>
+              <div class="ic ic-jobwork"><svg><use href="#i-box"/></svg></div>
+              <div class="ic ic-grn"><svg><use href="#i-boxcheck"/></svg></div>
+              <div class="ic ic-inventory"><svg><use href="#i-wh"/></svg></div>
+              <div class="ic ic-traceability"><svg><use href="#i-scan"/></svg></div>
+              <div class="ic ic-fg"><svg><use href="#i-box"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-reconciliation"><svg><use href="#i-alert"/></svg></div>
+              <div class="ic ic-suppliers"><svg><use href="#i-gauge"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-users"><svg><use href="#i-user"/></svg></div>
+            </div>
+            <div class="pane">
+              <div class="topbar"><span>Rahul Menon</span><span class="rolechip">Admin</span></div>
+              <div class="main">
+                <div class="ph"><div><h1>AL-2612 — Nirmal Dairy Pvt Ltd</h1><p>Customer PO NDPL/25-26/114 &middot; delivery 20 Sep 2026</p></div></div>
+                <div class="card p" style="margin-bottom:10px;background:#f0f9ff;border-color:#bae6fd">
+                  <div class="stepper" style="max-width:320px"><i class="done"></i><span class="done"></span><i class="done"></i><span class="done"></span><i class="now"></i><span></span><i></i><span></span><i></i></div>
+                  <p style="margin:6px 0 0;font-size:11px"><strong>Next step:</strong> 3 components are short — raise POs for the shortfall before advancing to production. <span class="btn" style="margin-left:6px">Advance phase</span></p>
+                </div>
+                <div class="cards g4" style="margin-bottom:10px">
+                  <div class="card p"><p class="stat-l">Budgeted</p><p class="stat-v" style="font-size:14px">₹ 18,40,000</p></div>
+                  <div class="card p"><p class="stat-l">Ordered</p><p class="stat-v" style="font-size:14px">₹ 12,10,400</p></div>
+                  <div class="card p"><p class="stat-l">Received</p><p class="stat-v" style="font-size:14px">₹ 9,44,000</p></div>
+                  <div class="card p"><p class="stat-l">Consumed</p><p class="stat-v" style="font-size:14px">₹ 7,88,200</p></div>
+                </div>
+                <div class="panel open"><div class="pt">Bill of Materials <span class="bd ok">Approved</span></div><div class="pc" style="padding-top:9px">42 lines &middot; approved by Rahul Menon on 28 Aug 2026 &middot; locked for editing</div></div>
+                <div class="panel open"><div class="pt">Stock check &amp; shortfall <span class="bd warn">3 short</span></div><div class="pc" style="padding-top:9px">
+                  <table class="t"><tr><th>Component</th><th>Required</th><th>On hand</th><th>Ordered</th><th>Shortfall</th><th>Status</th></tr>
+                  <tr><td class="strong">TR-3600-VSL</td><td>1</td><td>0</td><td>1</td><td>0</td><td><span class="bd ok">Covered</span></td></tr>
+                  <tr><td class="strong">PMP-CI-07</td><td>1</td><td>0</td><td>0</td><td>1</td><td><span class="bd bad">No stock</span></td></tr>
+                  <tr><td class="strong">MV-SS-1.5</td><td>6</td><td>2</td><td>0</td><td>4</td><td><span class="bd warn">Partial</span></td></tr></table>
+                  <p style="margin:8px 0 0"><span class="btn">Raise PO for shortfall</span></p>
+                </div></div>
+                <div class="panel"><div class="pt">Job work <span class="bd warn">1 awaiting return</span></div></div>
+                <div class="panel"><div class="pt">Materials issued</div></div>
+                <div class="panel"><div class="pt">Site purchase</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Project workspace (<code>/projects/[id]</code>). The shortfall panel and its "Raise PO for shortfall" button are what turn the approved BOM into purchase orders, grouped by supplier.</figcaption>
+      </figure>
+    </div>
+
+    <div class="feature">
+      <h4>Project reports</h4>
+      <p>
+        Three Excel exports for procurement follow-up and accounts reconciliation: the
+        <strong>approved BOM</strong> (locked until it is approved), a <strong>material status</strong>
+        sheet classifying every part as Not Ordered / PO Raised / Received / Consumed, and an
+        <strong>accounts view</strong> with one row per component stacking every PO, date, vendor,
+        quantity, rate and invoice number against it.
+      </p>
+      <p class="why"><span class="lbl">Why it matters</span>
+        Your buyer and your accountant get the exact view they need, in the tool they already use,
+        without asking anyone to compile it.</p>
+      <figure>
+        <div class="appwin" data-nav="projects">
+          <div class="titlebar"><span class="d r"></span><span class="d y"></span><span class="d g"></span><span class="u">demo.arboreallabs.example / projects / AL-2612 / reports</span></div>
+          <div class="body">
+            <div class="rail">
+              <div class="logo">AL</div>
+              <div class="ic ic-dash"><svg><use href="#i-dash"/></svg></div>
+              <div class="ic ic-masters"><svg><use href="#i-db"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-projects"><svg><use href="#i-folder"/></svg></div>
+              <div class="ic ic-requisitions"><svg><use href="#i-clip"/></svg></div>
+              <div class="ic ic-po"><svg><use href="#i-cart"/></svg></div>
+              <div class="ic ic-jobwork"><svg><use href="#i-box"/></svg></div>
+              <div class="ic ic-grn"><svg><use href="#i-boxcheck"/></svg></div>
+              <div class="ic ic-inventory"><svg><use href="#i-wh"/></svg></div>
+              <div class="ic ic-traceability"><svg><use href="#i-scan"/></svg></div>
+              <div class="ic ic-fg"><svg><use href="#i-box"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-reconciliation"><svg><use href="#i-alert"/></svg></div>
+              <div class="ic ic-suppliers"><svg><use href="#i-gauge"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-users"><svg><use href="#i-user"/></svg></div>
+            </div>
+            <div class="pane">
+              <div class="topbar"><span>Rahul Menon</span><span class="rolechip">Admin</span></div>
+              <div class="main">
+                <div class="ph"><div><h1>AL-2612 — Reports</h1><p>Downloadable exports for procurement follow-up and accounts reconciliation.</p></div></div>
+                <div class="cards g3">
+                  <div class="card p"><p class="strong" style="margin:0 0 3px">Approved BOM</p><p class="m" style="margin:0 0 9px;font-size:10.5px">Component no., description, UOM, required qty, source.</p><span class="btn o">Download Excel</span></div>
+                  <div class="card p"><p class="strong" style="margin:0 0 3px">Material Status</p><p class="m" style="margin:0 0 9px;font-size:10.5px">Required / Not ordered / PO raised / On hand / Consumed / Status.</p><span class="btn o">Download Excel</span></div>
+                  <div class="card p"><p class="strong" style="margin:0 0 3px">Accounts View</p><p class="m" style="margin:0 0 9px;font-size:10.5px">One row per component — every PO, date, vendor, rate, invoice stacked.</p><span class="btn o">Download Excel</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Project &rarr; Reports (<code>/projects/[id]/reports</code>). All three are generated in the browser as real <code>.xlsx</code> files.</figcaption>
+      </figure>
+    </div>
+
+    <!-- 5.4 Requisitions -->
+    <h3>5.4&nbsp;&nbsp;Requisitions</h3>
+    <div class="feature">
+      <h4>Indents, and issuing stock against them</h4>
+      <p>
+        A requisition is a tracked demand &mdash; an indent &mdash; usually tagged to a project,
+        moving through open &rarr; partially ordered/issued &rarr; ordered/issued &rarr; closed.
+        From an open requisition you can issue matching stock, or use <strong>receive &amp;
+        consume</strong>: scan a lot's QR with the device camera (or type the code), set the
+        quantity, and it is consumed. Consuming <em>stock</em> with no project is admin-only and
+        demands a written reason.
+      </p>
+      <p class="why"><span class="lbl">Why it matters</span>
+        Demand is captured and closed out on the record, and consumption happens at the point of use
+        with a scan &mdash; not reconstructed later from memory.</p>
+      <figure>
+        <div class="appwin" data-nav="requisitions">
+          <div class="titlebar"><span class="d r"></span><span class="d y"></span><span class="d g"></span><span class="u">demo.arboreallabs.example / requisitions</span></div>
+          <div class="body">
+            <div class="rail">
+              <div class="logo">AL</div>
+              <div class="ic ic-dash"><svg><use href="#i-dash"/></svg></div>
+              <div class="ic ic-masters"><svg><use href="#i-db"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-projects"><svg><use href="#i-folder"/></svg></div>
+              <div class="ic ic-requisitions"><svg><use href="#i-clip"/></svg></div>
+              <div class="ic ic-po"><svg><use href="#i-cart"/></svg></div>
+              <div class="ic ic-jobwork"><svg><use href="#i-box"/></svg></div>
+              <div class="ic ic-grn"><svg><use href="#i-boxcheck"/></svg></div>
+              <div class="ic ic-inventory"><svg><use href="#i-wh"/></svg></div>
+              <div class="ic ic-traceability"><svg><use href="#i-scan"/></svg></div>
+              <div class="ic ic-fg"><svg><use href="#i-box"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-reconciliation"><svg><use href="#i-alert"/></svg></div>
+              <div class="ic ic-suppliers"><svg><use href="#i-gauge"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-users"><svg><use href="#i-user"/></svg></div>
+            </div>
+            <div class="pane">
+              <div class="topbar"><span>Priya Nair</span><span class="rolechip">Team Lead</span></div>
+              <div class="main">
+                <div class="ph"><div><h1>Requisitions</h1><p>Indents — tracked demand, project-tagged or for stock.</p></div><span class="btn">New requisition</span></div>
+                <table class="t">
+                  <tr><th>Req No.</th><th>Project</th><th>Lines</th><th>Raised by</th><th>Status</th></tr>
+                  <tr><td class="strong">REQ/2026-27/0051</td><td><span class="lnk">AL-2612</span> — Nirmal Dairy</td><td>8</td><td class="m">Priya Nair</td><td><span class="bd warn">partially ordered</span></td></tr>
+                  <tr><td class="strong">REQ/2026-27/0050</td><td><span class="lnk">AL-2607</span> — Coastal Beverages</td><td>5</td><td class="m">Anand K</td><td><span class="bd ok">issued</span></td></tr>
+                  <tr><td class="strong">REQ/2026-27/0049</td><td class="m"><em>stock</em></td><td>3</td><td class="m">Rahul Menon</td><td><span class="bd def">open</span></td></tr>
+                  <tr><td class="strong">REQ/2026-27/0048</td><td><span class="lnk">AL-2559</span> — GreenField Pharma</td><td>11</td><td class="m">Priya Nair</td><td><span class="bd sec">closed</span></td></tr>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Requisitions (<code>/requisitions</code>). The detail page adds an "Issue from stock" action and the scan-to-consume panel.</figcaption>
+      </figure>
+    </div>
+
+    <!-- 5.5 Purchase Orders -->
+    <h3>5.5&nbsp;&nbsp;Purchase Orders</h3>
+    <div class="feature">
+      <h4>From draft to sent &mdash; two gates</h4>
+      <p>
+        A PO is created as a draft, then two gates stand between it and "sent". First, every line's
+        price must be <strong>approved</strong> &mdash; by the configured PO approver, with a
+        signature. Second, the <strong>signature chain</strong> must be complete: creator, then each
+        configured approver. Editing a PO that has already been sent forks a
+        <strong>revision</strong>; the original is preserved and marked superseded.
+      </p>
+      <p class="why"><span class="lbl">Why it matters</span>
+        No PO leaves the building at a price nobody approved, or without the sign-offs your business
+        requires. The rule is enforced right at the print screen.</p>
+      <figure>
+        <div class="appwin" data-nav="po">
+          <div class="titlebar"><span class="d r"></span><span class="d y"></span><span class="d g"></span><span class="u">demo.arboreallabs.example / purchase-orders</span></div>
+          <div class="body">
+            <div class="rail">
+              <div class="logo">AL</div>
+              <div class="ic ic-dash"><svg><use href="#i-dash"/></svg></div>
+              <div class="ic ic-masters"><svg><use href="#i-db"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-projects"><svg><use href="#i-folder"/></svg></div>
+              <div class="ic ic-requisitions"><svg><use href="#i-clip"/></svg></div>
+              <div class="ic ic-po"><svg><use href="#i-cart"/></svg></div>
+              <div class="ic ic-jobwork"><svg><use href="#i-box"/></svg></div>
+              <div class="ic ic-grn"><svg><use href="#i-boxcheck"/></svg></div>
+              <div class="ic ic-inventory"><svg><use href="#i-wh"/></svg></div>
+              <div class="ic ic-traceability"><svg><use href="#i-scan"/></svg></div>
+              <div class="ic ic-fg"><svg><use href="#i-box"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-reconciliation"><svg><use href="#i-alert"/></svg></div>
+              <div class="ic ic-suppliers"><svg><use href="#i-gauge"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-users"><svg><use href="#i-user"/></svg></div>
+            </div>
+            <div class="pane">
+              <div class="topbar"><span>Rahul Menon</span><span class="rolechip">Admin</span></div>
+              <div class="main">
+                <div class="ph"><div><h1>Purchase Orders</h1></div><span class="btn">New PO</span></div>
+                <div class="tabs"><span class="on">All POs</span><span>Untagged lines (2)</span><span>Approvals (3)</span></div>
+                <div class="field" style="max-width:230px;margin-bottom:10px">Search PO no. or vendor…</div>
+                <table class="t">
+                  <tr><th>PO No.</th><th>Vendor</th><th>Date</th><th>Status</th><th>Total</th></tr>
+                  <tr><td class="strong">PO/2026-27/0042</td><td>Suparshva Steel Pvt Ltd</td><td class="m">30 Aug 2026</td><td><span class="bd warn">partial</span></td><td>₹ 3,64,000</td></tr>
+                  <tr><td class="strong">PO/2026-27/0041</td><td>Kirloskar Valves</td><td class="m">29 Aug 2026</td><td><span class="bd warn">sent</span></td><td>₹ 1,12,500</td></tr>
+                  <tr><td class="strong">PO/2026-27/0040</td><td>Aqua Polymers</td><td class="m">27 Aug 2026</td><td><span class="bd sec">pending_signature</span><br><span class="m" style="font-size:9.5px">waiting on Priya Nair</span></td><td>₹ 88,200</td></tr>
+                  <tr><td class="strong">PO/2026-27/0039</td><td>Grundfos India</td><td class="m">24 Aug 2026</td><td><span class="bd ok">completed</span></td><td>₹ 2,05,000</td></tr>
+                  <tr><td class="strong">PO/2026-27/0038</td><td>Suparshva Steel Pvt Ltd</td><td class="m">22 Aug 2026</td><td><span class="bd sec">draft</span></td><td>₹ 47,600</td></tr>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Purchase Orders (<code>/purchase-orders</code>). The <em>Approvals</em> tab holds lines awaiting price approval and POs awaiting your signature; <em>Untagged lines</em> holds lines ordered without a project.</figcaption>
+      </figure>
+    </div>
+
+    <!-- 5.6 Job Work -->
+    <h3>5.6&nbsp;&nbsp;Job Work</h3>
+    <div class="feature">
+      <h4>Send raw, receive finished, carry the cost</h4>
+      <p>
+        A job-work order sends specific raw stock lots out to a process vendor. Signing the order
+        <strong>dispatches</strong> it &mdash; the raw lots are issued out of stock. The finished
+        parts come back through goods receipt; the completed lot's cost is the raw material plus the
+        job-work rate, and it is linked back to the raw lot it came from.
+      </p>
+      <p class="why"><span class="lbl">Why it matters</span>
+        Outsourced steps stay on the books &mdash; you always know what is out at a vendor, what it
+        cost to process, and which raw batch a finished part traces to.</p>
+      <figure>
+        <div class="appwin" data-nav="jobwork">
+          <div class="titlebar"><span class="d r"></span><span class="d y"></span><span class="d g"></span><span class="u">demo.arboreallabs.example / job-work</span></div>
+          <div class="body">
+            <div class="rail">
+              <div class="logo">AL</div>
+              <div class="ic ic-dash"><svg><use href="#i-dash"/></svg></div>
+              <div class="ic ic-masters"><svg><use href="#i-db"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-projects"><svg><use href="#i-folder"/></svg></div>
+              <div class="ic ic-requisitions"><svg><use href="#i-clip"/></svg></div>
+              <div class="ic ic-po"><svg><use href="#i-cart"/></svg></div>
+              <div class="ic ic-jobwork"><svg><use href="#i-box"/></svg></div>
+              <div class="ic ic-grn"><svg><use href="#i-boxcheck"/></svg></div>
+              <div class="ic ic-inventory"><svg><use href="#i-wh"/></svg></div>
+              <div class="ic ic-traceability"><svg><use href="#i-scan"/></svg></div>
+              <div class="ic ic-fg"><svg><use href="#i-box"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-reconciliation"><svg><use href="#i-alert"/></svg></div>
+              <div class="ic ic-suppliers"><svg><use href="#i-gauge"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-users"><svg><use href="#i-user"/></svg></div>
+            </div>
+            <div class="pane">
+              <div class="topbar"><span>Rahul Menon</span><span class="rolechip">Admin</span></div>
+              <div class="main">
+                <div class="ph"><div><h1>Job Work</h1><p>Send raw components to a vendor and receive the finished part back. Completed cost = raw + job-work rate.</p></div><span class="btn">New job-work order</span></div>
+                <div class="tabs"><span class="on">All Job Work</span><span>Pending Signature (1)</span></div>
+                <table class="t">
+                  <tr><th>JW No.</th><th>Vendor</th><th>Project</th><th>Status</th><th>Lines</th></tr>
+                  <tr><td class="strong">JW/2026-27/0018</td><td>Suparshva Steel Pvt Ltd</td><td><span class="lnk">AL-2612</span></td><td><span class="bd warn">partial</span></td><td>4</td></tr>
+                  <tr><td class="strong">JW/2026-27/0017</td><td>Precision Machining Co.</td><td class="m"><em>stock</em></td><td><span class="bd warn">sent</span></td><td>2</td></tr>
+                  <tr><td class="strong">JW/2026-27/0016</td><td>Suparshva Steel Pvt Ltd</td><td><span class="lnk">AL-2607</span></td><td><span class="bd ok">received</span></td><td>3</td></tr>
+                  <tr><td class="strong">JW/2026-27/0015</td><td>Anodize India</td><td class="m"><em>stock</em></td><td><span class="bd sec">pending_signature</span> <span class="m" style="font-size:9.5px">— waiting on Priya Nair</span></td><td>1</td></tr>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Job Work (<code>/job-work</code>). "Sign &amp; Dispatch" on a draft issues the raw lots out to the vendor; receiving is done through GRN &rarr; New GRN &rarr; Job Work.</figcaption>
+      </figure>
+    </div>
+
+    <!-- 5.7 GRN -->
+    <h3>5.7&nbsp;&nbsp;Goods Receipt</h3>
+    <div class="feature">
+      <h4>Receiving against the PO</h4>
+      <p>
+        A goods receipt records a challan number and/or an invoice number &mdash; at least one is
+        required, and each must be unique for that vendor. Lines are received one at a time, and
+        <strong>every line must reference an open PO line</strong> &mdash; receiving with no PO is
+        refused. When the line is saved, a database trigger creates the stock lot(s), records the
+        receipt movement, and rolls the quantity up against the PO.
+      </p>
+      <p class="why"><span class="lbl">Why it matters</span>
+        What you received is always tied to what you ordered, so PO fulfilment and three-way
+        matching are automatic rather than a monthly chore.</p>
+      <figure>
+        <div class="appwin" data-nav="grn">
+          <div class="titlebar"><span class="d r"></span><span class="d y"></span><span class="d g"></span><span class="u">demo.arboreallabs.example / grn</span></div>
+          <div class="body">
+            <div class="rail">
+              <div class="logo">AL</div>
+              <div class="ic ic-dash"><svg><use href="#i-dash"/></svg></div>
+              <div class="ic ic-masters"><svg><use href="#i-db"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-projects"><svg><use href="#i-folder"/></svg></div>
+              <div class="ic ic-requisitions"><svg><use href="#i-clip"/></svg></div>
+              <div class="ic ic-po"><svg><use href="#i-cart"/></svg></div>
+              <div class="ic ic-jobwork"><svg><use href="#i-box"/></svg></div>
+              <div class="ic ic-grn"><svg><use href="#i-boxcheck"/></svg></div>
+              <div class="ic ic-inventory"><svg><use href="#i-wh"/></svg></div>
+              <div class="ic ic-traceability"><svg><use href="#i-scan"/></svg></div>
+              <div class="ic ic-fg"><svg><use href="#i-box"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-reconciliation"><svg><use href="#i-alert"/></svg></div>
+              <div class="ic ic-suppliers"><svg><use href="#i-gauge"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-users"><svg><use href="#i-user"/></svg></div>
+            </div>
+            <div class="pane">
+              <div class="topbar"><span>Anand K</span><span class="rolechip">Team Member</span></div>
+              <div class="main">
+                <div class="ph"><div><h1>Goods Receipt</h1><p>Every GRN is created open — attach each line to a PO as you receive it.</p></div><span class="btn">New GRN</span></div>
+                <div class="tabs"><span class="on">All GRNs</span><span>Pending Approval (2)</span><span>IRN Register</span></div>
+                <table class="t">
+                  <tr><th>GRN No.</th><th>Type</th><th>Vendor</th><th>Challan</th><th>Invoice</th><th>Lines</th><th>Received</th></tr>
+                  <tr><td class="strong">MRIN/2026-27/0091</td><td><span class="bd out">Purchase</span></td><td>Kirloskar Valves</td><td class="m">CH-4471</td><td class="m">KV/8823</td><td>3</td><td class="m">30 Aug 2026</td></tr>
+                  <tr><td class="strong">MRIN/2026-27/0090</td><td><span class="bd out">Purchase</span></td><td>Aqua Polymers</td><td class="m">2261</td><td class="m">—</td><td>1</td><td class="m">29 Aug 2026</td></tr>
+                  <tr><td class="strong">JWGRN/2026-27/0014</td><td><span class="bd sec">Job Work</span></td><td>Suparshva Steel Pvt Ltd</td><td class="m">SS-DC-190</td><td class="m">—</td><td>4</td><td class="m">28 Aug 2026</td></tr>
+                  <tr><td class="strong">MRIN/2026-27/0089</td><td><span class="bd out">Purchase</span></td><td>Suparshva Steel Pvt Ltd</td><td class="m">SS-1174</td><td class="m">SS/INV/552</td><td>2</td><td class="m">27 Aug 2026</td></tr>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Goods Receipt (<code>/grn</code>). GRN numbers print as "MRIN" (Material Receipt cum Inspection Note); job-work returns get a "JWGRN" series. A blank invoice notifies management.</figcaption>
+      </figure>
+    </div>
+
+    <!-- 5.8 Inspection -->
+    <h3>5.8&nbsp;&nbsp;Inspection (the quality gate)</h3>
+    <div class="feature">
+      <h4>No stock until it passes</h4>
+      <p>
+        If a component has an inspection checklist attached, its goods receipt does not create stock
+        directly. An inspection record is raised with the checklist answers, and the real stock line
+        &mdash; and therefore the QR lot &mdash; is created <strong>only when a manager approves</strong>
+        the inspection, with their signature. Rejected inspections can be re-submitted. Every
+        inspection, approved or rejected, is kept in a filterable register.
+      </p>
+      <p class="why"><span class="lbl">Why it matters</span>
+        Material that hasn't passed QC literally cannot be issued &mdash; as far as stock is
+        concerned it does not exist yet &mdash; and PO fulfilment never counts goods still sitting in
+        inspection.</p>
+      <figure>
+        <div class="appwin" data-nav="grn">
+          <div class="titlebar"><span class="d r"></span><span class="d y"></span><span class="d g"></span><span class="u">demo.arboreallabs.example / grn — Pending Approval</span></div>
+          <div class="body">
+            <div class="rail">
+              <div class="logo">AL</div>
+              <div class="ic ic-dash"><svg><use href="#i-dash"/></svg></div>
+              <div class="ic ic-masters"><svg><use href="#i-db"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-projects"><svg><use href="#i-folder"/></svg></div>
+              <div class="ic ic-requisitions"><svg><use href="#i-clip"/></svg></div>
+              <div class="ic ic-po"><svg><use href="#i-cart"/></svg></div>
+              <div class="ic ic-jobwork"><svg><use href="#i-box"/></svg></div>
+              <div class="ic ic-grn"><svg><use href="#i-boxcheck"/></svg></div>
+              <div class="ic ic-inventory"><svg><use href="#i-wh"/></svg></div>
+              <div class="ic ic-traceability"><svg><use href="#i-scan"/></svg></div>
+              <div class="ic ic-fg"><svg><use href="#i-box"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-reconciliation"><svg><use href="#i-alert"/></svg></div>
+              <div class="ic ic-suppliers"><svg><use href="#i-gauge"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-users"><svg><use href="#i-user"/></svg></div>
+            </div>
+            <div class="pane">
+              <div class="topbar"><span>Priya Nair</span><span class="rolechip">Team Lead</span></div>
+              <div class="main">
+                <div class="ph"><div><h1>Goods Receipt</h1></div></div>
+                <div class="tabs"><span>All GRNs</span><span class="on">Pending Approval (2)</span><span>IRN Register</span></div>
+                <div class="sh">Pending inspection approval</div>
+                <table class="t">
+                  <tr><th>IRN No.</th><th>GRN</th><th>Component</th><th>Qty</th><th>Checklist</th><th></th></tr>
+                  <tr><td class="strong">IRN/2026-27/0063</td><td class="m">MRIN/…/0091</td><td>TR-3600-VSL — FRP Vessel 3600</td><td>1</td><td class="m">Vessel QAP — 9 fields answered</td><td><span class="btn" style="font-size:9.5px">Approve</span> <span class="lnk">Reject</span></td></tr>
+                  <tr><td class="strong">IRN/2026-27/0062</td><td class="m">MRIN/…/0089</td><td>PL-MS-6MM — MS Plate 6 mm</td><td>240 kg</td><td class="m">MTC check — Heat No. TISCO-5521</td><td><span class="btn" style="font-size:9.5px">Approve</span> <span class="lnk">Reject</span></td></tr>
+                </table>
+                <p class="sub" style="margin-top:9px">Approving opens a signature dialog. The stock lot and its QR are generated only on approval.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Goods Receipt &rarr; Pending Approval (<code>/grn</code>). The IRN Register tab is the full audit list of every inspection &mdash; approved, pending or rejected, with the approver and any rejection reason.</figcaption>
+      </figure>
+    </div>
+
+    <!-- 5.9 Inventory -->
+    <h3>5.9&nbsp;&nbsp;Inventory</h3>
+    <div class="feature">
+      <h4>On-hand, from the ledger</h4>
+      <p>
+        The inventory list shows each component's quantity on hand, lot count, and (for finance
+        roles) value. The number is never entered &mdash; it is the sum of that lot's signed
+        movement rows. A component bought and then fully consumed still appears, at quantity zero,
+        so its history stays visible. One click builds an Excel export with a per-PO price
+        breakdown &mdash; vendor, rate, GST, PO number, GST/PAN &mdash; per component.
+      </p>
+      <p class="why"><span class="lbl">Why it matters</span>
+        Stock figures can't drift, because there is no figure to drift &mdash; only movements that
+        add up.</p>
+      <figure>
+        <div class="appwin" data-nav="inventory">
+          <div class="titlebar"><span class="d r"></span><span class="d y"></span><span class="d g"></span><span class="u">demo.arboreallabs.example / inventory</span></div>
+          <div class="body">
+            <div class="rail">
+              <div class="logo">AL</div>
+              <div class="ic ic-dash"><svg><use href="#i-dash"/></svg></div>
+              <div class="ic ic-masters"><svg><use href="#i-db"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-projects"><svg><use href="#i-folder"/></svg></div>
+              <div class="ic ic-requisitions"><svg><use href="#i-clip"/></svg></div>
+              <div class="ic ic-po"><svg><use href="#i-cart"/></svg></div>
+              <div class="ic ic-jobwork"><svg><use href="#i-box"/></svg></div>
+              <div class="ic ic-grn"><svg><use href="#i-boxcheck"/></svg></div>
+              <div class="ic ic-inventory"><svg><use href="#i-wh"/></svg></div>
+              <div class="ic ic-traceability"><svg><use href="#i-scan"/></svg></div>
+              <div class="ic ic-fg"><svg><use href="#i-box"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-reconciliation"><svg><use href="#i-alert"/></svg></div>
+              <div class="ic ic-suppliers"><svg><use href="#i-gauge"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-users"><svg><use href="#i-user"/></svg></div>
+            </div>
+            <div class="pane">
+              <div class="topbar"><span>Rahul Menon</span><span class="rolechip">Admin</span></div>
+              <div class="main">
+                <div class="ph"><div><h1>Inventory — On hand</h1></div></div>
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><div class="field" style="max-width:220px;margin:0">Search component no. or name…</div><span class="m" style="font-size:10.5px">124 of 124</span><span class="btn o" style="margin-left:auto">Download Excel</span></div>
+                <table class="t">
+                  <tr><th>Component</th><th>Name</th><th>UoM</th><th>On hand</th><th>Lots</th><th>Value</th></tr>
+                  <tr><td class="strong">MV-SS-1.5</td><td>SS Butterfly Valve 1.5&Prime;</td><td class="m">nos</td><td>18</td><td>3</td><td>₹ 33,750</td></tr>
+                  <tr><td class="strong">MEDIA-AC-25</td><td>Activated Carbon 25 kg</td><td class="m">bag</td><td>64</td><td>2</td><td>₹ 1,53,600</td></tr>
+                  <tr><td class="strong">PL-MS-6MM</td><td>MS Plate 6 mm</td><td class="m">kg</td><td>820</td><td>4</td><td>₹ 61,500</td></tr>
+                  <tr><td class="strong">PMP-CI-05</td><td>Centrifugal Pump 5 HP</td><td class="m">nos</td><td>0</td><td>0</td><td>₹ 0</td></tr>
+                  <tr><td class="strong">GSKT-EPDM-2</td><td>EPDM Gasket 2&Prime;</td><td class="m">nos</td><td>140</td><td>1</td><td>₹ 7,000</td></tr>
+                </table>
+                <p class="sub" style="margin-top:9px">PMP-CI-05 shows at 0 &mdash; it was purchased and fully consumed, so it stays visible with its history.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Inventory (<code>/inventory</code>). Each row opens a component view with Open / Issued / Consumed lots; each lot has its own page with a QR code and its full movement ledger.</figcaption>
+      </figure>
+    </div>
+
+    <!-- 5.10 Traceability -->
+    <h3>5.10&nbsp;&nbsp;Traceability</h3>
+    <div class="feature">
+      <h4>Scan any QR, see its whole life</h4>
+      <p>
+        Point the camera at a component's QR (or type its lot code) and get the full history &mdash;
+        which PO and supplier it came from, any job work it went through, its inspection record, and
+        every consumption against a project.
+      </p>
+      <p class="why"><span class="lbl">Why it matters</span>
+        When a customer or an auditor asks "where did this material come from", the answer is one
+        scan away.</p>
+      <figure>
+        <div class="appwin" data-nav="traceability">
+          <div class="titlebar"><span class="d r"></span><span class="d y"></span><span class="d g"></span><span class="u">demo.arboreallabs.example / traceability</span></div>
+          <div class="body">
+            <div class="rail">
+              <div class="logo">AL</div>
+              <div class="ic ic-dash"><svg><use href="#i-dash"/></svg></div>
+              <div class="ic ic-masters"><svg><use href="#i-db"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-projects"><svg><use href="#i-folder"/></svg></div>
+              <div class="ic ic-requisitions"><svg><use href="#i-clip"/></svg></div>
+              <div class="ic ic-po"><svg><use href="#i-cart"/></svg></div>
+              <div class="ic ic-jobwork"><svg><use href="#i-box"/></svg></div>
+              <div class="ic ic-grn"><svg><use href="#i-boxcheck"/></svg></div>
+              <div class="ic ic-inventory"><svg><use href="#i-wh"/></svg></div>
+              <div class="ic ic-traceability"><svg><use href="#i-scan"/></svg></div>
+              <div class="ic ic-fg"><svg><use href="#i-box"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-reconciliation"><svg><use href="#i-alert"/></svg></div>
+              <div class="ic ic-suppliers"><svg><use href="#i-gauge"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-users"><svg><use href="#i-user"/></svg></div>
+            </div>
+            <div class="pane">
+              <div class="topbar"><span>Anand K</span><span class="rolechip">Team Member</span></div>
+              <div class="main">
+                <div class="ph"><div><h1>Traceability</h1><p>Scan a component QR to see its full history — PO, supplier, job work, inspection and consumption.</p></div></div>
+                <div style="display:flex;gap:8px;margin-bottom:12px"><div class="field" style="flex:1;max-width:260px;margin:0">LOT-7F3A21</div><span class="btn">Scan QR</span><span class="btn o">Look up</span></div>
+                <div class="card p">
+                  <p class="strong" style="margin:0 0 2px">LOT-7F3A21 &mdash; PL-MS-6MM (MS Plate 6 mm)</p>
+                  <p class="m" style="margin:0 0 8px;font-size:10.5px">Bulk lot &middot; 240 kg received &middot; 120 kg on hand</p>
+                  <table class="t">
+                    <tr><th>Stage</th><th>Detail</th><th>Date</th></tr>
+                    <tr><td>Purchase</td><td>PO/2026-27/0038 &middot; Suparshva Steel Pvt Ltd &middot; ₹ 76/kg</td><td class="m">22 Aug 2026</td></tr>
+                    <tr><td>Goods receipt</td><td>MRIN/2026-27/0089 &middot; challan SS-1174</td><td class="m">27 Aug 2026</td></tr>
+                    <tr><td>Inspection</td><td>IRN/2026-27/0062 &middot; approved by Priya Nair &middot; Heat No. TISCO-5521</td><td class="m">27 Aug 2026</td></tr>
+                    <tr><td>Job work</td><td>JW/2026-27/0018 &middot; laser cut at Suparshva &middot; 120 kg sent</td><td class="m">28 Aug 2026</td></tr>
+                    <tr><td>Consumption</td><td>Issued to AL-2612 &middot; 0 kg remaining on this branch</td><td class="m">29 Aug 2026</td></tr>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Traceability (<code>/traceability</code>). One lookup spans purchasing, quality, job work and consumption for a single QR-tagged lot.</figcaption>
+      </figure>
+    </div>
+
+    <!-- 5.11 Finished Goods -->
+    <h3>5.11&nbsp;&nbsp;Finished Goods</h3>
+    <div class="feature">
+      <h4>Serialised units, in production to dispatched</h4>
+      <p>
+        Each completed unit gets a serial number and its own QR, is linked to the project line item
+        it fulfils, and moves through <strong>in production &rarr; ready &rarr; dispatched</strong>.
+        Shop staff see the status; managers change it.
+      </p>
+      <p class="why"><span class="lbl">Why it matters</span>
+        Warranty, service and recall all start from a serial number that ties back to the exact
+        build and its parts.</p>
+      <figure>
+        <div class="appwin" data-nav="fg">
+          <div class="titlebar"><span class="d r"></span><span class="d y"></span><span class="d g"></span><span class="u">demo.arboreallabs.example / finished-goods</span></div>
+          <div class="body">
+            <div class="rail">
+              <div class="logo">AL</div>
+              <div class="ic ic-dash"><svg><use href="#i-dash"/></svg></div>
+              <div class="ic ic-masters"><svg><use href="#i-db"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-projects"><svg><use href="#i-folder"/></svg></div>
+              <div class="ic ic-requisitions"><svg><use href="#i-clip"/></svg></div>
+              <div class="ic ic-po"><svg><use href="#i-cart"/></svg></div>
+              <div class="ic ic-jobwork"><svg><use href="#i-box"/></svg></div>
+              <div class="ic ic-grn"><svg><use href="#i-boxcheck"/></svg></div>
+              <div class="ic ic-inventory"><svg><use href="#i-wh"/></svg></div>
+              <div class="ic ic-traceability"><svg><use href="#i-scan"/></svg></div>
+              <div class="ic ic-fg"><svg><use href="#i-box"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-reconciliation"><svg><use href="#i-alert"/></svg></div>
+              <div class="ic ic-suppliers"><svg><use href="#i-gauge"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-users"><svg><use href="#i-user"/></svg></div>
+            </div>
+            <div class="pane">
+              <div class="topbar"><span>Rahul Menon</span><span class="rolechip">Admin</span></div>
+              <div class="main">
+                <div class="ph"><div><h1>Finished Goods</h1><p>Completed units, each with a serial and a QR.</p></div><span class="btn">New unit</span></div>
+                <table class="t">
+                  <tr><th>Serial No.</th><th>Product</th><th>Project</th><th>Status</th></tr>
+                  <tr><td class="strong mono">AL-T36-2609-01</td><td>Triton 3600</td><td><span class="lnk">AL-2607</span> — Coastal Beverages</td><td><span class="bd ok">ready</span></td></tr>
+                  <tr><td class="strong mono">AL-T36-2609-02</td><td>Triton 3600</td><td><span class="lnk">AL-2607</span> — Coastal Beverages</td><td><span class="bd def">in production</span></td></tr>
+                  <tr><td class="strong mono">AL-MF12-2555-01</td><td>Media Filter 1200</td><td><span class="lnk">AL-2555</span> — Sahyadri Foods</td><td><span class="bd sec">dispatched</span></td></tr>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Finished Goods (<code>/finished-goods</code>). Status is an inline dropdown for managers; Team Members see it as read-only text.</figcaption>
+      </figure>
+    </div>
+
+    <!-- 5.12 Action Center -->
+    <h3>5.12&nbsp;&nbsp;Action Center</h3>
+    <div class="feature">
+      <h4>Six live checks against the ledger</h4>
+      <p>
+        One screen surfaces discrepancies as they arise: BOM vs ordered vs received variance,
+        receipts with no PO, BOM demand never ordered, stock untouched for over 60 days, overdue PO
+        lines, and invoice value vs PO value. Each is a database view &mdash; always current &mdash;
+        and each section shows a green "all clear" when empty.
+      </p>
+      <p class="why"><span class="lbl">Why it matters</span>
+        The problems that usually surface at stock-take or audit surface here the day they happen,
+        with a link straight to the fix.</p>
+      <figure>
+        <div class="appwin" data-nav="reconciliation">
+          <div class="titlebar"><span class="d r"></span><span class="d y"></span><span class="d g"></span><span class="u">demo.arboreallabs.example / reconciliation</span></div>
+          <div class="body">
+            <div class="rail">
+              <div class="logo">AL</div>
+              <div class="ic ic-dash"><svg><use href="#i-dash"/></svg></div>
+              <div class="ic ic-masters"><svg><use href="#i-db"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-projects"><svg><use href="#i-folder"/></svg></div>
+              <div class="ic ic-requisitions"><svg><use href="#i-clip"/></svg></div>
+              <div class="ic ic-po"><svg><use href="#i-cart"/></svg></div>
+              <div class="ic ic-jobwork"><svg><use href="#i-box"/></svg></div>
+              <div class="ic ic-grn"><svg><use href="#i-boxcheck"/></svg></div>
+              <div class="ic ic-inventory"><svg><use href="#i-wh"/></svg></div>
+              <div class="ic ic-traceability"><svg><use href="#i-scan"/></svg></div>
+              <div class="ic ic-fg"><svg><use href="#i-box"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-reconciliation"><svg><use href="#i-alert"/></svg></div>
+              <div class="ic ic-suppliers"><svg><use href="#i-gauge"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-users"><svg><use href="#i-user"/></svg></div>
+            </div>
+            <div class="pane">
+              <div class="topbar"><span>Rahul Menon</span><span class="rolechip">Admin</span></div>
+              <div class="main">
+                <div class="ph"><div><h1>Action Center</h1><p>Live discrepancy checks off the ledger — visible without asking anyone to update Excel.</p></div></div>
+                <div class="cards g6">
+                  <div class="card p"><p class="stat-l">BOM variance</p><p class="stat-v amber" style="font-size:16px">4</p></div>
+                  <div class="card p"><p class="stat-l">Untagged receipts</p><p class="stat-v amber" style="font-size:16px">3</p></div>
+                  <div class="card p"><p class="stat-l">Missing PO</p><p class="stat-v green" style="font-size:16px">0</p></div>
+                  <div class="card p"><p class="stat-l">Stale stock</p><p class="stat-v amber" style="font-size:16px">6</p></div>
+                  <div class="card p"><p class="stat-l">PO overdue</p><p class="stat-v amber" style="font-size:16px">2</p></div>
+                  <div class="card p"><p class="stat-l">Invoice vs PO</p><p class="stat-v amber" style="font-size:16px">1</p></div>
+                </div>
+                <div class="sh">BOM vs Ordered vs Received variance</div>
+                <table class="t">
+                  <tr><th>Project</th><th>Component</th><th>Required</th><th>Ordered</th><th>Received</th><th>Order gap</th><th>Receive gap</th></tr>
+                  <tr><td><span class="lnk">AL-2612</span></td><td class="strong">PMP-CI-07 — Pump 7.5 HP</td><td>1</td><td>0</td><td>0</td><td><span class="bd warn">1</span></td><td>—</td></tr>
+                  <tr><td><span class="lnk">AL-2612</span></td><td class="strong">MV-SS-1.5 — SS Valve 1.5&Prime;</td><td>6</td><td>6</td><td>2</td><td>—</td><td><span class="bd sec">4</span></td></tr>
+                  <tr><td><span class="lnk">AL-2559</span></td><td class="strong">MEDIA-AC-25 — Activated Carbon</td><td>24</td><td>12</td><td>12</td><td><span class="bd warn">12</span></td><td>—</td></tr>
+                </table>
+                <div class="sh">Missing PO (BOM demand not yet ordered)</div>
+                <div class="clear">&check; All clear.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Action Center (<code>/reconciliation</code>). Each of the six checks jumps to its own section; the "untagged receipts" section lets a manager tag a GRN line to a project inline.</figcaption>
+      </figure>
+    </div>
+
+    <!-- 5.13 Supplier KPIs -->
+    <h3>5.13&nbsp;&nbsp;Supplier KPIs</h3>
+    <div class="feature">
+      <h4>A scorecard per vendor</h4>
+      <p>
+        Total, open and completed POs; percentage of lines fulfilled; percentage delivered on time;
+        average lead time in days; and the vendor rating &mdash; all built from the same PO and
+        goods-receipt data the rest of the system runs on.
+      </p>
+      <p class="why"><span class="lbl">Why it matters</span>
+        Supplier reviews backed by your own transaction history, not impressions.</p>
+      <figure>
+        <div class="appwin" data-nav="suppliers">
+          <div class="titlebar"><span class="d r"></span><span class="d y"></span><span class="d g"></span><span class="u">demo.arboreallabs.example / suppliers</span></div>
+          <div class="body">
+            <div class="rail">
+              <div class="logo">AL</div>
+              <div class="ic ic-dash"><svg><use href="#i-dash"/></svg></div>
+              <div class="ic ic-masters"><svg><use href="#i-db"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-projects"><svg><use href="#i-folder"/></svg></div>
+              <div class="ic ic-requisitions"><svg><use href="#i-clip"/></svg></div>
+              <div class="ic ic-po"><svg><use href="#i-cart"/></svg></div>
+              <div class="ic ic-jobwork"><svg><use href="#i-box"/></svg></div>
+              <div class="ic ic-grn"><svg><use href="#i-boxcheck"/></svg></div>
+              <div class="ic ic-inventory"><svg><use href="#i-wh"/></svg></div>
+              <div class="ic ic-traceability"><svg><use href="#i-scan"/></svg></div>
+              <div class="ic ic-fg"><svg><use href="#i-box"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-reconciliation"><svg><use href="#i-alert"/></svg></div>
+              <div class="ic ic-suppliers"><svg><use href="#i-gauge"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-users"><svg><use href="#i-user"/></svg></div>
+            </div>
+            <div class="pane">
+              <div class="topbar"><span>Rahul Menon</span><span class="rolechip">Admin</span></div>
+              <div class="main">
+                <div class="ph"><div><h1>Supplier KPIs</h1><p>Vendor scorecard from purchase-order and goods-receipt history.</p></div></div>
+                <table class="t">
+                  <tr><th>Vendor</th><th>POs</th><th>Open</th><th>Fulfilled lines</th><th>On time</th><th>Avg lead</th><th>Rating</th></tr>
+                  <tr><td class="strong lnk">Suparshva Steel Pvt Ltd</td><td>34</td><td>4</td><td>92%</td><td>81%</td><td>9 d</td><td>4.4</td></tr>
+                  <tr><td class="strong lnk">Kirloskar Valves</td><td>18</td><td>2</td><td>97%</td><td>94%</td><td>6 d</td><td>4.7</td></tr>
+                  <tr><td class="strong lnk">Aqua Polymers</td><td>11</td><td>1</td><td>88%</td><td>70%</td><td>14 d</td><td>3.9</td></tr>
+                  <tr><td class="strong lnk">Grundfos India</td><td>7</td><td>0</td><td>100%</td><td>100%</td><td>5 d</td><td>4.9</td></tr>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Supplier KPIs (<code>/suppliers</code>). Each vendor name links to its Master Data record and its component price list.</figcaption>
+      </figure>
+    </div>
+
+    <!-- 5.14 Users -->
+    <h3>5.14&nbsp;&nbsp;Users &amp; activity log</h3>
+    <div class="feature">
+      <h4>Admin-provisioned accounts, one activity log for everything</h4>
+      <p>
+        There is no public sign-up. An admin creates each account with a name, email, temporary
+        password and role. Deactivating an account &mdash; not deleting it &mdash; removes access
+        while keeping history intact. The <strong>Log</strong> tab is a unified feed across record
+        changes, stock movements, signatures and notifications; the record-change half is written by
+        a database trigger, so it captures a direct database edit just as it captures an in-app one.
+      </p>
+      <p class="why"><span class="lbl">Why it matters</span>
+        "Who changed this, and when" always has an answer, and it can't be sidestepped by going
+        around the app.</p>
+      <figure>
+        <div class="appwin" data-nav="users">
+          <div class="titlebar"><span class="d r"></span><span class="d y"></span><span class="d g"></span><span class="u">demo.arboreallabs.example / admin / users</span></div>
+          <div class="body">
+            <div class="rail">
+              <div class="logo">AL</div>
+              <div class="ic ic-dash"><svg><use href="#i-dash"/></svg></div>
+              <div class="ic ic-masters"><svg><use href="#i-db"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-projects"><svg><use href="#i-folder"/></svg></div>
+              <div class="ic ic-requisitions"><svg><use href="#i-clip"/></svg></div>
+              <div class="ic ic-po"><svg><use href="#i-cart"/></svg></div>
+              <div class="ic ic-jobwork"><svg><use href="#i-box"/></svg></div>
+              <div class="ic ic-grn"><svg><use href="#i-boxcheck"/></svg></div>
+              <div class="ic ic-inventory"><svg><use href="#i-wh"/></svg></div>
+              <div class="ic ic-traceability"><svg><use href="#i-scan"/></svg></div>
+              <div class="ic ic-fg"><svg><use href="#i-box"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-reconciliation"><svg><use href="#i-alert"/></svg></div>
+              <div class="ic ic-suppliers"><svg><use href="#i-gauge"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-users"><svg><use href="#i-user"/></svg></div>
+            </div>
+            <div class="pane">
+              <div class="topbar"><span>Rahul Menon</span><span class="rolechip">Admin</span></div>
+              <div class="main">
+                <div class="ph"><div><h1>Users</h1><p>Provision sign-ins and assign roles. There is no public signup.</p></div><span class="btn">Add user</span></div>
+                <div class="tabs"><span class="on">Users</span><span>Log</span></div>
+                <table class="t">
+                  <tr><th>Name</th><th>Email</th><th>Role</th><th>Active</th></tr>
+                  <tr><td class="strong">Rahul Menon</td><td class="m">rahul@arboreallabs.example</td><td><span class="bd def">Admin</span></td><td><span class="bd ok">yes</span></td></tr>
+                  <tr><td class="strong">Deepa Rao</td><td class="m">deepa@arboreallabs.example</td><td><span class="bd def">Founder</span></td><td><span class="bd ok">yes</span></td></tr>
+                  <tr><td class="strong">Priya Nair</td><td class="m">priya@arboreallabs.example</td><td><span class="bd def">Team Lead</span></td><td><span class="bd ok">yes</span></td></tr>
+                  <tr><td class="strong">Anand K</td><td class="m">anand@arboreallabs.example</td><td><span class="bd def">Team Member</span></td><td><span class="bd ok">yes</span></td></tr>
+                  <tr><td class="strong">Suresh P</td><td class="m">suresh@arboreallabs.example</td><td><span class="bd def">Team Member</span></td><td><span class="bd sec">no</span></td></tr>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Admin &rarr; Users (<code>/admin/users</code>). Only Admin and Founder can reach this screen; the Founder sees just the Log tab.</figcaption>
+      </figure>
+    </div>
+
+    <!-- 5.15 Signature -->
+    <h3>5.15&nbsp;&nbsp;My Signature</h3>
+    <div class="feature">
+      <h4>One signature, used everywhere you sign off</h4>
+      <p>
+        Each person sets up a signature once &mdash; typed in a chosen font, or drawn &mdash; and
+        picks a default. It is then used to sign purchase orders, goods receipts and job-work
+        orders, and to approve prices and inspections. Every approval dialog checks you have one and
+        prompts you to create it if not.
+      </p>
+      <p class="why"><span class="lbl">Why it matters</span>
+        A document's signing state always knows who has signed, who is next, and &mdash; if it is
+        stuck &mdash; exactly whose signature it is waiting on.</p>
+      <figure>
+        <div class="appwin">
+          <div class="titlebar"><span class="d r"></span><span class="d y"></span><span class="d g"></span><span class="u">demo.arboreallabs.example / account / signature</span></div>
+          <div class="body">
+            <div class="rail">
+              <div class="logo">AL</div>
+              <div class="ic ic-dash"><svg><use href="#i-dash"/></svg></div>
+              <div class="ic ic-masters"><svg><use href="#i-db"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-projects"><svg><use href="#i-folder"/></svg></div>
+              <div class="ic ic-requisitions"><svg><use href="#i-clip"/></svg></div>
+              <div class="ic ic-po"><svg><use href="#i-cart"/></svg></div>
+              <div class="ic ic-jobwork"><svg><use href="#i-box"/></svg></div>
+              <div class="ic ic-grn"><svg><use href="#i-boxcheck"/></svg></div>
+              <div class="ic ic-inventory"><svg><use href="#i-wh"/></svg></div>
+              <div class="ic ic-traceability"><svg><use href="#i-scan"/></svg></div>
+              <div class="ic ic-fg"><svg><use href="#i-box"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-reconciliation"><svg><use href="#i-alert"/></svg></div>
+              <div class="ic ic-suppliers"><svg><use href="#i-gauge"/></svg></div>
+              <div class="sep"></div>
+              <div class="ic ic-users"><svg><use href="#i-user"/></svg></div>
+            </div>
+            <div class="pane">
+              <div class="topbar"><span>Priya Nair</span><span class="rolechip">Team Lead</span></div>
+              <div class="main">
+                <div class="ph"><div><h1>My Signature</h1><p>Saved here, used to sign off Purchase Orders, GRNs and Job-Work orders.</p></div></div>
+                <div class="cards g2">
+                  <div class="card p">
+                    <p class="stat-l" style="margin:0 0 6px">New signature</p>
+                    <div class="tabs" style="margin-bottom:8px"><span class="on">Type</span><span>Draw</span></div>
+                    <div class="sig"><span class="signame">Priya Nair</span></div>
+                    <p style="margin:9px 0 0"><span class="btn">Save signature</span></p>
+                  </div>
+                  <div class="card p">
+                    <p class="stat-l" style="margin:0 0 6px">Saved</p>
+                    <table class="t">
+                      <tr><th>Signature</th><th>Default</th><th></th></tr>
+                      <tr><td class="signame" style="font-size:16px">Priya Nair</td><td><span class="bd ok">default</span></td><td class="m">rename · delete</td></tr>
+                      <tr><td class="signame" style="font-size:16px">P. Nair</td><td class="m">—</td><td class="m">set default · delete</td></tr>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Account &rarr; My Signature (<code>/account/signature</code>). One default per user, enforced in the database.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ===================== 6 ===================== -->
+  <section id="s6">
+    <h2><span class="s-num">6</span>The backbone: one ledger, one audit trail</h2>
+    <p>Everything above rests on two mechanisms &mdash; worth understanding on their own because they are what make the numbers trustworthy.</p>
+
+    <h3>The stock-movement ledger</h3>
+    <p>
+      Stock quantity is <strong>never stored as a number you can edit</strong>. Every receipt,
+      issue, adjustment, transfer and return is a signed row &mdash; positive or negative &mdash; in
+      one append-only table. A lot's quantity on hand is the sum of its rows, recomputed after every
+      change. Consuming stock adds a negative row; correcting a mistake adds a compensating row. The
+      history is never rewritten. The lot page below shows the ledger for one QR-tagged lot.
+    </p>
+    <figure>
+      <div class="appwin" data-nav="inventory">
+        <div class="titlebar"><span class="d r"></span><span class="d y"></span><span class="d g"></span><span class="u">demo.arboreallabs.example / inventory / lots / LOT-7F3A21</span></div>
+        <div class="body">
+          <div class="rail">
+            <div class="logo">AL</div>
+            <div class="ic ic-dash"><svg><use href="#i-dash"/></svg></div>
+            <div class="ic ic-masters"><svg><use href="#i-db"/></svg></div>
+            <div class="sep"></div>
+            <div class="ic ic-projects"><svg><use href="#i-folder"/></svg></div>
+            <div class="ic ic-requisitions"><svg><use href="#i-clip"/></svg></div>
+            <div class="ic ic-po"><svg><use href="#i-cart"/></svg></div>
+            <div class="ic ic-jobwork"><svg><use href="#i-box"/></svg></div>
+            <div class="ic ic-grn"><svg><use href="#i-boxcheck"/></svg></div>
+            <div class="ic ic-inventory"><svg><use href="#i-wh"/></svg></div>
+            <div class="ic ic-traceability"><svg><use href="#i-scan"/></svg></div>
+            <div class="ic ic-fg"><svg><use href="#i-box"/></svg></div>
+            <div class="sep"></div>
+            <div class="ic ic-reconciliation"><svg><use href="#i-alert"/></svg></div>
+            <div class="ic ic-suppliers"><svg><use href="#i-gauge"/></svg></div>
+            <div class="sep"></div>
+            <div class="ic ic-users"><svg><use href="#i-user"/></svg></div>
+          </div>
+          <div class="pane">
+            <div class="topbar"><span>Rahul Menon</span><span class="rolechip">Admin</span></div>
+            <div class="main">
+              <div class="ph"><div><h1>LOT-7F3A21</h1><p>PL-MS-6MM — MS Plate 6 mm · bulk lot · status: available</p></div></div>
+              <div class="cards g3" style="margin-bottom:10px">
+                <div class="card p"><p class="stat-l">Received</p><p class="stat-v" style="font-size:15px">240 kg</p></div>
+                <div class="card p"><p class="stat-l">On hand</p><p class="stat-v" style="font-size:15px">120 kg</p></div>
+                <div class="card p"><p class="stat-l">Unit cost</p><p class="stat-v" style="font-size:15px">₹ 76.00</p></div>
+              </div>
+              <div class="sh">Movement ledger</div>
+              <table class="t">
+                <tr><th>Date</th><th>Type</th><th>Qty</th><th>Project</th><th>Reference</th><th>By</th></tr>
+                <tr><td class="m">27 Aug 2026</td><td><span class="bd ok">receipt</span></td><td class="strong">+240</td><td class="m">—</td><td class="m">MRIN/…/0089</td><td class="m">Anand K</td></tr>
+                <tr><td class="m">28 Aug 2026</td><td><span class="bd sec">job_work</span></td><td class="strong">−120</td><td class="m">AL-2612</td><td class="m">JW/…/0018</td><td class="m">Priya Nair</td></tr>
+                <tr><td class="m">29 Aug 2026</td><td><span class="bd warn">adjustment</span></td><td class="strong">−2</td><td class="m">—</td><td class="m">stock-take</td><td class="m">Rahul Menon</td></tr>
+                <tr><td class="m">29 Aug 2026</td><td><span class="bd sec">return</span></td><td class="strong">+2</td><td class="m">—</td><td class="m">reverse adj.</td><td class="m">Rahul Menon</td></tr>
+              </table>
+              <p class="sub" style="margin-top:9px">On hand (120) = sum of the signed rows. Nothing here is editable; a correction is another row.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <figcaption>Lot detail (<code>/inventory/lots/[id]</code>). The on-hand figure is the arithmetic sum of this immutable ledger &mdash; there is no separate stored quantity to fall out of step.</figcaption>
+    </figure>
+
+    <h3>The audit log</h3>
+    <p>
+      A generic trigger on around fifteen core tables writes an insert / update / delete diff to one
+      audit table &mdash; the old values, the new values, who, and when. Because it lives in the
+      database, it records a change made with a SQL client exactly as it records one made in the
+      app. That feed is what the <strong>Log</strong> tab under Admin &rarr; Users shows. Combined
+      with QR lot codes tying physical stock to the record, this is what lets any quantity or any
+      edit be traced back to its cause.
+    </p>
+  </section>
+
+  <!-- ===================== 7 ===================== -->
+  <section id="s7">
+    <h2><span class="s-num">7</span>Security &amp; access control</h2>
+    <p>Access rules are enforced in the database, not just the interface, so they hold no matter how the data is reached:</p>
+    <ul>
+      <li><strong>Row-level security on every table.</strong> A signed-in user only sees the rows their role and project access allow.</li>
+      <li><strong>Sensitive writes go through vetted procedures.</strong> Inspections, signatures, price approvals and the audit log have no direct write access at all &mdash; every change runs through a security-checked database function.</li>
+      <li><strong>Column-masked views for non-finance staff.</strong> A Team Member's queries return "safe" views with the cost columns removed &mdash; visible in the screens above, where the Team Member's Inventory and Components lists carry no value column.</li>
+      <li><strong>No public sign-up.</strong> Accounts are provisioned by an admin; access is removed by deactivation, which preserves history.</li>
+    </ul>
+  </section>
+
+  <!-- ===================== 8 ===================== -->
+  <section id="s8">
+    <h2><span class="s-num">8</span>Technology</h2>
+    <p>
+      The system is a web application. There is nothing to install &mdash; it runs in any modern
+      browser on a phone, tablet or desktop, and the QR scanning uses the device camera. It is built
+      on <strong>Next.js 15</strong> and <strong>React 19</strong>, with <strong>Supabase
+      (PostgreSQL)</strong> for the database, authentication and row-level security. Excel export and
+      QR generation are built in; there are no third-party services in the data path.
+    </p>
+    <p>
+      The database is defined as a numbered sequence of migration files &mdash; roughly eighty of
+      them &mdash; so the entire schema and every business rule in it is version-controlled and
+      reviewable, and a new environment is built by replaying them in order.
+    </p>
+  </section>
+
+  <!-- ===================== 9 ===================== -->
+  <section id="s9">
+    <h2><span class="s-num">9</span>Adapting it to your business</h2>
+    <p>
+      A rough map of what "fitting the system to you" looks like. The left column is the first
+      client today; the right is where each item comes from for a different business.
+    </p>
+    <div class="wrap">
+      <table class="tbl">
+        <thead><tr><th>Dimension</th><th>The first client today</th><th>For your business</th></tr></thead>
+        <tbody>
+          <tr><td>Products</td><td>Configurable water-treatment systems</td><td>Your product families &mdash; set up as master data</td></tr>
+          <tr><td>Bill of materials</td><td>Annotated-BOM sheet, variant-driven by system options</td><td>Your templates and option rules &mdash; or no BOM at all for a distributor</td></tr>
+          <tr><td>Incoming inspection</td><td>Their fixed-format inspection sheet</td><td>Your checklists per component &mdash; configuration; the print layout is fitted</td></tr>
+          <tr><td>Stock tracking</td><td>Per-piece QR, per-box QR, and measured bulk</td><td>Chosen per part &mdash; configuration</td></tr>
+          <tr><td>Document layouts</td><td>Their PO template and terms block</td><td>Your letterhead and terms &mdash; adapted in the build</td></tr>
+          <tr><td>Approval chain</td><td>Creator + configured slot-2 / slot-3 approvers</td><td>Your approvers per document type &mdash; configuration</td></tr>
+          <tr><td>Phase names &amp; gates</td><td>planning &rarr; doc approval &rarr; &hellip; &rarr; closed</td><td>Renamed / re-gated in the build if your flow differs</td></tr>
+          <tr><td>Numbering</td><td><code>JW/2026-27/0001</code>, fiscal-year based</td><td>Your prefixes and scheme &mdash; adapted in the build</td></tr>
+          <tr><td>A step unique to you</td><td>&mdash;</td><td>A new module / screen, added to the same foundation</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <p>
+        The foundation &mdash; the ledger, the audit trail, roles and row-level security, the
+        signature engine, QR lots, the reconciliation views &mdash; stays the same. What changes is
+        the shape of the process laid on top of it, and that shape is yours.
+      </p>
+    </div>
+  </section>
+
+  <!-- ===================== A ===================== -->
+  <section id="sa">
+    <h2><span class="s-num">A</span>Appendix A &mdash; Module list</h2>
+    <div class="wrap">
+      <table class="tbl">
+        <thead><tr><th>Area</th><th>Module</th><th>In one line</th></tr></thead>
+        <tbody>
+          <tr><td>Overview</td><td>Dashboard</td><td>Live operations snapshot straight off the ledger</td></tr>
+          <tr><td>Overview</td><td>Master Data</td><td>Products, components, BOM templates, vendors, inspection templates, approval rights</td></tr>
+          <tr><td>Operations</td><td>Projects / Orders</td><td>Customer orders, phases, per-project BOM, costing, shortfall, reports</td></tr>
+          <tr><td>Operations</td><td>Requisitions</td><td>Tracked demand; issue and scan-to-consume stock</td></tr>
+          <tr><td>Operations</td><td>Purchase Orders</td><td>Price approval, signature chain, revisions, untagged worklist</td></tr>
+          <tr><td>Operations</td><td>Job Work</td><td>Send raw stock out, receive finished parts, carry the process cost</td></tr>
+          <tr><td>Operations</td><td>Goods Receipt</td><td>Receive against a PO; challan/invoice; auto lot creation</td></tr>
+          <tr><td>Operations</td><td>Inventory</td><td>On-hand from the ledger, QR lots, valuation and Excel export</td></tr>
+          <tr><td>Operations</td><td>Traceability</td><td>Scan a QR for the full history of a lot</td></tr>
+          <tr><td>Operations</td><td>Finished Goods</td><td>Serialised units, in production &rarr; ready &rarr; dispatched</td></tr>
+          <tr><td>Insight</td><td>Action Center</td><td>Six live discrepancy checks against the ledger</td></tr>
+          <tr><td>Insight</td><td>Supplier KPIs</td><td>Fulfilment %, on-time %, lead time and rating per vendor</td></tr>
+          <tr><td>Admin</td><td>Users</td><td>Provision accounts, assign roles, deactivate; unified activity log</td></tr>
+          <tr><td>Account</td><td>My Signature</td><td>Typed or drawn signature, used across all sign-offs</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===================== B ===================== -->
+  <section id="sb">
+    <h2><span class="s-num">B</span>Appendix B &mdash; Glossary</h2>
+    <dl class="glossary">
+      <dt>BOM &mdash; Bill of Materials</dt>
+      <dd>The list of parts and quantities that go into a product or a job. A <em>template</em> BOM is reusable per product; a <em>project</em> BOM is the expanded, agreed list for one order.</dd>
+      <dt>GRN &mdash; Goods Receipt Note</dt>
+      <dd>The record of a delivery arriving, entered against the purchase order, line by line. Printed as "MRIN" in the first client's deployment.</dd>
+      <dt>IRN &mdash; the inspection record</dt>
+      <dd>An incoming-inspection checklist result. Where a component requires one, no stock is created until the IRN is approved with a signature.</dd>
+      <dt>Lot / QR lot</dt>
+      <dd>A tracked unit of stock &mdash; a piece, a box, or a measured batch &mdash; identified by a QR code. Its quantity is the sum of its ledger movements.</dd>
+      <dt>Ledger (stock movements)</dt>
+      <dd>The append-only table of every signed quantity change. The single source of truth for on-hand stock.</dd>
+      <dt>Requisition</dt>
+      <dd>A tracked internal demand (an indent), usually tagged to a project, closed out by ordering or issuing against it.</dd>
+      <dt>Job work</dt>
+      <dd>An outsourced process step: raw stock is sent to a vendor and the finished part received back, its cost = raw + process rate.</dd>
+      <dt>Untagged receipt</dt>
+      <dd>Goods received without a project tag. Flagged on a worklist so they can be assigned later.</dd>
+      <dt>Tracking mode</dt>
+      <dd>How a component's stock is counted and QR-labelled: <em>item</em> (one QR per piece), <em>box</em> (one QR per container), or <em>bulk</em> (one measured lot).</dd>
+      <dt>Blocked / issued stock</dt>
+      <dd>A lot reserved exclusively to one project. Another project cannot consume it.</dd>
+      <dt>Shortfall</dt>
+      <dd>What a project's approved BOM still needs after accounting for stock on hand, open orders, and material sent to job work.</dd>
+      <dt>Site purchase</dt>
+      <dd>A small local buy that is purchased and consumed in one step, logged for costing without entering the store.</dd>
+      <dt>Revision</dt>
+      <dd>A new version of a PO or job-work order created when the original has already been sent. The original is preserved and marked superseded.</dd>
+      <dt>Signature chain</dt>
+      <dd>The ordered set of signers a document needs &mdash; creator first, then configured approvers &mdash; before it can be sent or printed.</dd>
+    </dl>
+  </section>
+
+  </main>
+
+  <footer>
+    Arboreal Labs IMS &mdash; system overview and demo. Every screen shown is a faithful
+    reproduction of the application's real layout, populated with invented sample data; no real
+    company's data is shown. Prepared by Arboreal Labs, August 2026.
+  </footer>
+
+</div>
+
+<script>
+  (function () {
+    var root = document.documentElement;
+    var btn = document.getElementById("themeToggle");
+    var stored = null;
+    try { stored = localStorage.getItem("ims-overview-theme"); } catch (e) {}
+    if (stored === "light" || stored === "dark") root.setAttribute("data-theme", stored);
+    function label() {
+      var explicit = root.getAttribute("data-theme");
+      var dark = explicit ? explicit === "dark"
+        : window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      btn.textContent = dark ? "Light mode" : "Dark mode";
+    }
+    label();
+    btn.addEventListener("click", function () {
+      var explicit = root.getAttribute("data-theme");
+      var dark = explicit ? explicit === "dark"
+        : window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      var next = dark ? "light" : "dark";
+      root.setAttribute("data-theme", next);
+      try { localStorage.setItem("ims-overview-theme", next); } catch (e) {}
+      label();
+    });
+    if (window.matchMedia) {
+      window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", label);
+    }
+  })();
+</script>
+</body>
+</html>
