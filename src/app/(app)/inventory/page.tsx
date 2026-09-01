@@ -21,17 +21,30 @@ export default async function InventoryPage() {
 
   const totalValue = finance ? allComponents.reduce((s, r) => s + Number(r.stock_value ?? 0), 0) : null;
 
-  // ---- Vendor / price / PO breakdown per component (for the Excel export) ----
-  const { data: lots } = await supabase
-    .from("inventory_lots")
-    .select("id, component_id, vendor_id, qty_on_hand, qty_initial, unit_cost, grn_line_id")
-    .neq("status", "consumed");
+  const componentIds = allComponents.map((c) => c.component_id);
+
+  // ---- Vendor / price / PO / GRN breakdown per component (for the Excel export) ----
+  // Consumed lots are included on purpose: a fully-consumed component must still show its
+  // real received qty, vendor, PO and GRN in the export (Balance just reads 0).
+  const { data: lots } = componentIds.length
+    ? await supabase
+        .from("inventory_lots")
+        .select("id, component_id, vendor_id, qty_on_hand, qty_initial, unit_cost, grn_line_id")
+        .in("component_id", componentIds)
+    : { data: [] };
 
   const grnLineIds = [...new Set((lots ?? []).map((l) => l.grn_line_id).filter((v): v is string => !!v))];
   const { data: grnLines } = grnLineIds.length
-    ? await supabase.from("grn_lines").select("id, po_line_id").in("id", grnLineIds)
+    ? await supabase.from("grn_lines").select("id, po_line_id, grn_id").in("id", grnLineIds)
     : { data: [] };
   const poLineIdByGrnLine = new Map((grnLines ?? []).map((g) => [g.id, g.po_line_id]));
+  const grnIdByGrnLine = new Map((grnLines ?? []).map((g) => [g.id, g.grn_id]));
+
+  const grnIds = [...new Set((grnLines ?? []).map((g) => g.grn_id).filter((v): v is string => !!v))];
+  const { data: grns } = grnIds.length
+    ? await supabase.from("grns").select("id, grn_no").in("id", grnIds)
+    : { data: [] };
+  const grnNoById = new Map((grns ?? []).map((g) => [g.id, g.grn_no]));
 
   const poLineIds = [...new Set((grnLines ?? []).map((g) => g.po_line_id).filter((v): v is string => !!v))];
   const { data: poLines } = poLineIds.length
@@ -45,7 +58,22 @@ export default async function InventoryPage() {
     : { data: [] };
   const poById = new Map((purchaseOrders ?? []).map((p) => [p.id, p]));
 
-  const projectIds = [...new Set((poLines ?? []).map((p) => p.project_id).filter((v): v is string => !!v))];
+  // Which project(s) each component was actually *consumed* on — from the issue/return
+  // ledger, netted, independent of the PO the stock was ordered against. Powers the
+  // "Consumed on Project" column in the Excel export.
+  const { data: consumption } = componentIds.length
+    ? await supabase
+        .from("v_project_consumption")
+        .select("project_id, component_id, consumed_qty")
+        .in("component_id", componentIds)
+    : { data: [] };
+
+  const projectIds = [
+    ...new Set([
+      ...(poLines ?? []).map((p) => p.project_id).filter((v): v is string => !!v),
+      ...(consumption ?? []).map((c) => c.project_id).filter((v): v is string => !!v),
+    ]),
+  ];
   const { data: projects } = projectIds.length
     ? await supabase.from("projects").select("id, project_no").in("id", projectIds)
     : { data: [] };
@@ -59,12 +87,13 @@ export default async function InventoryPage() {
 
   // Group lots per component into receipt-groups: one entry per distinct po_line
   // (or per distinct vendor+rate for lots with no traceable PO, e.g. site purchases).
-  const groupsByComponent = new Map<string, Map<string, { vendorId: string | null; rate: number | null; poLineId: string | null; qtyReceived: number; qtyBalance: number }>>();
+  const groupsByComponent = new Map<string, Map<string, { vendorId: string | null; rate: number | null; poLineId: string | null; qtyReceived: number; qtyBalance: number; grnNos: Set<string> }>>();
   for (const l of lots ?? []) {
     const poLineId = l.grn_line_id ? poLineIdByGrnLine.get(l.grn_line_id) ?? null : null;
     const poLine = poLineId ? poLineById.get(poLineId) : null;
     const rate = poLine?.rate ?? l.unit_cost ?? null;
     const key = poLineId ?? `site:${l.vendor_id ?? "unknown"}:${rate ?? "0"}`;
+    const grnNo = l.grn_line_id ? grnNoById.get(grnIdByGrnLine.get(l.grn_line_id) ?? "") ?? null : null;
 
     let compGroups = groupsByComponent.get(l.component_id);
     if (!compGroups) { compGroups = new Map(); groupsByComponent.set(l.component_id, compGroups); }
@@ -73,6 +102,7 @@ export default async function InventoryPage() {
     if (existing) {
       existing.qtyReceived += Number(l.qty_initial ?? 0);
       existing.qtyBalance += Number(l.qty_on_hand ?? 0);
+      if (grnNo) existing.grnNos.add(grnNo);
     } else {
       compGroups.set(key, {
         vendorId: l.vendor_id,
@@ -80,6 +110,7 @@ export default async function InventoryPage() {
         poLineId,
         qtyReceived: Number(l.qty_initial ?? 0),
         qtyBalance: Number(l.qty_on_hand ?? 0),
+        grnNos: new Set(grnNo ? [grnNo] : []),
       });
     }
   }
@@ -102,6 +133,7 @@ export default async function InventoryPage() {
         gstPercent: po?.gst_percent ?? null,
         poNo: po?.po_no ?? null,
         poDate: po?.po_date ?? null,
+        grnNos: [...g.grnNos].sort(),
         projectNo,
         qtyReceived: g.qtyReceived,
         qtyBalance: g.qtyBalance,
@@ -110,17 +142,30 @@ export default async function InventoryPage() {
     breakdownByComponent.set(componentId, entries);
   }
 
+  // component_id -> [{ projectNo, qty }] consumed, qty-descending, positives only
+  const consumedByComponent = new Map<string, { projectNo: string; qty: number }[]>();
+  for (const c of consumption ?? []) {
+    const qty = Number(c.consumed_qty ?? 0);
+    if (qty <= 0 || !c.component_id || !c.project_id) continue;
+    const projectNo = projectNoById.get(c.project_id);
+    if (!projectNo) continue;
+    const list = consumedByComponent.get(c.component_id) ?? [];
+    list.push({ projectNo, qty });
+    consumedByComponent.set(c.component_id, list);
+  }
+  for (const list of consumedByComponent.values()) list.sort((a, b) => b.qty - a.qty);
+
   const onHandRows: InventoryRow[] = allComponents
     .filter((r) => r.qty_on_hand !== 0 || r.has_stock_history)
     .sort((a, b) => b.qty_on_hand - a.qty_on_hand)
-    .map((r) => toRow(r, breakdownByComponent));
+    .map((r) => toRow(r, breakdownByComponent, consumedByComponent));
 
   const exportRows: InventoryRow[] = [
     ...onHandRows,
     ...allComponents
       .filter((r) => !r.has_stock_history)
       .sort((a, b) => a.component_no.localeCompare(b.component_no))
-      .map((r) => toRow(r, breakdownByComponent)),
+      .map((r) => toRow(r, breakdownByComponent, consumedByComponent)),
   ];
 
   return (
@@ -140,6 +185,7 @@ export default async function InventoryPage() {
 function toRow(
   r: { component_id: string; component_no: string; name: string; uom: string | null; qty_on_hand: number; lot_count: number; stock_value: number | null },
   breakdownByComponent: Map<string, BreakdownEntry[]>,
+  consumedByComponent: Map<string, { projectNo: string; qty: number }[]>,
 ): InventoryRow {
   return {
     component_id: r.component_id,
@@ -150,5 +196,6 @@ function toRow(
     lot_count: r.lot_count ?? 0,
     stock_value: r.stock_value ?? null,
     breakdown: breakdownByComponent.get(r.component_id) ?? [],
+    consumedProjects: consumedByComponent.get(r.component_id) ?? [],
   };
 }

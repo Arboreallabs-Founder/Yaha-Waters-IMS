@@ -21,6 +21,7 @@ export type BreakdownEntry = {
   gstPercent: number | null;
   poNo: string | null;
   poDate: string | null;
+  grnNos: string[];
   projectNo: string | null;
   qtyReceived: number;
   qtyBalance: number;
@@ -35,11 +36,13 @@ export type InventoryRow = {
   lot_count: number;
   stock_value: number | null;
   breakdown: BreakdownEntry[];
+  /** Project(s) this component was actually consumed on — independent of the PO it was ordered against. */
+  consumedProjects: { projectNo: string; qty: number }[];
 };
 
 const EXPORT_HEADERS = [
   "Sr.No.", "Material Description", "Recived Qty & Balance Stock", "Unit", "Rate", "Amount",
-  "GST 18%", "Total Amount", "Vendor Name", "PO. No.", "PO Date", "Project No.",
+  "GST 18%", "Total Amount", "Vendor Name", "PO. No.", "PO Date", "GRN No.", "Project No.", "Consumed on Project",
   "GST No.", "PAN", "Vendor Contact Details", "Vendor Mail ID", "official Website",
 ];
 
@@ -60,6 +63,7 @@ function downloadInventoryExcel(rows: InventoryRow[]) {
     const vendorLines: string[] = [];
     const poNoLines: string[] = [];
     const poDateLines: string[] = [];
+    const grnNoLines: string[] = [];
     const projectLines: string[] = [];
     const gstNoLines: string[] = [];
     const panLines: string[] = [];
@@ -71,11 +75,13 @@ function downloadInventoryExcel(rows: InventoryRow[]) {
       if (!g) {
         qtyLines.push(`Recv 0 / Bal ${formatNumber(r.qty_on_hand)}`);
         rateLines.push("—"); amountLines.push("—"); gstLines.push("—"); totalLines.push("—");
-        vendorLines.push("—"); poNoLines.push("—"); poDateLines.push("—"); projectLines.push("—");
+        vendorLines.push("—"); poNoLines.push("—"); poDateLines.push("—"); grnNoLines.push("—"); projectLines.push("—");
         gstNoLines.push("—"); panLines.push("—"); contactLines.push("—"); emailLines.push("—"); websiteLines.push("—");
         continue;
       }
-      const amount = g.rate !== null ? g.rate * g.qtyBalance : null;
+      // Value the *received* qty, not the on-hand balance: consumed stock still counts
+      // as purchased value until a dispatch step exists.
+      const amount = g.rate !== null ? g.rate * g.qtyReceived : null;
       const gstAmount = amount !== null && g.gstPercent !== null ? amount * (g.gstPercent / 100) : null;
       const total = amount !== null && gstAmount !== null ? amount + gstAmount : amount;
 
@@ -87,6 +93,7 @@ function downloadInventoryExcel(rows: InventoryRow[]) {
       vendorLines.push(g.vendorName);
       poNoLines.push(g.poNo ?? "—");
       poDateLines.push(g.poDate ? formatDate(g.poDate) : "—");
+      grnNoLines.push(g.grnNos.length ? g.grnNos.join(", ") : "—");
       projectLines.push(g.projectNo ?? "—");
       gstNoLines.push(g.gstNo ?? "—");
       panLines.push(g.pan ?? "—");
@@ -94,6 +101,10 @@ function downloadInventoryExcel(rows: InventoryRow[]) {
       emailLines.push(g.email ?? "—");
       websiteLines.push(g.website ?? "—");
     }
+
+    const consumedLines = r.consumedProjects.map(
+      (c) => `${c.projectNo}: ${formatNumber(c.qty)}${r.uom ? ` ${r.uom}` : ""} consumed`,
+    );
 
     aoa.push([
       i + 1,
@@ -107,7 +118,9 @@ function downloadInventoryExcel(rows: InventoryRow[]) {
       stack(vendorLines),
       stack(poNoLines),
       stack(poDateLines),
+      stack(grnNoLines),
       stack(projectLines),
+      stack(consumedLines),
       stack(gstNoLines),
       stack(panLines),
       stack(contactLines),
@@ -117,7 +130,9 @@ function downloadInventoryExcel(rows: InventoryRow[]) {
   });
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"] = EXPORT_HEADERS.map(() => ({ wch: 20 }));
+  ws["!cols"] = EXPORT_HEADERS.map((h) => ({
+    wch: h === "Consumed on Project" ? 28 : h === "GRN No." ? 24 : 20,
+  }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Inventory");
   const today = new Date().toISOString().slice(0, 10);
