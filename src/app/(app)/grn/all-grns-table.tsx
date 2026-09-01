@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { DownloadPoRegisterButton, type PoRegisterRow } from "@/components/download-po-register-button";
 import { formatDate, formatNumber } from "@/lib/utils";
 
 export type GrnRow = {
@@ -20,7 +21,7 @@ export type GrnRow = {
   received_at: string | null;
 };
 
-export function AllGrnsTable({ rows }: { rows: GrnRow[] }) {
+export function AllGrnsTable({ rows, poRegisterRows }: { rows: GrnRow[]; poRegisterRows: PoRegisterRow[] }) {
   const [query, setQuery] = React.useState("");
   const filtered = rows.filter((r) => {
     if (!query) return true;
@@ -38,6 +39,7 @@ export function AllGrnsTable({ rows }: { rows: GrnRow[] }) {
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <SearchInput value={query} onChange={setQuery} placeholder="Search GRN no., vendor, challan, or invoice…" />
         <p className="text-sm text-muted-foreground">{filtered.length} of {rows.length}</p>
+        <DownloadPoRegisterButton rows={poRegisterRows} className="ml-auto" />
       </div>
       <Table>
         <TableHeader>

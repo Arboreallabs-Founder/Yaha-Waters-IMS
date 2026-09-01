@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { DownloadPoRegisterButton, type PoRegisterRow } from "@/components/download-po-register-button";
 import { formatDate, formatINR } from "@/lib/utils";
 
 const STATUS_VARIANT: Record<string, "secondary" | "warning" | "success" | "destructive"> = {
@@ -28,7 +29,15 @@ export type PoRow = {
   waiting_on?: string | null;
 };
 
-export function AllPosTable({ pos, finance }: { pos: PoRow[]; finance: boolean }) {
+export function AllPosTable({
+  pos,
+  finance,
+  poRegisterRows,
+}: {
+  pos: PoRow[];
+  finance: boolean;
+  poRegisterRows: PoRegisterRow[];
+}) {
   const [query, setQuery] = React.useState("");
   const filtered = pos.filter((po) => {
     if (!query) return true;
@@ -41,6 +50,7 @@ export function AllPosTable({ pos, finance }: { pos: PoRow[]; finance: boolean }
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <SearchInput value={query} onChange={setQuery} placeholder="Search PO no. or vendor…" />
         <p className="text-sm text-muted-foreground">{filtered.length} of {pos.length}</p>
+        <DownloadPoRegisterButton rows={poRegisterRows} className="ml-auto" />
       </div>
       <Table>
         <TableHeader>

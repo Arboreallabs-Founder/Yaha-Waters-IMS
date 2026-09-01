@@ -14,6 +14,7 @@ import { DocumentSignButton } from "@/components/document-sign-button";
 import { NewGrnButton } from "./new-grn-button";
 import { IrnApprovalActions } from "./irn-approval-actions";
 import { AllGrnsTable, type GrnRow } from "./all-grns-table";
+import { getPoRegisterRows } from "@/lib/po-register-data";
 import { signGrn } from "./actions";
 
 const TABS = [
@@ -68,10 +69,11 @@ async function activeVendors() {
 
 async function AllGrnsTab() {
   const supabase = await createClient();
-  const [{ data: grns }, vendors, { data: lines }] = await Promise.all([
+  const [{ data: grns }, vendors, { data: lines }, poRegisterRows] = await Promise.all([
     supabase.from("grns").select("*").order("received_at", { ascending: false }),
     activeVendors(),
     supabase.from("grn_lines").select("grn_id"),
+    getPoRegisterRows(supabase),
   ]);
 
   const vName = new Map((vendors ?? []).map((v) => [v.id, v.name]));
@@ -89,7 +91,7 @@ async function AllGrnsTab() {
     received_at: g.received_at,
   }));
 
-  return <AllGrnsTable rows={rows} />;
+  return <AllGrnsTable rows={rows} poRegisterRows={poRegisterRows} />;
 }
 
 async function ApprovalTab({ canApprove, userId }: { canApprove: boolean; userId: string | null }) {

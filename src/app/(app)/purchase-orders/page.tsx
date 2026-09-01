@@ -11,6 +11,7 @@ import { UntaggedWorklist } from "./untagged-worklist";
 import { PoLineApprovalActions } from "./po-line-approval-actions";
 import { AllPosTable } from "./all-pos-table";
 import { DocumentSignButton } from "@/components/document-sign-button";
+import { getPoRegisterRows } from "@/lib/po-register-data";
 import { signPo } from "./actions";
 
 export default async function PurchaseOrdersPage({
@@ -82,7 +83,10 @@ export default async function PurchaseOrdersPage({
 
 async function AllPosTab({ finance, vendors }: { finance: boolean; vendors: { id: string; name: string }[] }) {
   const supabase = await createClient();
-  const { data: pos } = await supabase.from("purchase_orders").select("*").neq("status", "superseded").order("created_at", { ascending: false });
+  const [{ data: pos }, poRegisterRows] = await Promise.all([
+    supabase.from("purchase_orders").select("*").neq("status", "superseded").order("created_at", { ascending: false }),
+    getPoRegisterRows(supabase),
+  ]);
   const vName = new Map(vendors.map((v) => [v.id, v.name]));
 
   // Who's a stuck PO waiting on? Computed in bulk (not per-row) so admins/
@@ -124,7 +128,7 @@ async function AllPosTab({ finance, vendors }: { finance: boolean; vendors: { id
     waiting_on: po.status === "pending_signature" ? signerName.get(nextSignerIdByPo.get(po.id) ?? "") ?? null : null,
   }));
 
-  return <AllPosTable pos={rows} finance={finance} />;
+  return <AllPosTable pos={rows} finance={finance} poRegisterRows={poRegisterRows} />;
 }
 
 async function UntaggedTab({ canWrite }: { canWrite: boolean }) {
