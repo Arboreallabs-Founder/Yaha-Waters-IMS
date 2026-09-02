@@ -23,12 +23,13 @@ export default async function InspectionTemplatePrintPage({ params }: { params: 
 
   const { data: fieldsRaw } = await supabase
     .from("inspection_template_fields")
-    .select("id, label, sort_order, is_active")
+    .select("id, label, sort_order, is_active, show_on_printout")
     .eq("template_id", id)
     .eq("is_active", true)
+    .eq("show_on_printout", true)
     .order("sort_order");
 
-  const fields = ((fieldsRaw ?? []) as (Field & { is_active: boolean })[]).sort((a, b) => a.sort_order - b.sort_order);
+  const fields = ((fieldsRaw ?? []) as (Field & { is_active: boolean; show_on_printout: boolean })[]).sort((a, b) => a.sort_order - b.sort_order);
   const totalCols = 7 + fields.length;
 
   return (
