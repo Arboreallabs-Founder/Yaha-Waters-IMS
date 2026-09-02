@@ -38,6 +38,7 @@ export async function upsertTemplateField(fd: FormData): Promise<ActionResult> {
     field_type,
     options,
     is_required: fd.get("is_required") !== null,
+    show_on_printout: fd.get("show_on_printout") !== null,
     sort_order: Number(fd.get("sort_order") ?? 0) || 0,
   };
   if (!payload.label) return { error: "Field label is required." };

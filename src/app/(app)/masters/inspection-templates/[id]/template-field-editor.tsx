@@ -18,6 +18,7 @@ export type TemplateField = {
   field_type: string;
   options: string[] | null;
   is_required: boolean;
+  show_on_printout: boolean;
   is_active: boolean;
   sort_order: number;
 };
@@ -26,7 +27,7 @@ function optionsToText(options: string[] | null): string {
   return options ? options.join(", ") : "";
 }
 
-const FIELD_TYPE_LABELS: Record<string, string> = { text: "Text", number: "Number", choice: "Multiple choice", checkbox: "Checkbox" };
+const FIELD_TYPE_LABELS: Record<string, string> = { text: "Text", number: "Number", choice: "Multiple choice", checkbox: "Checkbox", link: "Link" };
 
 export function TemplateFieldEditor({
   templateId,
@@ -48,6 +49,7 @@ export function TemplateFieldEditor({
   const [fieldType, setFieldType] = React.useState("text");
   const [options, setOptions] = React.useState("");
   const [isRequired, setIsRequired] = React.useState(true);
+  const [showOnPrintout, setShowOnPrintout] = React.useState(true);
   const [sortOrder, setSortOrder] = React.useState("0");
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
@@ -59,6 +61,7 @@ export function TemplateFieldEditor({
     setFieldType("text");
     setOptions("");
     setIsRequired(true);
+    setShowOnPrintout(true);
     setSortOrder("0");
     setError(null);
   }
@@ -75,6 +78,7 @@ export function TemplateFieldEditor({
     setFieldType(f.field_type);
     setOptions(optionsToText(f.options));
     setIsRequired(f.is_required);
+    setShowOnPrintout(f.show_on_printout);
     setSortOrder(String(f.sort_order));
     setOpen(true);
   }
@@ -92,6 +96,7 @@ export function TemplateFieldEditor({
     fd.set("field_type", fieldType);
     if (fieldType === "choice") fd.set("options", options.trim());
     if (isRequired) fd.set("is_required", "on");
+    if (showOnPrintout) fd.set("show_on_printout", "on");
     fd.set("sort_order", sortOrder);
 
     setPending(true);
@@ -127,13 +132,14 @@ export function TemplateFieldEditor({
             <TableHead>Type</TableHead>
             <TableHead>Options</TableHead>
             <TableHead>Required</TableHead>
+            <TableHead>Print</TableHead>
             {canWrite && <TableHead className="w-20 text-right">Actions</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
           {activeFields.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={canWrite ? 5 : 4} className="py-8 text-center text-muted-foreground">
+              <TableCell colSpan={canWrite ? 6 : 5} className="py-8 text-center text-muted-foreground">
                 No fields yet.
               </TableCell>
             </TableRow>
@@ -144,6 +150,7 @@ export function TemplateFieldEditor({
                 <TableCell><Badge variant="secondary">{FIELD_TYPE_LABELS[f.field_type] ?? f.field_type}</Badge></TableCell>
                 <TableCell className="text-muted-foreground">{optionsToText(f.options) || "—"}</TableCell>
                 <TableCell>{f.is_required ? <Badge variant="warning">Required</Badge> : <span className="text-muted-foreground">Optional</span>}</TableCell>
+                <TableCell>{f.show_on_printout ? <Badge variant="secondary">On printout</Badge> : <span className="text-muted-foreground">Entry only</span>}</TableCell>
                 {canWrite && (
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
@@ -171,6 +178,7 @@ export function TemplateFieldEditor({
               <option value="number">Number</option>
               <option value="choice">Multiple choice</option>
               <option value="checkbox">Checkbox</option>
+              <option value="link">Link</option>
             </Select>
           </div>
           {fieldType === "choice" && (
@@ -183,6 +191,10 @@ export function TemplateFieldEditor({
           <label className="flex items-center gap-2">
             <input type="checkbox" checked={isRequired} onChange={(e) => setIsRequired(e.target.checked)} className="size-4 rounded border-input" />
             <span className="text-sm font-medium">Required — must be filled in to submit the IRN</span>
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={showOnPrintout} onChange={(e) => setShowOnPrintout(e.target.checked)} className="size-4 rounded border-input" />
+            <span className="text-sm font-medium">View on printout — otherwise it's only captured at goods-receipt time</span>
           </label>
           <div className="space-y-1.5">
             <Label>Sort order</Label>

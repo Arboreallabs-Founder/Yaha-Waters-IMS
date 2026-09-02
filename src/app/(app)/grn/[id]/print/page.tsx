@@ -74,7 +74,7 @@ export default async function GrnPrintPage({ params }: { params: Promise<{ id: s
     supabase.from("grn_lines").select("id, component_id, po_line_id, jw_line_id, qty_received").eq("grn_id", grnId).order("created_at"),
     supabase
       .from("inspection_templates")
-      .select("id, inspection_template_fields(id, label, field_type, sort_order, is_active)")
+      .select("id, inspection_template_fields(id, label, field_type, sort_order, is_active, show_on_printout)")
       .eq("name", "MRIN Inspection Checklist")
       .maybeSingle(),
   ]);
@@ -86,9 +86,9 @@ export default async function GrnPrintPage({ params }: { params: Promise<{ id: s
   const jwNos = [...new Set((jwLines ?? []).map((l) => (l.job_work_orders as unknown as { jw_no: string } | null)?.jw_no).filter(Boolean))] as string[];
 
   const fields = (
-    (checklistFields?.inspection_template_fields as { id: string; label: string; field_type: string; sort_order: number; is_active: boolean }[] | null) ?? []
+    (checklistFields?.inspection_template_fields as { id: string; label: string; field_type: string; sort_order: number; is_active: boolean; show_on_printout: boolean }[] | null) ?? []
   )
-    .filter((f) => f.is_active)
+    .filter((f) => f.is_active && f.show_on_printout)
     .sort((a, b) => a.sort_order - b.sort_order);
 
   const componentIds = [...new Set((grnLines ?? []).map((l) => l.component_id).filter(Boolean))] as string[];
@@ -131,9 +131,12 @@ export default async function GrnPrintPage({ params }: { params: Promise<{ id: s
       receivedQty: gl.qty_received,
       checklist: fields.map((f) => {
         const a = irnAnswers?.get(f.id);
-        if (!a) return "—";
-        if (f.field_type === "checkbox") return a.choice_value === "true" ? "✓" : a.choice_value === "false" ? "✗" : "—";
-        return a.text_value || a.choice_value || "—";
+        if (!a) return { value: "—", isLink: false };
+        if (f.field_type === "checkbox") {
+          return { value: a.choice_value === "true" ? "✓" : a.choice_value === "false" ? "✗" : "—", isLink: false };
+        }
+        const value = a.text_value || a.choice_value || "—";
+        return { value, isLink: f.field_type === "link" && value !== "—" };
       }),
       remarks: irn?.approval_remarks?.trim() || null,
     };
@@ -220,8 +223,16 @@ export default async function GrnPrintPage({ params }: { params: Promise<{ id: s
                   <td className="border-r border-black/20 p-1">{l.unit}</td>
                   <td className="border-r border-black/20 p-1 text-right">{l.poQty !== null ? formatNumber(l.poQty) : "—"}</td>
                   <td className="border-r border-black/20 p-1 text-right">{formatNumber(l.receivedQty)}</td>
-                  {l.checklist.map((v, idx) => (
-                    <td key={idx} className="border-r border-black/20 p-1 text-center">{v}</td>
+                  {l.checklist.map((c, idx) => (
+                    <td key={idx} className="border-r border-black/20 p-1 text-center">
+                      {c.isLink ? (
+                        <a href={c.value} target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                          {c.value}
+                        </a>
+                      ) : (
+                        c.value
+                      )}
+                    </td>
                   ))}
                 </tr>
               ))

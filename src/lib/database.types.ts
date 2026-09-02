@@ -1157,6 +1157,7 @@ export type Database = {
           is_required: boolean
           label: string
           options: Json | null
+          show_on_printout: boolean
           sort_order: number
           template_id: string
           updated_at: string | null
@@ -1170,6 +1171,7 @@ export type Database = {
           is_required?: boolean
           label: string
           options?: Json | null
+          show_on_printout?: boolean
           sort_order?: number
           template_id: string
           updated_at?: string | null
@@ -1183,6 +1185,7 @@ export type Database = {
           is_required?: boolean
           label?: string
           options?: Json | null
+          show_on_printout?: boolean
           sort_order?: number
           template_id?: string
           updated_at?: string | null
@@ -4965,46 +4968,26 @@ export type Database = {
         Args: { p_actor: string; p_po_id: string; p_signature_id: string }
         Returns: Json
       }
-      submit_irn:
-        | {
-            Args: {
-              p_answers: Json
-              p_component_id: string
-              p_grn_id: string
-              p_jw_line_id?: string
-              p_piece_count: number
-              p_piece_length: number
-              p_piece_weight?: number
-              p_piece_width: number
-              p_po_line_id: string
-              p_project_id: string
-              p_qty: number
-              p_submitter_id: string
-              p_target_lot_id?: string
-              p_unit_cost: number
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
-              p_answers: Json
-              p_component_id: string
-              p_grn_id: string
-              p_jw_line_id?: string
-              p_piece_count: number
-              p_piece_length: number
-              p_piece_weight?: number
-              p_piece_width: number
-              p_po_line_id: string
-              p_project_id: string
-              p_qty: number
-              p_signature_id?: string
-              p_submitter_id: string
-              p_target_lot_id?: string
-              p_unit_cost: number
-            }
-            Returns: Json
-          }
+      submit_irn: {
+        Args: {
+          p_answers: Json
+          p_component_id: string
+          p_grn_id: string
+          p_jw_line_id?: string
+          p_piece_count: number
+          p_piece_length: number
+          p_piece_weight?: number
+          p_piece_width: number
+          p_po_line_id: string
+          p_project_id: string
+          p_qty: number
+          p_signature_id?: string
+          p_submitter_id: string
+          p_target_lot_id?: string
+          p_unit_cost: number
+        }
+        Returns: Json
+      }
     }
     Enums: {
       bom_line_source: "template" | "manual" | "site_purchase"
@@ -5013,7 +4996,7 @@ export type Database = {
       doc_type: "qap" | "drawing" | "spec" | "other"
       fg_status: "in_production" | "ready" | "dispatched"
       input_type: "dropdown" | "number" | "text"
-      irn_field_type: "text" | "number" | "choice" | "checkbox"
+      irn_field_type: "text" | "number" | "choice" | "checkbox" | "link"
       irn_status: "pending_approval" | "approved" | "rejected"
       jw_stage: "raw" | "completed"
       lot_status: "open" | "issued" | "consumed"
@@ -5174,7 +5157,7 @@ export const Constants = {
       doc_type: ["qap", "drawing", "spec", "other"],
       fg_status: ["in_production", "ready", "dispatched"],
       input_type: ["dropdown", "number", "text"],
-      irn_field_type: ["text", "number", "choice", "checkbox"],
+      irn_field_type: ["text", "number", "choice", "checkbox", "link"],
       irn_status: ["pending_approval", "approved", "rejected"],
       jw_stage: ["raw", "completed"],
       lot_status: ["open", "issued", "consumed"],

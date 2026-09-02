@@ -30,6 +30,7 @@ export default async function InspectionTemplateDetailPage({ params }: { params:
     field_type: f.field_type,
     options: (f.options as string[] | null) ?? null,
     is_required: f.is_required,
+    show_on_printout: f.show_on_printout,
     is_active: f.is_active,
     sort_order: f.sort_order,
   }));

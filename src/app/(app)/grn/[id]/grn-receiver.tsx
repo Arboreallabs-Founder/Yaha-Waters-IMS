@@ -399,8 +399,9 @@ export function GrnReceiver({
                           </Select>
                         ) : (
                           <Input
-                            type={f.field_type === "number" ? "number" : "text"}
+                            type={f.field_type === "number" ? "number" : f.field_type === "link" ? "url" : "text"}
                             step={f.field_type === "number" ? "any" : undefined}
+                            placeholder={f.field_type === "link" ? "https://…" : undefined}
                             value={answers[f.id] ?? ""}
                             onChange={(e) => setAnswers((prev) => ({ ...prev, [f.id]: e.target.value }))}
                           />
