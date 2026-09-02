@@ -9,6 +9,7 @@ export type PoLineEntry = {
   poNo: string;
   poDate: string | null;
   expectedDate: string | null;
+  projectNo: string | null;
   orderedQty: number;
   receivedQty: number;
   remainingQty: number;
@@ -30,11 +31,11 @@ export type PoRegisterRow = {
 
 const HEADERS = [
   "Sr. No.", "Component No.", "Material Description", "UOM",
-  "PO No.", "PO Date", "Expected Date", "Ordered Qty", "Received Qty", "Remaining Qty",
+  "PO No.", "PO Date", "Expected Date", "Project No.", "Ordered Qty", "Received Qty", "Remaining Qty",
   "Receipts (GRN — Date — Qty)",
   "Vendor Name", "Vendor Contact No.", "Vendor Email", "Vendor PAN", "Vendor GST No.", "Vendor Website",
 ];
-const COL_WIDTHS = [6, 16, 40, 8, 16, 14, 14, 12, 12, 12, 42, 22, 16, 24, 16, 18, 24];
+const COL_WIDTHS = [6, 16, 40, 8, 16, 14, 14, 22, 12, 12, 12, 42, 22, 16, 24, 16, 18, 24];
 
 /** Join per-PO-line fragments into one newline-stacked spreadsheet cell. */
 function stack(lines: string[]) {
@@ -54,13 +55,14 @@ function downloadPoRegisterExcel(rows: PoRegisterRow[]) {
   rows.forEach((r, i) => {
     const lines = r.lines.length > 0 ? r.lines : null;
     if (!lines) {
-      aoa.push([i + 1, r.componentNo, r.name, r.uom ?? "—", "—", "—", "—", "—", "—", "—", "—", "—", "—", "—", "—", "—", "—"]);
+      aoa.push([i + 1, r.componentNo, r.name, r.uom ?? "—", "—", "—", "—", "—", "—", "—", "—", "—", "—", "—", "—", "—", "—", "—"]);
       return;
     }
 
     const poNo: string[] = [];
     const poDate: string[] = [];
     const expected: string[] = [];
+    const projectNo: string[] = [];
     const ordered: string[] = [];
     const received: string[] = [];
     const remaining: string[] = [];
@@ -76,6 +78,7 @@ function downloadPoRegisterExcel(rows: PoRegisterRow[]) {
       poNo.push(e.poNo);
       poDate.push(formatDate(e.poDate));
       expected.push(formatDate(e.expectedDate));
+      projectNo.push(e.projectNo ?? "—");
       ordered.push(formatNumber(e.orderedQty));
       received.push(formatNumber(e.receivedQty));
       remaining.push(formatNumber(e.remainingQty));
@@ -96,6 +99,7 @@ function downloadPoRegisterExcel(rows: PoRegisterRow[]) {
       stack(poNo),
       stack(poDate),
       stack(expected),
+      stack(projectNo),
       stack(ordered),
       stack(received),
       stack(remaining),

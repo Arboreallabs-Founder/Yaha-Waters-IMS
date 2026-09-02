@@ -23,7 +23,7 @@ export async function getPoRegisterRows(supabase: SupabaseClient): Promise<PoReg
 
   const { data: poLines } = await supabase
     .from("po_lines")
-    .select("id, po_id, component_id, qty_ordered, qty_received, expected_date")
+    .select("id, po_id, component_id, project_id, qty_ordered, qty_received, expected_date")
     .in("po_id", poIds)
     .neq("line_status", "cancelled")
     .not("component_id", "is", null);
@@ -42,6 +42,12 @@ export async function getPoRegisterRows(supabase: SupabaseClient): Promise<PoReg
     ? await supabase.from("components").select("id, component_no, name, uom").in("id", componentIds)
     : { data: [] };
   const componentById = new Map((components ?? []).map((c) => [c.id, c]));
+
+  const projectIds = [...new Set(lines.map((l) => l.project_id).filter((v): v is string => !!v))];
+  const { data: projects } = projectIds.length
+    ? await supabase.from("projects").select("id, project_no").in("id", projectIds)
+    : { data: [] };
+  const projectNoById = new Map((projects ?? []).map((p) => [p.id, p.project_no]));
 
   const poLineIds = lines.map((l) => l.id);
   const { data: grnLines } = await supabase
@@ -82,6 +88,7 @@ export async function getPoRegisterRows(supabase: SupabaseClient): Promise<PoReg
       poNo: po.po_no,
       poDate: po.po_date,
       expectedDate: pl.expected_date,
+      projectNo: pl.project_id ? projectNoById.get(pl.project_id) ?? null : null,
       orderedQty,
       receivedQty,
       remainingQty: Math.max(orderedQty - receivedQty, 0),
