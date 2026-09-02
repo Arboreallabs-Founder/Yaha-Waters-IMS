@@ -76,7 +76,10 @@ export default async function ComponentInventoryPage({ params }: { params: Promi
       .from("stock_movements")
       .select("id, lot_id, movement_type, qty, project_id, reference_type, performed_by, performed_at")
       .eq("component_id", id)
-      .eq("movement_type", "issue")
+      // 'issue' = consumed against a project; 'return' = an admin reversal of a
+      // consumption. Both belong in this ledger so the quantities net out and
+      // agree with the project's "Materials issued" panel.
+      .in("movement_type", ["issue", "return"])
       .order("performed_at", { ascending: false })
       .limit(200),
   ]);
@@ -299,7 +302,9 @@ export default async function ComponentInventoryPage({ params }: { params: Promi
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(movements ?? []).map((m) => (
+                  {(movements ?? []).map((m) => {
+                    const isReturn = m.movement_type === "return";
+                    return (
                     <TableRow key={m.id}>
                       <TableCell className="text-muted-foreground">{formatDate(m.performed_at)}</TableCell>
                       <TableCell className="font-mono text-xs">
@@ -309,8 +314,8 @@ export default async function ComponentInventoryPage({ params }: { params: Promi
                           </Link>
                         ) : (lotCode.get(m.lot_id) ?? "—")}
                       </TableCell>
-                      <TableCell className="font-semibold text-red-600">
-                        {formatNumber(Math.abs(Number(m.qty)))}{unitSuffix}
+                      <TableCell className={`font-semibold ${isReturn ? "text-green-700" : "text-red-600"}`}>
+                        {isReturn ? "+" : "−"}{formatNumber(Math.abs(Number(m.qty)))}{unitSuffix}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {m.project_id ? projNo.get(m.project_id) ?? "—" : "—"}
@@ -319,15 +324,20 @@ export default async function ComponentInventoryPage({ params }: { params: Promi
                         {m.performed_by ? (perfName.get(m.performed_by) ?? "—") : "—"}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary">{m.reference_type ?? "—"}</Badge>
+                        <Badge variant={isReturn ? "outline" : "secondary"}>
+                          {isReturn ? "reversal" : m.reference_type ?? "—"}
+                        </Badge>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
             <div className="space-y-3 sm:hidden">
-              {(movements ?? []).map((m) => (
+              {(movements ?? []).map((m) => {
+                const isReturn = m.movement_type === "return";
+                return (
                 <MobileRowCard
                   key={m.id}
                   title={
@@ -338,14 +348,15 @@ export default async function ComponentInventoryPage({ params }: { params: Promi
                     ) : (lotCode.get(m.lot_id) ?? "—")
                   }
                   subtitle={formatDate(m.performed_at)}
-                  badge={<Badge variant="secondary">{m.reference_type ?? "—"}</Badge>}
+                  badge={<Badge variant={isReturn ? "outline" : "secondary"}>{isReturn ? "reversal" : m.reference_type ?? "—"}</Badge>}
                   fields={[
-                    { label: "Qty consumed", value: <span className="font-semibold text-red-600">{formatNumber(Math.abs(Number(m.qty)))}{unitSuffix}</span> },
+                    { label: isReturn ? "Qty returned" : "Qty consumed", value: <span className={`font-semibold ${isReturn ? "text-green-700" : "text-red-600"}`}>{isReturn ? "+" : "−"}{formatNumber(Math.abs(Number(m.qty)))}{unitSuffix}</span> },
                     { label: "Project", value: m.project_id ? projNo.get(m.project_id) ?? "—" : "—" },
                     { label: "By", value: m.performed_by ? (perfName.get(m.performed_by) ?? "—") : "—" },
                   ]}
                 />
-              ))}
+                );
+              })}
             </div>
           </>
         )}
