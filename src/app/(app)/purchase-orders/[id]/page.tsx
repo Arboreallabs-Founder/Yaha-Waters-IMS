@@ -91,8 +91,15 @@ export default async function PoDetailPage({ params }: { params: Promise<{ id: s
     rejection_reason: l.rejection_reason,
   }));
 
-  const printable = lineRows.every((l) => l.approval_status === "approved");
+  const pricesApproved = lineRows.every((l) => l.approval_status === "approved");
   const pendingCount = lineRows.filter((l) => l.approval_status !== "approved").length;
+  // The print page enforces BOTH gates server-side; mirror them here so the
+  // button doesn't look ready while the destination is still blocked.
+  const printable = pricesApproved && signingState.fullySigned;
+  const missingSignatures = signingState.requiredSlots.length - signingState.signed.length;
+  const printBlockReason = !pricesApproved
+    ? `${pendingCount} line(s) awaiting price approval`
+    : `${missingSignatures} signature(s) still needed`;
 
   return (
     <div>
@@ -112,7 +119,7 @@ export default async function PoDetailPage({ params }: { params: Promise<{ id: s
             ) : (
               <span
                 className={cn(buttonVariants({ variant: "outline" }), "cursor-not-allowed opacity-50")}
-                title={`Cannot print — ${pendingCount} line(s) awaiting price approval`}
+                title={`Cannot print — ${printBlockReason}`}
               >
                 <Printer className="size-4" /> Print PO
               </span>
