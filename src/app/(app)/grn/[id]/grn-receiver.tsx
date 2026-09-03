@@ -76,6 +76,7 @@ export function GrnReceiver({
   const [message, setMessage] = React.useState<string | null>(null);
   const [qtys, setQtys] = React.useState<Record<string, string>>({});
   const [manualComp, setManualComp] = React.useState("");
+  const [manualQty, setManualQty] = React.useState("1");
   const [selectedPoLineId, setSelectedPoLineId] = React.useState("");
   // dimension inputs for manual entry
   const [pieceCount, setPieceCount] = React.useState("");
@@ -130,9 +131,13 @@ export function GrnReceiver({
   }, [qt, pieceCount, totalWeight]);
 
   const matchingPoLines = manualComp ? (openPoByComponent[manualComp] ?? []) : [];
+  const selectedPoLine = matchingPoLines.find((pl) => pl.po_line_id === selectedPoLineId);
+  const enteredQty = qt === "nos" ? (Number(manualQty) || 0) : (derivedQty ?? 0);
+  const overReceipt = !!selectedPoLine && enteredQty > selectedPoLine.remaining + 1e-6;
 
   React.useEffect(() => {
     setSelectedPoLineId(matchingPoLines.length > 0 ? matchingPoLines[0].po_line_id : "");
+    setManualQty("1");
     setPieceCount("");
     setTotalLength("");
     setTotalWeight("");
@@ -193,6 +198,7 @@ export function GrnReceiver({
         form.reset();
         setManualComp("");
         setSelectedPoLineId("");
+        setManualQty("1");
         setPieceCount(""); setTotalLength(""); setTotalWeight("");
         setTargetLotId("");
         setAnswers({});
@@ -206,6 +212,7 @@ export function GrnReceiver({
       form.reset();
       setManualComp("");
       setSelectedPoLineId("");
+      setManualQty("1");
       setPieceCount(""); setTotalLength(""); setTotalWeight("");
       setTargetLotId("");
     });
@@ -258,7 +265,15 @@ export function GrnReceiver({
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <div className="space-y-1.5">
                         <Label>Qty received{trackingMode === "box" && targetLotId ? " (pieces to add to box)" : ""}</Label>
-                        <Input name="qty_received" type="number" step="any" defaultValue="1" required />
+                        <Input
+                          name="qty_received"
+                          type="number"
+                          step="any"
+                          value={manualQty}
+                          onChange={(e) => setManualQty(e.target.value)}
+                          max={selectedPoLine ? selectedPoLine.remaining : undefined}
+                          required
+                        />
                       </div>
                       {canSeeFinancials && (
                         <div className="space-y-1.5">
@@ -452,9 +467,20 @@ export function GrnReceiver({
 
             <input type="hidden" name="po_line_id" value={selectedPoLineId} />
 
+            {overReceipt && selectedPoLine && (
+              <p className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0 text-red-500" />
+                <span>
+                  Exceeds the <span className="font-medium">{formatNumber(selectedPoLine.remaining)}</span> still
+                  outstanding on <span className="font-medium">{selectedPoLine.po_no}</span>. Revise the PO quantity
+                  to receive more.
+                </span>
+              </p>
+            )}
+
             <div className="flex items-center gap-2">
               <Button type="submit" variant="secondary"
-                disabled={busy === "manual" || (qt !== "nos" && derivedQty === null) || (!!manualComp && !selectedPoLineId)}>
+                disabled={busy === "manual" || (qt !== "nos" && derivedQty === null) || (!!manualComp && !selectedPoLineId) || overReceipt}>
                 <Plus className="size-4" /> {needsInspection ? "Submit for inspection" : "Add line"}
               </Button>
             </div>

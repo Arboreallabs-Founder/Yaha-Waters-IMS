@@ -21,6 +21,7 @@ type Line = {
   component_label: string;
   project_id: string | null;
   qty_ordered: number;
+  qty_received: number;
   rate: number | null;
   amount: number | null;
   expected_date: string | null;
@@ -249,6 +250,11 @@ export function PoEditor({
                   <TableCell>
                     <div className="flex flex-col items-start gap-1">
                       <Badge variant={l.line_status === "received" ? "success" : "secondary"}>{l.line_status}</Badge>
+                      {l.qty_received > l.qty_ordered + 1e-6 && (
+                        <Badge variant="destructive">
+                          Over-received ({formatNumber(l.qty_received)}/{formatNumber(l.qty_ordered)})
+                        </Badge>
+                      )}
                       {l.approval_status === "pending_approval" && <Badge variant="warning">Pending approval</Badge>}
                       {l.approval_status === "rejected" && (
                         <Badge variant="destructive">Rejected{l.rejection_reason ? ` — ${l.rejection_reason}` : ""}</Badge>

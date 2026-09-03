@@ -82,6 +82,7 @@ export default async function PoDetailPage({ params }: { params: Promise<{ id: s
     component_label: l.component_id ? compLabel.get(l.component_id) ?? "—" : "—",
     project_id: l.project_id,
     qty_ordered: l.qty_ordered,
+    qty_received: l.qty_received,
     rate: l.rate,
     amount: l.amount,
     expected_date: l.expected_date,
