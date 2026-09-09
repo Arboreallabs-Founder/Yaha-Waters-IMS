@@ -84,22 +84,21 @@ function downloadPoRegisterExcel(rows: PoRegisterRow[], finance: boolean) {
 
   for (const r of rows) {
     sr += 1;
-    // "Sr. No." + component columns appear once, on the group's first row.
-    const first: Cell[] = [sr, r.componentNo, r.name, r.uom ?? "—"];
-    const cont: Cell[] = [null, null, null, null];
+    // "Sr. No." + component columns repeat on every one of the component's rows.
+    const comp: Cell[] = [sr, r.componentNo, r.name, r.uom ?? "—"];
 
     if (r.lines.length === 0) {
       aoa.push([
-        ...first,
+        ...comp,
         "—",
         ...(finance ? ["—", "—"] : []),
         "—", "—", "—", null, null, null, "—", "—", "—", "—", "—", "—", "—",
       ]);
       continue;
     }
-    r.lines.forEach((e, li) => {
-      aoa.push([...(li === 0 ? first : cont), ...lineCells(e)]);
-    });
+    for (const e of r.lines) {
+      aoa.push([...comp, ...lineCells(e)]);
+    }
   }
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);

@@ -362,19 +362,22 @@ export default async function ProjectReportsPage({ params }: { params: Promise<{
       qty: number | null; rate: number | null; value: number | null; recv: number | null;
       grnDate: string; invoice: string;
     };
+    // Label / identifying columns repeat on every PO-line row of the material.
+    // The four component-aggregate numbers (15-18) appear once, on the first row,
+    // so a straight column SUM in Excel stays correct for multi-line materials.
     const emit = (first: boolean, x: LineCells) => {
       accountsRows.push([
-        first ? accSr : null,                                              // 0  Sr. No.
-        first ? customer?.name ?? "—" : null,                              // 1  Customer Name
-        first ? project.customer_po_number ?? "—" : null,                  // 2  Project PO No.
-        first ? (project.order_date ? formatDate(project.order_date) : "—") : null,     // 3
-        first ? (project.delivery_date ? formatDate(project.delivery_date) : "—") : null, // 4
-        first ? deliveryDays ?? null : null,                               // 5  Project Delivery Time (Days)
+        accSr,                                                             // 0  Sr. No.
+        customer?.name ?? "—",                                             // 1  Customer Name
+        project.customer_po_number ?? "—",                                 // 2  Project PO No.
+        project.order_date ? formatDate(project.order_date) : "—",         // 3  Project PO Date
+        project.delivery_date ? formatDate(project.delivery_date) : "—",   // 4  Project Delivery Date
+        deliveryDays ?? null,                                              // 5  Project Delivery Time (Days)
         x.poNo,                                                            // 6  Purchase PO No.
         x.poDate,                                                          // 7  Purchase PO Date
         x.vendor,                                                          // 8  Supplier/Vendor Name
-        first ? `${c?.component_no ?? "—"} — ${c?.name ?? "—"}` : null,     // 9  Material Description
-        first ? c?.uom ?? "—" : null,                                      // 10 UOM
+        `${c?.component_no ?? "—"} — ${c?.name ?? "—"}`,                    // 9  Material Description
+        c?.uom ?? "—",                                                     // 10 UOM
         x.qty,                                                             // 11 PO Qty
         x.rate,                                                            // 12 PO Rate
         x.value,                                                           // 13 PO Value
@@ -384,7 +387,7 @@ export default async function ProjectReportsPage({ params }: { params: Promise<{
         first ? onHand : null,                                             // 17 Balance Stock
         first ? stockValue : null,                                         // 18 Stock Value
         x.grnDate,                                                         // 19 Last GRN Date
-        first ? status : null,                                             // 20 Material Status
+        status,                                                            // 20 Material Status
         x.invoice,                                                         // 21 Invoice No.
         "",                                                                // 22 Remarks
       ]);

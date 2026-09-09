@@ -55,8 +55,8 @@ function downloadInventoryExcel(rows: InventoryRow[]) {
 
   for (const r of rows) {
     sr += 1;
-    // "Consumed on Project" is a different axis from the PO/GRN breakdown — keep
-    // its entries comma-joined in one cell on the group's first row.
+    // "Consumed on Project" is a different axis from the PO/GRN breakdown — its
+    // entries stay comma-joined in one cell (repeated on every breakdown row).
     const consumed = r.consumedProjects.length
       ? r.consumedProjects
           .map((c) => `${c.projectNo}: ${formatNumber(c.qty)}${r.uom ? ` ${r.uom}` : ""}`)
@@ -64,8 +64,7 @@ function downloadInventoryExcel(rows: InventoryRow[]) {
       : "—";
 
     const groups = r.breakdown.length > 0 ? r.breakdown : [null];
-    groups.forEach((g, gi) => {
-      const isFirst = gi === 0;
+    for (const g of groups) {
       let received: Cell, balance: Cell, rate: Cell, amount: Cell, gst: Cell, total: Cell;
       let vendor: string, poNo: string, poDate: string, grn: string, project: string;
       let gstNo: string, pan: string, contact: string, email: string, website: string;
@@ -99,11 +98,11 @@ function downloadInventoryExcel(rows: InventoryRow[]) {
       }
 
       aoa.push([
-        isFirst ? sr : null,
-        isFirst ? `${r.component_no} — ${r.name}` : null,
+        sr,
+        `${r.component_no} — ${r.name}`,
         received,
         balance,
-        isFirst ? r.uom ?? "—" : null,
+        r.uom ?? "—",
         rate,
         amount,
         gst,
@@ -113,14 +112,14 @@ function downloadInventoryExcel(rows: InventoryRow[]) {
         poDate,
         grn,
         project,
-        isFirst ? consumed : null,
+        consumed,
         gstNo,
         pan,
         contact,
         email,
         website,
       ]);
-    });
+    }
   }
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
