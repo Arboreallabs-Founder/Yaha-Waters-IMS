@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil, Trash2, Search, Boxes, ChevronRight, ChevronDown, ExternalLink } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Boxes, ChevronRight, ChevronDown, ExternalLink, PackagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,6 +53,8 @@ export function TemplateLineEditor({
   canWrite,
   upsertAction,
   removeAction,
+  createComponentAction,
+  promoteAction,
 }: {
   templateId: string;
   lines: Line[];
@@ -63,19 +65,41 @@ export function TemplateLineEditor({
   canWrite: boolean;
   upsertAction: (fd: FormData) => Promise<ActionResult>;
   removeAction: (fd: FormData) => Promise<ActionResult>;
+  /** Optional: create a component inline from the line dialog. */
+  createComponentAction?: (fd: FormData) => Promise<ActionResult>;
+  /** Optional: promote a plain sub-assembly folder to a stock-tracked component. */
+  promoteAction?: (fd: FormData) => Promise<ActionResult>;
 }) {
   const router = useRouter();
-  const compById = React.useMemo(() => new Map(components.map((c) => [c.id, c])), [components]);
+  // Components created inline this session, merged on top of the server list.
+  const [extraComponents, setExtraComponents] = React.useState<Component[]>([]);
+  const allComponents = React.useMemo(
+    () => [...extraComponents, ...components.filter((c) => !extraComponents.some((e) => e.id === c.id))],
+    [components, extraComponents],
+  );
+  const compById = React.useMemo(() => new Map(allComponents.map((c) => [c.id, c])), [allComponents]);
   const compByNo = React.useMemo(
-    () => new Map(components.map((c) => [c.component_no.toLowerCase(), c.id])),
-    [components],
+    () => new Map(allComponents.map((c) => [c.component_no.toLowerCase(), c.id])),
+    [allComponents],
   );
   const paramByName = React.useMemo(() => new Map(dropdownParams.map((p) => [p.name, p])), [dropdownParams]);
-  const componentItems = React.useMemo(() => components.map((c) => ({ value: c.id, label: `${c.component_no} — ${c.name}` })), [components]);
-  const lineById = React.useMemo(() => new Map(lines.map((l) => [l.id, l])), [lines]);
+  const componentItems = React.useMemo(
+    () => allComponents.map((c) => ({ value: c.id, label: `${c.component_no} — ${c.name}` })),
+    [allComponents],
+  );
 
   // Assembly lines (possible parents) for the "nest under" picker.
   const assemblyLines = React.useMemo(() => lines.filter((l) => l.line_type === "assembly"), [lines]);
+  // Own-line children keyed by parent_line_id (the editable sub-assembly tree).
+  const ownChildrenByParent = React.useMemo(() => {
+    const m = new Map<string, Line[]>();
+    for (const l of lines) {
+      if (!l.parent_line_id) continue;
+      if (!m.has(l.parent_line_id)) m.set(l.parent_line_id, []);
+      m.get(l.parent_line_id)!.push(l);
+    }
+    return m;
+  }, [lines]);
 
   const [query, setQuery] = React.useState("");
   const [open, setOpen] = React.useState(false);
@@ -84,6 +108,7 @@ export function TemplateLineEditor({
   const [quantity, setQuantity] = React.useState("1");
   const [isVariant, setIsVariant] = React.useState(false);
   const [isAssembly, setIsAssembly] = React.useState(false);
+  const [assemblyName, setAssemblyName] = React.useState("");
   const [section, setSection] = React.useState("");
   const [parentId, setParentId] = React.useState("");
   const [ruleParam, setRuleParam] = React.useState("");
@@ -91,7 +116,15 @@ export function TemplateLineEditor({
   const [note, setNote] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
-  // collapsed sub-assembly line ids (their children are hidden) — sub-BOMs start collapsed
+
+  // Inline "new component" sub-dialog
+  const [compDialogOpen, setCompDialogOpen] = React.useState(false);
+
+  // "Make reusable" (promote) dialog
+  const [promoteLine, setPromoteLine] = React.useState<Line | null>(null);
+
+  // collapsed sub-assembly line ids (their children are hidden) — component-backed
+  // sub-BOMs start collapsed; plain folders start expanded so their parts are visible.
   const [collapsed, setCollapsed] = React.useState<Set<string>>(() => {
     const s = new Set<string>();
     const all = [...lines, ...Object.values(subLinesByTemplate).flat()];
@@ -111,7 +144,7 @@ export function TemplateLineEditor({
     section: string | null; raw: Line | null;
   };
 
-  // A line's inline children = the parts of its sub-assembly's own template.
+  // A line's read-only inline children = the parts of its sub-assembly's own template.
   const subLinesOf = React.useCallback(
     (componentId: string | null, lineType: string | null): PreviewLine[] => {
       if (!componentId || lineType !== "assembly") return [];
@@ -121,37 +154,49 @@ export function TemplateLineEditor({
     [subTemplateByComponent, subLinesByTemplate],
   );
 
-  // ---- display tree: own lines (editable) + sub-BOM parts (read-only), recursive ----
+  // ---- display tree: own lines nested by parent_line_id (editable) + sub-BOM
+  //      parts (read-only, recursive) under component-backed assemblies ----
   const { tree, expandableIds } = React.useMemo(() => {
     const expandable = new Set<string>();
-    const scan = [
-      ...lines.map((l) => ({ id: l.id, component_id: l.component_id, line_type: l.line_type })),
-      ...Object.values(subLinesByTemplate).flat().map((l) => ({ id: l.id, component_id: l.component_id, line_type: l.line_type })),
-    ];
-    for (const l of scan) if (subLinesOf(l.component_id, l.line_type).length > 0) expandable.add(l.id);
-
     const out: DisplayNode[] = [];
-    const walk = (items: { pl: PreviewLine; section: string | null; editable: boolean; raw: Line | null }[], depth: number) => {
-      for (const { pl, section, editable, raw } of items) {
+
+    const pushPreview = (items: PreviewLine[], depth: number) => {
+      for (const pl of items) {
         const kids = subLinesOf(pl.component_id, pl.line_type);
+        if (kids.length > 0) expandable.add(pl.id);
         out.push({
-          id: pl.id, depth, hasChildren: kids.length > 0, childCount: kids.length, editable,
+          id: pl.id, depth, hasChildren: kids.length > 0, childCount: kids.length, editable: false,
           component_id: pl.component_id, component_label: pl.component_label, quantity: pl.quantity,
           is_variant_driven: pl.is_variant_driven, line_type: pl.line_type, variant_rule: pl.variant_rule,
-          section, raw,
+          section: null, raw: null,
         });
-        if (kids.length > 0 && !collapsed.has(pl.id)) {
-          walk(kids.map((k) => ({ pl: k, section: null, editable: false, raw: null })), depth + 1);
+        if (kids.length > 0 && !collapsed.has(pl.id)) pushPreview(kids, depth + 1);
+      }
+    };
+
+    const walkOwn = (items: Line[], depth: number) => {
+      for (const l of items) {
+        const ownKids = ownChildrenByParent.get(l.id) ?? [];
+        const previewKids = subLinesOf(l.component_id, l.line_type);
+        const childCount = ownKids.length + previewKids.length;
+        if (childCount > 0) expandable.add(l.id);
+        out.push({
+          id: l.id, depth, hasChildren: childCount > 0, childCount, editable: true,
+          component_id: l.component_id, component_label: l.component_label, quantity: l.quantity,
+          is_variant_driven: l.is_variant_driven, line_type: l.line_type, variant_rule: l.variant_rule,
+          section: l.section, raw: l,
+        });
+        if (childCount > 0 && !collapsed.has(l.id)) {
+          if (ownKids.length) walkOwn(ownKids, depth + 1);
+          if (previewKids.length) pushPreview(previewKids, depth + 1);
         }
       }
     };
-    const own = lines.map((l) => ({
-      pl: { id: l.id, component_id: l.component_id, component_label: l.component_label, quantity: l.quantity, is_variant_driven: l.is_variant_driven, line_type: l.line_type, variant_rule: l.variant_rule },
-      section: l.section, editable: true, raw: l,
-    }));
-    walk(own, 0);
+
+    const roots = lines.filter((l) => !l.parent_line_id || !lines.some((p) => p.id === l.parent_line_id));
+    walkOwn(roots, 0);
     return { tree: out, expandableIds: expandable };
-  }, [lines, collapsed, subLinesByTemplate, subLinesOf]);
+  }, [lines, collapsed, ownChildrenByParent, subLinesByTemplate, subLinesOf]);
 
   const q = query.trim().toLowerCase();
   const filtered: DisplayNode[] = q
@@ -178,6 +223,7 @@ export function TemplateLineEditor({
     setQuantity("1");
     setIsVariant(false);
     setIsAssembly(false);
+    setAssemblyName("");
     setSection("");
     setParentId("");
     setRuleParam("");
@@ -186,8 +232,9 @@ export function TemplateLineEditor({
     setError(null);
   }
 
-  function openCreate() {
+  function openCreate(asAssembly = false) {
     reset();
+    setIsAssembly(asAssembly);
     setEditingId(null);
     setOpen(true);
   }
@@ -199,6 +246,7 @@ export function TemplateLineEditor({
     setQuantity(String(line.quantity ?? 1));
     setIsVariant(line.is_variant_driven);
     setIsAssembly(line.line_type === "assembly");
+    setAssemblyName(line.assembly_name ?? "");
     setSection(line.section ?? "");
     setParentId(line.parent_line_id ?? "");
     setNote(line.note ?? "");
@@ -238,7 +286,12 @@ export function TemplateLineEditor({
     setError(null);
 
     let variantRuleStr = "";
-    if (isVariant) {
+    if (isAssembly) {
+      if (!assemblyName.trim() && !section.trim()) {
+        setError("Give the sub-assembly a name.");
+        return;
+      }
+    } else if (isVariant) {
       if (!ruleParam) {
         setError("Choose the parameter that drives this line.");
         return;
@@ -262,14 +315,19 @@ export function TemplateLineEditor({
       return;
     }
 
+    // A plain folder has no component and its qty is ignored by the engine; a
+    // promoted sub-assembly keeps both.
+    const isPlainFolder = isAssembly && !componentId;
+
     const fd = new FormData();
     fd.set("bom_template_id", templateId);
     if (editingId) fd.set("id", editingId);
     if (componentId) fd.set("component_id", componentId);
-    fd.set("quantity", quantity);
-    if (isVariant) fd.set("is_variant_driven", "on");
+    fd.set("quantity", isPlainFolder ? "0" : quantity);
+    if (isVariant && !isAssembly) fd.set("is_variant_driven", "on");
     if (isAssembly) fd.set("is_assembly", "on");
     if (variantRuleStr) fd.set("variant_rule", variantRuleStr);
+    if (isAssembly && assemblyName.trim()) fd.set("assembly_name", assemblyName.trim());
     if (section.trim()) fd.set("section", section.trim());
     if (parentId) fd.set("parent_line_id", parentId);
     if (note) fd.set("note", note);
@@ -283,6 +341,51 @@ export function TemplateLineEditor({
     }
     setOpen(false);
     reset();
+    router.refresh();
+  }
+
+  async function onCreateComponent(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!createComponentAction) return;
+    setError(null);
+    const form = e.currentTarget;
+    const fd = new FormData(form);
+    setPending(true);
+    const res = await createComponentAction(fd);
+    setPending(false);
+    if (res?.error) {
+      setError(res.error);
+      return;
+    }
+    const newId = res.id;
+    if (newId) {
+      const comp: Component = {
+        id: newId,
+        component_no: String(fd.get("component_no") ?? "").trim(),
+        name: String(fd.get("name") ?? "").trim(),
+      };
+      setExtraComponents((prev) => [comp, ...prev]);
+      setComponentId(newId);
+    }
+    setCompDialogOpen(false);
+    form.reset();
+    router.refresh();
+  }
+
+  async function onPromote(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!promoteAction || !promoteLine) return;
+    setError(null);
+    const fd = new FormData(e.currentTarget);
+    fd.set("line_id", promoteLine.id);
+    setPending(true);
+    const res = await promoteAction(fd);
+    setPending(false);
+    if (res?.error) {
+      setError(res.error);
+      return;
+    }
+    setPromoteLine(null);
     router.refresh();
   }
 
@@ -314,9 +417,14 @@ export function TemplateLineEditor({
           </Button>
         )}
         {canWrite && (
-          <Button onClick={openCreate}>
-            <Plus className="size-4" /> Add line
-          </Button>
+          <>
+            <Button variant="outline" onClick={() => openCreate(true)}>
+              <Boxes className="size-4" /> Add sub-assembly
+            </Button>
+            <Button onClick={() => openCreate(false)}>
+              <Plus className="size-4" /> Add line
+            </Button>
+          </>
         )}
       </div>
 
@@ -327,7 +435,7 @@ export function TemplateLineEditor({
             <TableHead>Qty</TableHead>
             <TableHead>Type</TableHead>
             <TableHead>Varies by</TableHead>
-            {canWrite && <TableHead className="w-20 text-right">Actions</TableHead>}
+            {canWrite && <TableHead className="w-28 text-right">Actions</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -344,6 +452,7 @@ export function TemplateLineEditor({
               const showHeader = !q && depth === 0 && (n.section ?? "") !== (lastSection ?? "");
               if (!q) lastSection = n.section ?? "";
               const isAsm = n.line_type === "assembly";
+              const isPlainFolder = isAsm && !n.component_id;
               const isCollapsed = collapsed.has(n.id);
               const subTplId = n.component_id ? subTemplateByComponent[n.component_id] : undefined;
               return (
@@ -375,7 +484,7 @@ export function TemplateLineEditor({
                         {hasChildren && <span className="ml-1 text-xs font-normal text-muted-foreground">({childCount})</span>}
                         {isAsm && subTplId && (
                           <Link
-                            href={`/masters/bom-templates/${subTplId}`}
+                            href={`/masters/bom-builder/${subTplId}`}
                             className="ml-1.5 inline-flex items-center gap-0.5 text-xs font-normal text-primary hover:underline"
                           >
                             open sub-BOM <ExternalLink className="size-3" />
@@ -383,9 +492,11 @@ export function TemplateLineEditor({
                         )}
                       </span>
                     </TableCell>
-                    <TableCell className={editable ? undefined : "text-muted-foreground"}>{formatNumber(n.quantity)}</TableCell>
+                    <TableCell className={editable ? undefined : "text-muted-foreground"}>{isPlainFolder ? "—" : formatNumber(n.quantity)}</TableCell>
                     <TableCell>
-                      {isAsm ? (
+                      {isPlainFolder ? (
+                        <Badge variant="outline">Folder</Badge>
+                      ) : isAsm ? (
                         <Badge variant="outline">Sub-assembly</Badge>
                       ) : n.is_variant_driven ? (
                         <Badge variant="warning">Variant</Badge>
@@ -398,6 +509,17 @@ export function TemplateLineEditor({
                       <TableCell className="text-right">
                         {editable && n.raw ? (
                           <div className="flex justify-end gap-1">
+                            {isPlainFolder && promoteAction && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setPromoteLine(n.raw!)}
+                                aria-label="Make reusable / stock-tracked"
+                                title="Make reusable / stock-tracked"
+                              >
+                                <PackagePlus className="size-4" />
+                              </Button>
+                            )}
                             <Button variant="ghost" size="icon" onClick={() => openEdit(n.raw!)} aria-label="Edit">
                               <Pencil className="size-4" />
                             </Button>
@@ -418,113 +540,135 @@ export function TemplateLineEditor({
         </TableBody>
       </Table>
 
-      <Dialog open={open} onClose={() => setOpen(false)} title={`${editingId ? "Edit" : "Add"} BOM line`} className="max-w-2xl">
+      <Dialog open={open} onClose={() => setOpen(false)} title={`${editingId ? "Edit" : "Add"} ${isAssembly ? "sub-assembly" : "BOM line"}`} className="max-w-2xl">
         <form onSubmit={onSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label>{isVariant ? "Default component (optional)" : "Component"}</Label>
-              <Combobox items={componentItems} value={componentId} onChange={setComponentId} placeholder="— none —" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>{isVariant ? "Default qty" : "Quantity"}</Label>
-              <Input type="number" step="any" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label>Section</Label>
-              <Input value={section} onChange={(e) => setSection(e.target.value)} placeholder="Housing, Remaining BOM…" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Nest under (sub-assembly)</Label>
-              <Select value={parentId} onChange={(e) => setParentId(e.target.value)}>
-                <option value="">— top level —</option>
-                {assemblyLines
-                  .filter((a) => a.id !== editingId)
-                  .map((a) => (
-                    <option key={a.id} value={a.id}>{a.component_label}</option>
-                  ))}
-              </Select>
-            </div>
-          </div>
-
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={isAssembly}
-              onChange={(e) => setIsAssembly(e.target.checked)}
-              className="size-4 rounded border-input"
-            />
-            <span className="text-sm font-medium">This line is a sub-assembly (can hold nested lines)</span>
-          </label>
-
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={isVariant}
-              disabled={dropdownParams.length === 0}
-              onChange={(e) => {
-                setIsVariant(e.target.checked);
-                if (e.target.checked && !ruleParam && dropdownParams[0]) onParamChange(dropdownParams[0].name);
-              }}
-              className="size-4 rounded border-input"
-            />
-            <span className="text-sm font-medium">
-              This line varies by configuration
-              {dropdownParams.length === 0 && (
-                <span className="ml-1 text-xs font-normal text-muted-foreground">(no dropdown parameters on this product)</span>
-              )}
-            </span>
-          </label>
-
-          {isVariant && (
-            <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
+          {isAssembly ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label>Driven by parameter</Label>
-                <Select value={ruleParam} onChange={(e) => onParamChange(e.target.value)}>
-                  <option value="">— choose —</option>
-                  {dropdownParams.map((p) => (
-                    <option key={p.name} value={p.name}>{p.name}</option>
-                  ))}
-                </Select>
+                <Label>Sub-assembly name</Label>
+                <Input value={assemblyName} onChange={(e) => setAssemblyName(e.target.value)} placeholder="Housing, SS Brush Frame…" autoFocus />
               </div>
-
-              {ruleParam && (
-                <div className="space-y-2">
-                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    For each {ruleParam} value, choose the component &amp; qty
-                  </p>
-                  {(paramByName.get(ruleParam)?.options ?? []).map((opt) => {
-                    const key = String(opt);
-                    const row = ruleRows[key] ?? { componentId: "", qty: "1" };
-                    return (
-                      <div key={key} className="flex items-center gap-2">
-                        <span className="w-16 shrink-0 text-sm font-medium">{key}</span>
-                        <Combobox
-                          items={componentItems}
-                          value={row.componentId}
-                          onChange={(v) => setRow(key, { componentId: v })}
-                          placeholder="— (skip) —"
-                          className="flex-1"
-                        />
-                        <Input
-                          type="number"
-                          step="any"
-                          value={row.qty}
-                          onChange={(e) => setRow(key, { qty: e.target.value })}
-                          className="w-20"
-                          aria-label="qty"
-                        />
-                      </div>
-                    );
-                  })}
-                  <p className="text-xs text-muted-foreground">
-                    Leave a value as “(skip)” if that configuration doesn’t use this line.
-                  </p>
+              <div className="space-y-1.5">
+                <Label>Section (optional)</Label>
+                <Input value={section} onChange={(e) => setSection(e.target.value)} placeholder="grouping label" />
+              </div>
+              {componentId && (
+                <div className="space-y-1.5">
+                  <Label>Quantity per parent unit</Label>
+                  <Input type="number" step="any" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
                 </div>
               )}
             </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div className="space-y-1.5 sm:col-span-2">
+                  <div className="flex items-center justify-between">
+                    <Label>{isVariant ? "Default component (optional)" : "Component"}</Label>
+                    {createComponentAction && (
+                      <button
+                        type="button"
+                        onClick={() => setCompDialogOpen(true)}
+                        className="inline-flex items-center gap-0.5 text-xs font-medium text-primary hover:underline"
+                      >
+                        <Plus className="size-3" /> New component
+                      </button>
+                    )}
+                  </div>
+                  <Combobox items={componentItems} value={componentId} onChange={setComponentId} placeholder="— none —" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>{isVariant ? "Default qty" : "Quantity"}</Label>
+                  <Input type="number" step="any" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label>Section</Label>
+                  <Input value={section} onChange={(e) => setSection(e.target.value)} placeholder="Housing, Remaining BOM…" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Nest under (sub-assembly)</Label>
+                  <Select value={parentId} onChange={(e) => setParentId(e.target.value)}>
+                    <option value="">— top level —</option>
+                    {assemblyLines
+                      .filter((a) => a.id !== editingId)
+                      .map((a) => (
+                        <option key={a.id} value={a.id}>{a.component_label}</option>
+                      ))}
+                  </Select>
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={isVariant}
+                  disabled={dropdownParams.length === 0}
+                  onChange={(e) => {
+                    setIsVariant(e.target.checked);
+                    if (e.target.checked && !ruleParam && dropdownParams[0]) onParamChange(dropdownParams[0].name);
+                  }}
+                  className="size-4 rounded border-input"
+                />
+                <span className="text-sm font-medium">
+                  This line varies by configuration
+                  {dropdownParams.length === 0 && (
+                    <span className="ml-1 text-xs font-normal text-muted-foreground">(no dropdown parameters on this product)</span>
+                  )}
+                </span>
+              </label>
+
+              {isVariant && (
+                <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
+                  <div className="space-y-1.5">
+                    <Label>Driven by parameter</Label>
+                    <Select value={ruleParam} onChange={(e) => onParamChange(e.target.value)}>
+                      <option value="">— choose —</option>
+                      {dropdownParams.map((p) => (
+                        <option key={p.name} value={p.name}>{p.name}</option>
+                      ))}
+                    </Select>
+                  </div>
+
+                  {ruleParam && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        For each {ruleParam} value, choose the component &amp; qty
+                      </p>
+                      {(paramByName.get(ruleParam)?.options ?? []).map((opt) => {
+                        const key = String(opt);
+                        const row = ruleRows[key] ?? { componentId: "", qty: "1" };
+                        return (
+                          <div key={key} className="flex items-center gap-2">
+                            <span className="w-16 shrink-0 text-sm font-medium">{key}</span>
+                            <Combobox
+                              items={componentItems}
+                              value={row.componentId}
+                              onChange={(v) => setRow(key, { componentId: v })}
+                              placeholder="— (skip) —"
+                              className="flex-1"
+                            />
+                            <Input
+                              type="number"
+                              step="any"
+                              value={row.qty}
+                              onChange={(e) => setRow(key, { qty: e.target.value })}
+                              className="w-20"
+                              aria-label="qty"
+                            />
+                          </div>
+                        );
+                      })}
+                      <p className="text-xs text-muted-foreground">
+                        Leave a value as “(skip)” if that configuration doesn’t use this line.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
 
           <div className="space-y-1.5">
@@ -539,6 +683,64 @@ export function TemplateLineEditor({
           </div>
         </form>
       </Dialog>
+
+      {createComponentAction && (
+        <Dialog open={compDialogOpen} onClose={() => setCompDialogOpen(false)} title="New component" className="max-w-lg">
+          <form onSubmit={onCreateComponent} className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>Component No. *</Label>
+                <Input name="component_no" required placeholder="e.g. NZ-3600-02" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Name *</Label>
+                <Input name="name" required placeholder="Nozzle 2 inch" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Category</Label>
+                <Input name="type" placeholder="Nozzle, Fastener, Media…" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>UoM</Label>
+                <Input name="uom" placeholder="Nos, Mtr, Kg…" defaultValue="Nos" />
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>QR / Lot tracking</Label>
+                <Select name="tracking_mode" defaultValue="item">
+                  <option value="item">Item — QR per piece</option>
+                  <option value="box">Box — QR on the box</option>
+                  <option value="bulk">Bulk — measured</option>
+                </Select>
+              </div>
+            </div>
+            {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => setCompDialogOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={pending}>{pending ? "Creating…" : "Create & select"}</Button>
+            </div>
+          </form>
+        </Dialog>
+      )}
+
+      {promoteAction && (
+        <Dialog open={promoteLine !== null} onClose={() => setPromoteLine(null)} title="Make reusable / stock-tracked" className="max-w-lg">
+          <form onSubmit={onPromote} className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              This turns <span className="font-medium text-foreground">{promoteLine?.assembly_name || promoteLine?.section || "the folder"}</span> into
+              a component with its own BOM. Its parts move into that sub-BOM, and it can then be built and stocked on its own.
+            </p>
+            <div className="space-y-1.5">
+              <Label>Component No. (optional)</Label>
+              <Input name="component_no" placeholder="auto-generated if left blank" />
+            </div>
+            {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => setPromoteLine(null)}>Cancel</Button>
+              <Button type="submit" disabled={pending}>{pending ? "Working…" : "Promote"}</Button>
+            </div>
+          </form>
+        </Dialog>
+      )}
     </div>
   );
 }

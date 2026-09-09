@@ -49,8 +49,8 @@ export async function upsertTemplateLine(fd: FormData): Promise<ActionResult> {
     assembly_name: String(fd.get("assembly_name") ?? "").trim() || null,
     note: String(fd.get("note") ?? "").trim() || null,
   };
-  if (!payload.component_id && !isVariant) {
-    return { error: "Pick a component (or mark the line variant-driven with a rule)." };
+  if (!payload.component_id && !isVariant && !isAssembly) {
+    return { error: "Pick a component, mark the line variant-driven with a rule, or make it a sub-assembly folder." };
   }
   return upsertRaw("bom_template_lines", payload, id);
 }

@@ -1,13 +1,11 @@
 import Link from "next/link";
-import { Boxes, Wrench, FolderTree, ListTree, ClipboardCheck, Truck, Users, ShieldCheck } from "lucide-react";
+import { Wrench, ClipboardCheck, Truck, Users, ShieldCheck, Hammer } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 
 const MASTERS = [
-  { label: "Products", href: "/masters/products", description: "SKUs, models, and variant parameters.", icon: Boxes },
+  { label: "BOM Builder", href: "/masters/bom-builder", description: "Create, edit, duplicate, and delete product BOMs, variants, categories, and sub-assemblies.", icon: Hammer },
   { label: "Components", href: "/masters/components", description: "Component numbers, attributes, QR/lot tracking, job-work flags.", icon: Wrench },
-  { label: "Categories", href: "/masters/categories", description: "Product/component category tree.", icon: FolderTree },
-  { label: "BOM Templates", href: "/masters/bom-templates", description: "Per-product bill of materials and variant rules.", icon: ListTree },
   { label: "Inspection Templates", href: "/masters/inspection-templates", description: "Per-item receiving checklist, gated by IRN approval.", icon: ClipboardCheck },
   { label: "Vendors", href: "/masters/vendors", description: "Suppliers, contact details, and supplied components.", icon: Truck },
   { label: "Customers", href: "/masters/customers", description: "Customer master for projects/orders.", icon: Users },

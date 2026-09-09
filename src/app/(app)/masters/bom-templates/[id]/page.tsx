@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TemplateLineEditor, type Line, type PreviewLine } from "./template-line-editor";
 import { upsertTemplateLine, removeTemplateLine } from "../actions";
+import { createComponentQuick, promoteAssemblyLine } from "../../bom-builder/actions";
 
 export default async function BomTemplateDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -30,6 +31,17 @@ export default async function BomTemplateDetailPage({ params }: { params: Promis
     : await supabase.from("product_variant_params").select("name, input_type, options").order("sort_order");
 
   const compById = new Map((components ?? []).map((c) => [c.id, `${c.component_no} — ${c.name}`]));
+  const lineLabel = (l: {
+    component_id: string | null;
+    line_type: string | null;
+    assembly_name?: string | null;
+    section?: string | null;
+  }) =>
+    l.component_id
+      ? compById.get(l.component_id) ?? "—"
+      : l.line_type === "assembly"
+        ? l.assembly_name || l.section || "Sub-assembly"
+        : "(variant-driven)";
 
   // Gather sub-assembly templates + their lines (recursively) so sub-BOM parts
   // can expand inline as a dropdown under each sub-assembly line.
@@ -53,7 +65,7 @@ export default async function BomTemplateDetailPage({ params }: { params: Promis
     for (const l of stLines ?? []) {
       (subLinesByTemplate[l.bom_template_id as string] ??= []).push({
         id: l.id, component_id: l.component_id,
-        component_label: l.component_id ? compById.get(l.component_id) ?? "—" : "(variant-driven)",
+        component_label: lineLabel(l),
         quantity: l.quantity, is_variant_driven: l.is_variant_driven, line_type: l.line_type ?? null, variant_rule: l.variant_rule,
       });
       if (l.line_type === "assembly" && l.component_id) next.add(l.component_id as string);
@@ -64,7 +76,7 @@ export default async function BomTemplateDetailPage({ params }: { params: Promis
   const rows: Line[] = (lines ?? []).map((l) => ({
     id: l.id,
     component_id: l.component_id,
-    component_label: l.component_id ? compById.get(l.component_id) ?? "—" : "(variant-driven)",
+    component_label: lineLabel(l),
     quantity: l.quantity,
     is_variant_driven: l.is_variant_driven,
     variant_rule: l.variant_rule,
@@ -136,6 +148,8 @@ export default async function BomTemplateDetailPage({ params }: { params: Promis
         canWrite={canWriteMasters(profile?.role)}
         upsertAction={upsertTemplateLine}
         removeAction={removeTemplateLine}
+        createComponentAction={createComponentQuick}
+        promoteAction={promoteAssemblyLine}
       />
     </div>
   );

@@ -125,10 +125,9 @@ export default async function DashboardPage() {
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Master data</h2>
         <div className="flex flex-wrap gap-2">
           {[
-            { label: "Products", href: "/masters/products" },
+            { label: "BOM Builder", href: "/masters/bom-builder" },
             { label: "Components", href: "/masters/components" },
             { label: "Vendors", href: "/masters/vendors" },
-            { label: "BOM Templates", href: "/masters/bom-templates" },
           ].map((m) => (
             <Link key={m.label} href={m.href} className="rounded-md border border-border bg-card px-3 py-1.5 text-sm hover:bg-accent">{m.label}</Link>
           ))}

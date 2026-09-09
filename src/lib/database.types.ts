@@ -4933,6 +4933,14 @@ export type Database = {
           shortfall_qty: number
         }[]
       }
+      duplicate_product_bom: {
+        Args: { p_model: string; p_sku: string; p_src_template: string }
+        Returns: string
+      }
+      promote_assembly_line: {
+        Args: { p_component_no?: string; p_line: string }
+        Returns: string
+      }
       receive_job_work: {
         Args: {
           p_answers?: Json
