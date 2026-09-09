@@ -4947,6 +4947,7 @@ export type Database = {
           p_grn_id: string
           p_line_id: string
           p_qty: number
+          p_signature_id?: string
           p_user_id: string
         }
         Returns: Json

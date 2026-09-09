@@ -21,6 +21,9 @@ export type PostedJwLine = {
   id: string; component_label: string; qty: number; unit_cost: number | null;
   jw_no: string | null; irn_status: string | null; irn_no: string | null;
 };
+export type PendingJwIrn = {
+  id: string; irn_no: string; component_label: string; qty: number; status: string;
+};
 export type TemplateField = {
   id: string; label: string; field_type: string; options: string[] | null; is_required: boolean;
 };
@@ -30,10 +33,11 @@ const IRN_STATUS_VARIANT: Record<string, "success" | "warning" | "destructive"> 
 };
 
 export function JwGrnReceiver({
-  grnId, postedLines, openLines, templateFieldsByComponent, carryForwardByLine, canReceive, finance,
+  grnId, postedLines, pendingIrns, openLines, templateFieldsByComponent, carryForwardByLine, canReceive, finance,
 }: {
   grnId: string;
   postedLines: PostedJwLine[];
+  pendingIrns: PendingJwIrn[];
   openLines: OpenJwLine[];
   templateFieldsByComponent: Record<string, TemplateField[]>;
   carryForwardByLine: Record<string, Record<string, string>>;
@@ -46,6 +50,7 @@ export function JwGrnReceiver({
   const [answers, setAnswers] = React.useState<Record<string, string>>({});
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [notice, setNotice] = React.useState<string | null>(null);
 
   const selectedLine = openLines.find((l) => l.id === lineId) ?? null;
   const templateFields = selectedLine ? templateFieldsByComponent[selectedLine.component_id] ?? [] : [];
@@ -72,6 +77,7 @@ export function JwGrnReceiver({
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setNotice(null);
     if (!selectedLine) { setError("Select a job-work line to receive."); return; }
     if (Number(qty) <= 0) { setError("Enter a quantity to receive."); return; }
     if (needsInspection) {
@@ -89,6 +95,11 @@ export function JwGrnReceiver({
     const res = await addJwGrnLine(fd);
     setBusy(false);
     if (res?.error) { setError(res.error); return; }
+    setNotice(
+      res?.status === "pending_approval"
+        ? "Sent for inspection approval — it'll appear in stock once a manager approves the IRN (GRN → Approvals tab)."
+        : "Received.",
+    );
     setLineId(""); setQty(""); setAnswers({});
     router.refresh();
   }
@@ -162,6 +173,7 @@ export function JwGrnReceiver({
           )}
 
           {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+          {notice && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{notice}</p>}
 
           <div className="flex justify-end">
             <Button type="submit" disabled={busy || !openLines.length}>
@@ -169,6 +181,37 @@ export function JwGrnReceiver({
             </Button>
           </div>
         </form>
+      )}
+
+      {pendingIrns.length > 0 && (
+        <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <p className="text-sm font-medium text-amber-900">
+            Awaiting inspection approval — these receipts are held until a manager approves the IRN
+            (<a href="/grn?tab=approval" className="underline">GRN → Approvals</a>). Nothing is in stock yet.
+          </p>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Component</TableHead>
+                <TableHead>Qty</TableHead>
+                <TableHead>IRN</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {pendingIrns.map((i) => (
+                <TableRow key={i.id}>
+                  <TableCell className="font-medium">{i.component_label}</TableCell>
+                  <TableCell>{formatNumber(i.qty)}</TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">{i.irn_no}</TableCell>
+                  <TableCell>
+                    <Badge variant={IRN_STATUS_VARIANT[i.status] ?? "secondary"}>{i.status.replace("_", " ")}</Badge>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
 
       <Table>

@@ -10,7 +10,7 @@ import { DocumentSignButton, type MySignature } from "@/components/document-sign
 import { getSigningState } from "@/lib/signatures";
 import { formatDate } from "@/lib/utils";
 import { GrnReceiver } from "./grn-receiver";
-import { JwGrnReceiver, type OpenJwLine, type PostedJwLine, type TemplateField } from "./jw-grn-receiver";
+import { JwGrnReceiver, type OpenJwLine, type PostedJwLine, type PendingJwIrn, type TemplateField } from "./jw-grn-receiver";
 import { submitIrn } from "../irn-actions";
 import { signGrn } from "../actions";
 
@@ -364,11 +364,24 @@ async function JobWorkGrnPage({
     : { data: [] };
   const jwNoByLine = new Map((postedJwLines ?? []).map((l) => [l.id, (l.job_work_orders as unknown as { jw_no: string } | null)?.jw_no ?? null]));
 
-  const postedGrnLineIds = (grnLines ?? []).map((l) => l.id);
-  const { data: irns } = postedGrnLineIds.length
-    ? await supabase.from("irns").select("id, irn_no, status, grn_line_id").in("grn_line_id", postedGrnLineIds)
-    : { data: [] };
-  const irnByPostedLine = new Map((irns ?? []).map((i) => [i.grn_line_id, i]));
+  // All IRNs on this GRN — approved ones map to a posted line; pending/rejected
+  // ones have no grn_line yet and are surfaced separately so a deferred receipt
+  // (team member, or an admin with no saved signature) still shows feedback.
+  const { data: allIrns } = await supabase
+    .from("irns")
+    .select("id, irn_no, status, grn_line_id, component_id, qty")
+    .eq("grn_id", grnId)
+    .order("created_at");
+  const irnByPostedLine = new Map((allIrns ?? []).filter((i) => i.grn_line_id).map((i) => [i.grn_line_id, i]));
+  const pendingIrns: PendingJwIrn[] = (allIrns ?? [])
+    .filter((i) => !i.grn_line_id && (i.status === "pending_approval" || i.status === "rejected"))
+    .map((i) => ({
+      id: i.id,
+      irn_no: i.irn_no,
+      component_label: compLabel(i.component_id),
+      qty: Number(i.qty ?? 0),
+      status: i.status,
+    }));
 
   const postedLines: PostedJwLine[] = (grnLines ?? []).map((l) => {
     const irn = irnByPostedLine.get(l.id);
@@ -428,6 +441,7 @@ async function JobWorkGrnPage({
       <JwGrnReceiver
         grnId={grnId}
         postedLines={postedLines}
+        pendingIrns={pendingIrns}
         openLines={openLines}
         templateFieldsByComponent={templateFieldsByComponent}
         carryForwardByLine={carryForwardByLine}

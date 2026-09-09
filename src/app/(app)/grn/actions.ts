@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getProfile } from "@/lib/auth";
 import { formatNumber } from "@/lib/utils";
 
-export type ActionResult = { ok?: true; error?: string; id?: string };
+export type ActionResult = { ok?: true; error?: string; id?: string; status?: string };
 
 const RECEIVE = ["admin", "team_lead", "team_member"]; // gate staff can receive
 
@@ -177,13 +177,25 @@ export async function addJwGrnLine(fd: FormData): Promise<ActionResult> {
   const answers = answersRaw ? JSON.parse(answersRaw) : null;
 
   const supabase = await createClient();
+  // Best-effort: attach the receiver's saved signature so an Admin / Team Lead
+  // receipt of a templated component auto-approves its IRN inline — same
+  // no-op-if-missing pattern as submitIrn() for PO-based GRNs.
+  const { data: mySig } = await supabase
+    .from("signatures")
+    .select("id")
+    .eq("user_id", p.id)
+    .order("is_default", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   const { data, error } = await supabase.rpc("receive_job_work", {
     p_grn_id: grn_id, p_line_id: jw_line_id, p_qty: qty, p_user_id: p.id, p_answers: answers,
+    p_signature_id: mySig?.id ?? null,
   });
   if (error) return { error: error.message };
   if (data?.error) return { error: data.error };
 
   revalidatePath(`/grn/${grn_id}`);
   revalidatePath("/job-work");
-  return { ok: true };
+  return { ok: true, status: data?.status ?? undefined };
 }
