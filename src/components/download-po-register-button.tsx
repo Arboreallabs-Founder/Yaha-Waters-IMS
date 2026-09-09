@@ -3,7 +3,8 @@
 import * as XLSX from "xlsx";
 import { FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { formatDate, formatNumber, formatINR } from "@/lib/utils";
+import { formatDate, formatNumber } from "@/lib/utils";
+import { applyNumberFormats } from "@/lib/xlsx-format";
 
 export type PoLineEntry = {
   poNo: string;
@@ -31,11 +32,9 @@ export type PoRegisterRow = {
   lines: PoLineEntry[];
 };
 
-/** Join per-PO-line fragments into one newline-stacked spreadsheet cell. */
-function stack(lines: string[]) {
-  return lines.length ? lines.join("\n") : "—";
-}
+type Cell = string | number | null;
 
+/** Multiple GRNs against the same PO line stay clubbed in one cell. */
 function receiptsText(entry: PoLineEntry) {
   if (!entry.receipts.length) return "—";
   return entry.receipts
@@ -61,80 +60,60 @@ function downloadPoRegisterExcel(rows: PoRegisterRow[], finance: boolean) {
     14, 14, 22, 12, 12, 12, 42, 22, 16, 24, 16, 18, 24,
   ];
 
-  const aoa: (string | number)[][] = [headers];
+  // Per-PO-line cells (everything to the right of the repeated component columns).
+  const lineCells = (e: PoLineEntry): Cell[] => [
+    e.poNo,
+    ...(finance ? [e.rate, e.amount] : []),
+    formatDate(e.poDate),
+    formatDate(e.expectedDate),
+    e.projectNo ?? "—",
+    e.orderedQty,
+    e.receivedQty,
+    e.remainingQty,
+    receiptsText(e),
+    e.vendorName,
+    e.vendorContact ?? "—",
+    e.vendorEmail ?? "—",
+    e.vendorPan ?? "—",
+    e.vendorGst ?? "—",
+    e.vendorWebsite ?? "—",
+  ];
 
-  rows.forEach((r, i) => {
+  const aoa: Cell[][] = [headers];
+  let sr = 0;
+
+  for (const r of rows) {
+    if (aoa.length > 1) aoa.push([]); // blank row between component groups
+    sr += 1;
+    // "Sr. No." + component columns appear once, on the group's first row.
+    const first: Cell[] = [sr, r.componentNo, r.name, r.uom ?? "—"];
+    const cont: Cell[] = [null, null, null, null];
+
     if (r.lines.length === 0) {
       aoa.push([
-        i + 1, r.componentNo, r.name, r.uom ?? "—",
+        ...first,
         "—",
         ...(finance ? ["—", "—"] : []),
-        "—", "—", "—", "—", "—", "—", "—", "—", "—", "—", "—", "—", "—",
+        "—", "—", "—", null, null, null, "—", "—", "—", "—", "—", "—", "—",
       ]);
-      return;
+      continue;
     }
-
-    const poNo: string[] = [];
-    const rate: string[] = [];
-    const amount: string[] = [];
-    const poDate: string[] = [];
-    const expected: string[] = [];
-    const projectNo: string[] = [];
-    const ordered: string[] = [];
-    const received: string[] = [];
-    const remaining: string[] = [];
-    const receipts: string[] = [];
-    const vName: string[] = [];
-    const vContact: string[] = [];
-    const vEmail: string[] = [];
-    const vPan: string[] = [];
-    const vGst: string[] = [];
-    const vWebsite: string[] = [];
-
-    for (const e of r.lines) {
-      poNo.push(e.poNo);
-      rate.push(e.rate == null ? "—" : `₹${formatNumber(e.rate)}`);
-      amount.push(formatINR(e.amount));
-      poDate.push(formatDate(e.poDate));
-      expected.push(formatDate(e.expectedDate));
-      projectNo.push(e.projectNo ?? "—");
-      ordered.push(formatNumber(e.orderedQty));
-      received.push(formatNumber(e.receivedQty));
-      remaining.push(formatNumber(e.remainingQty));
-      receipts.push(receiptsText(e));
-      vName.push(e.vendorName);
-      vContact.push(e.vendorContact ?? "—");
-      vEmail.push(e.vendorEmail ?? "—");
-      vPan.push(e.vendorPan ?? "—");
-      vGst.push(e.vendorGst ?? "—");
-      vWebsite.push(e.vendorWebsite ?? "—");
-    }
-
-    aoa.push([
-      i + 1,
-      r.componentNo,
-      r.name,
-      r.uom ?? "—",
-      stack(poNo),
-      ...(finance ? [stack(rate), stack(amount)] : []),
-      stack(poDate),
-      stack(expected),
-      stack(projectNo),
-      stack(ordered),
-      stack(received),
-      stack(remaining),
-      stack(receipts),
-      stack(vName),
-      stack(vContact),
-      stack(vEmail),
-      stack(vPan),
-      stack(vGst),
-      stack(vWebsite),
-    ]);
-  });
+    r.lines.forEach((e, li) => {
+      aoa.push([...(li === 0 ? first : cont), ...lineCells(e)]);
+    });
+  }
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws["!cols"] = colWidths.map((wch) => ({ wch }));
+
+  const qty = "#,##0.###";
+  applyNumberFormats(
+    ws,
+    finance
+      ? { 0: "0", 5: '"₹"#,##0.00', 6: '"₹"#,##0', 10: qty, 11: qty, 12: qty }
+      : { 0: "0", 8: qty, 9: qty, 10: qty },
+  );
+
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "PO Register");
   const today = new Date().toISOString().slice(0, 10);

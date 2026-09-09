@@ -318,68 +318,99 @@ export default async function ProjectReportsPage({ params }: { params: Promise<{
     : null;
   const accountsComponentIds = [...new Set([...(shortfall ?? []).map((s) => s.component_id), ...hasPoByComponent])].filter((v): v is string => !!v);
 
-  const accountsRows = accountsComponentIds
-    .slice()
-    .sort((a, b) => compLabel(a).localeCompare(compLabel(b)))
-    .map((cid, i) => {
-      const c = compById.get(cid);
-      const lines = poLinesByComponent.get(cid) ?? [];
-      const poNoLines: string[] = [], poDateLines: string[] = [], vendorLines: string[] = [], invoiceLines: string[] = [];
-      const qtyLines: string[] = [], rateLines: string[] = [], valueLines: string[] = [], recvLines: string[] = [], grnDateLines: string[] = [];
-      let totalAmount = 0, totalQtyOrdered = 0, openOrderQty = 0;
-      for (const pl of lines) {
-        const po = pl.po_id ? poById.get(pl.po_id) : null;
-        poNoLines.push(po?.po_no ?? "—");
-        poDateLines.push(po?.po_date ? formatDate(po.po_date) : "—");
-        vendorLines.push(po?.vendor_id ? vendorNameById.get(po.vendor_id) ?? "—" : "—");
-        const invoices = invoiceNosByPoLine.get(pl.id);
-        invoiceLines.push(invoices && invoices.size ? [...invoices].join("; ") : "—");
-        qtyLines.push(formatNumber(Number(pl.qty_ordered ?? 0)));
-        rateLines.push(formatNumber(Number(pl.rate ?? 0)));
-        valueLines.push(formatNumber(Number(pl.amount ?? 0)));
-        recvLines.push(formatNumber(Number(pl.qty_received ?? 0)));
-        grnDateLines.push(lastGrnDateByPoLine.has(pl.id) ? formatDate(lastGrnDateByPoLine.get(pl.id)!) : "—");
-        totalAmount += Number(pl.amount ?? 0);
-        totalQtyOrdered += Number(pl.qty_ordered ?? 0);
-        openOrderQty += Math.max(Number(pl.qty_ordered ?? 0) - Number(pl.qty_received ?? 0), 0);
-      }
-      // Prefer v_project_shortfall (matches the on-screen panel exactly for
-      // BOM-tracked materials); fall back to direct on-hand/consumed sums for
-      // materials procured via a project PO but not part of the formal BOM.
-      const s = shortfallByComponent.get(cid);
-      const onHand = s ? Number(s.on_hand ?? 0) : (fallbackOnHand.get(cid) ?? 0);
-      const consumed = s ? Number(s.consumed_qty ?? 0) : (fallbackConsumed.get(cid) ?? 0);
-      const totalAvailable = onHand + consumed;
-      const weightedAvgRate = totalQtyOrdered > 0 ? totalAmount / totalQtyOrdered : null;
-      const stockValue = weightedAvgRate !== null ? onHand * weightedAvgRate : null;
-      const status = accountsMaterialStatus(lines.length > 0, onHand, consumed, openOrderQty);
+  const qtyFmt = "#,##0.###";
+  const accountsNumberFormats: Record<number, string> = {
+    0: "0", 5: "0", 11: qtyFmt, 12: "#,##0.00", 13: "#,##0", 14: qtyFmt,
+    15: qtyFmt, 16: qtyFmt, 17: qtyFmt, 18: "#,##0",
+  };
 
-      return [
-        i + 1,
-        customer?.name ?? "—",
-        project.customer_po_number ?? "—",
-        project.order_date ? formatDate(project.order_date) : "—",
-        project.delivery_date ? formatDate(project.delivery_date) : "—",
-        deliveryDays ?? "—",
-        stack(poNoLines),
-        stack(poDateLines),
-        stack(vendorLines),
-        `${c?.component_no ?? "—"} — ${c?.name ?? "—"}`,
-        c?.uom ?? "—",
-        stack(qtyLines),
-        stack(rateLines),
-        stack(valueLines),
-        stack(recvLines),
-        formatNumber(totalAvailable),
-        formatNumber(consumed),
-        formatNumber(onHand),
-        stockValue !== null ? formatNumber(stockValue) : "—",
-        stack(grnDateLines),
-        status,
-        stack(invoiceLines),
-        "",
-      ];
+  // One row per purchase PO line. Columns constant for a material (Sr. No.,
+  // project columns, description, UOM, the component totals, status) appear once
+  // on the material's first row; a blank row separates materials.
+  const sortedAccountsIds = accountsComponentIds
+    .slice()
+    .sort((a, b) => compLabel(a).localeCompare(compLabel(b)));
+
+  const accountsRows: (string | number | null)[][] = [];
+  let accSr = 0;
+
+  for (const cid of sortedAccountsIds) {
+    const c = compById.get(cid);
+    const lines = poLinesByComponent.get(cid) ?? [];
+
+    let totalAmount = 0, totalQtyOrdered = 0, openOrderQty = 0;
+    for (const pl of lines) {
+      totalAmount += Number(pl.amount ?? 0);
+      totalQtyOrdered += Number(pl.qty_ordered ?? 0);
+      openOrderQty += Math.max(Number(pl.qty_ordered ?? 0) - Number(pl.qty_received ?? 0), 0);
+    }
+    // Prefer v_project_shortfall (matches the on-screen panel exactly for
+    // BOM-tracked materials); fall back to direct on-hand/consumed sums for
+    // materials procured via a project PO but not part of the formal BOM.
+    const s = shortfallByComponent.get(cid);
+    const onHand = s ? Number(s.on_hand ?? 0) : (fallbackOnHand.get(cid) ?? 0);
+    const consumed = s ? Number(s.consumed_qty ?? 0) : (fallbackConsumed.get(cid) ?? 0);
+    const totalAvailable = onHand + consumed;
+    const weightedAvgRate = totalQtyOrdered > 0 ? totalAmount / totalQtyOrdered : null;
+    const stockValue = weightedAvgRate !== null ? onHand * weightedAvgRate : null;
+    const status = accountsMaterialStatus(lines.length > 0, onHand, consumed, openOrderQty);
+
+    if (accountsRows.length > 0) accountsRows.push([]); // blank row between materials
+    accSr += 1;
+
+    type LineCells = {
+      poNo: string; poDate: string; vendor: string;
+      qty: number | null; rate: number | null; value: number | null; recv: number | null;
+      grnDate: string; invoice: string;
+    };
+    const emit = (first: boolean, x: LineCells) => {
+      accountsRows.push([
+        first ? accSr : null,                                              // 0  Sr. No.
+        first ? customer?.name ?? "—" : null,                              // 1  Customer Name
+        first ? project.customer_po_number ?? "—" : null,                  // 2  Project PO No.
+        first ? (project.order_date ? formatDate(project.order_date) : "—") : null,     // 3
+        first ? (project.delivery_date ? formatDate(project.delivery_date) : "—") : null, // 4
+        first ? deliveryDays ?? null : null,                               // 5  Project Delivery Time (Days)
+        x.poNo,                                                            // 6  Purchase PO No.
+        x.poDate,                                                          // 7  Purchase PO Date
+        x.vendor,                                                          // 8  Supplier/Vendor Name
+        first ? `${c?.component_no ?? "—"} — ${c?.name ?? "—"}` : null,     // 9  Material Description
+        first ? c?.uom ?? "—" : null,                                      // 10 UOM
+        x.qty,                                                             // 11 PO Qty
+        x.rate,                                                            // 12 PO Rate
+        x.value,                                                           // 13 PO Value
+        x.recv,                                                            // 14 Received Qty
+        first ? totalAvailable : null,                                     // 15 Total Available Qty
+        first ? consumed : null,                                           // 16 Consumed Qty
+        first ? onHand : null,                                             // 17 Balance Stock
+        first ? stockValue : null,                                         // 18 Stock Value
+        x.grnDate,                                                         // 19 Last GRN Date
+        first ? status : null,                                             // 20 Material Status
+        x.invoice,                                                         // 21 Invoice No.
+        "",                                                                // 22 Remarks
+      ]);
+    };
+
+    if (lines.length === 0) {
+      emit(true, { poNo: "—", poDate: "—", vendor: "—", qty: null, rate: null, value: null, recv: null, grnDate: "—", invoice: "—" });
+      continue;
+    }
+    lines.forEach((pl, li) => {
+      const po = pl.po_id ? poById.get(pl.po_id) : null;
+      const invoices = invoiceNosByPoLine.get(pl.id);
+      emit(li === 0, {
+        poNo: po?.po_no ?? "—",
+        poDate: po?.po_date ? formatDate(po.po_date) : "—",
+        vendor: po?.vendor_id ? vendorNameById.get(po.vendor_id) ?? "—" : "—",
+        qty: Number(pl.qty_ordered ?? 0),
+        rate: Number(pl.rate ?? 0),
+        value: Number(pl.amount ?? 0),
+        recv: Number(pl.qty_received ?? 0),
+        grnDate: lastGrnDateByPoLine.has(pl.id) ? formatDate(lastGrnDateByPoLine.get(pl.id)!) : "—",
+        invoice: invoices && invoices.size ? [...invoices].join("; ") : "—",
+      });
     });
+  }
 
   return (
     <div>
@@ -522,7 +553,7 @@ export default async function ProjectReportsPage({ params }: { params: Promise<{
       <CollapsibleSection id="accounts-view" title="Accounts View" defaultOpen>
         <Card>
           <CardContent className="flex flex-wrap items-center justify-between gap-3 p-5">
-            <p className="text-sm text-muted-foreground">{accountsRows.length} material(s) — procurement and consumption detail for accounts reconciliation.</p>
+            <p className="text-sm text-muted-foreground">{sortedAccountsIds.length} material(s) — procurement and consumption detail for accounts reconciliation.</p>
             <DownloadExcelButton
               label="Download Accounts View"
               filename={`${project.project_no}-Accounts-View.xlsx`}
@@ -535,6 +566,7 @@ export default async function ProjectReportsPage({ params }: { params: Promise<{
               ]}
               rows={accountsRows}
               colWidths={[6, 20, 16, 14, 16, 12, 18, 14, 20, 36, 8, 10, 10, 12, 12, 14, 12, 12, 12, 14, 14, 14, 20]}
+              numberFormats={accountsNumberFormats}
             />
           </CardContent>
         </Card>

@@ -9,6 +9,7 @@ import { SearchInput } from "@/components/ui/search-input";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { MobileRowCard } from "@/components/ui/mobile-row-card";
 import { formatINR, formatNumber, formatDate } from "@/lib/utils";
+import { applyNumberFormats } from "@/lib/xlsx-format";
 
 export type BreakdownEntry = {
   vendorName: string;
@@ -41,98 +42,94 @@ export type InventoryRow = {
 };
 
 const EXPORT_HEADERS = [
-  "Sr.No.", "Material Description", "Recived Qty & Balance Stock", "Unit", "Rate", "Amount",
+  "Sr.No.", "Material Description", "Received Qty", "Balance Stock", "Unit", "Rate", "Amount",
   "GST 18%", "Total Amount", "Vendor Name", "PO. No.", "PO Date", "GRN No.", "Project No.", "Consumed on Project",
   "GST No.", "PAN", "Vendor Contact Details", "Vendor Mail ID", "official Website",
 ];
 
-function stack(lines: string[]) {
-  return lines.length ? lines.join("\n") : "—";
-}
+type Cell = string | number | null;
 
 function downloadInventoryExcel(rows: InventoryRow[]) {
-  const aoa: (string | number)[][] = [EXPORT_HEADERS];
+  const aoa: Cell[][] = [EXPORT_HEADERS];
+  let sr = 0;
 
-  rows.forEach((r, i) => {
+  for (const r of rows) {
+    if (aoa.length > 1) aoa.push([]); // blank row between components
+    sr += 1;
+    // "Consumed on Project" is a different axis from the PO/GRN breakdown — keep
+    // its entries comma-joined in one cell on the group's first row.
+    const consumed = r.consumedProjects.length
+      ? r.consumedProjects
+          .map((c) => `${c.projectNo}: ${formatNumber(c.qty)}${r.uom ? ` ${r.uom}` : ""}`)
+          .join(", ")
+      : "—";
+
     const groups = r.breakdown.length > 0 ? r.breakdown : [null];
-    const qtyLines: string[] = [];
-    const rateLines: string[] = [];
-    const amountLines: string[] = [];
-    const gstLines: string[] = [];
-    const totalLines: string[] = [];
-    const vendorLines: string[] = [];
-    const poNoLines: string[] = [];
-    const poDateLines: string[] = [];
-    const grnNoLines: string[] = [];
-    const projectLines: string[] = [];
-    const gstNoLines: string[] = [];
-    const panLines: string[] = [];
-    const contactLines: string[] = [];
-    const emailLines: string[] = [];
-    const websiteLines: string[] = [];
+    groups.forEach((g, gi) => {
+      const isFirst = gi === 0;
+      let received: Cell, balance: Cell, rate: Cell, amount: Cell, gst: Cell, total: Cell;
+      let vendor: string, poNo: string, poDate: string, grn: string, project: string;
+      let gstNo: string, pan: string, contact: string, email: string, website: string;
 
-    for (const g of groups) {
       if (!g) {
-        qtyLines.push(`Recv 0 / Bal ${formatNumber(r.qty_on_hand)}`);
-        rateLines.push("—"); amountLines.push("—"); gstLines.push("—"); totalLines.push("—");
-        vendorLines.push("—"); poNoLines.push("—"); poDateLines.push("—"); grnNoLines.push("—"); projectLines.push("—");
-        gstNoLines.push("—"); panLines.push("—"); contactLines.push("—"); emailLines.push("—"); websiteLines.push("—");
-        continue;
+        received = 0;
+        balance = r.qty_on_hand;
+        rate = amount = gst = total = null;
+        vendor = poNo = poDate = grn = project = gstNo = pan = contact = email = website = "—";
+      } else {
+        // Value the *received* qty, not the on-hand balance: consumed stock still
+        // counts as purchased value until a dispatch step exists.
+        const amt = g.rate !== null ? g.rate * g.qtyReceived : null;
+        const gstAmt = amt !== null && g.gstPercent !== null ? amt * (g.gstPercent / 100) : null;
+        received = g.qtyReceived;
+        balance = g.qtyBalance;
+        rate = g.rate;
+        amount = amt;
+        gst = gstAmt;
+        total = amt !== null && gstAmt !== null ? amt + gstAmt : amt;
+        vendor = g.vendorName;
+        poNo = g.poNo ?? "—";
+        poDate = g.poDate ? formatDate(g.poDate) : "—";
+        grn = g.grnNos.length ? g.grnNos.join(", ") : "—";
+        project = g.projectNo ?? "—";
+        gstNo = g.gstNo ?? "—";
+        pan = g.pan ?? "—";
+        contact = g.contact ?? "—";
+        email = g.email ?? "—";
+        website = g.website ?? "—";
       }
-      // Value the *received* qty, not the on-hand balance: consumed stock still counts
-      // as purchased value until a dispatch step exists.
-      const amount = g.rate !== null ? g.rate * g.qtyReceived : null;
-      const gstAmount = amount !== null && g.gstPercent !== null ? amount * (g.gstPercent / 100) : null;
-      const total = amount !== null && gstAmount !== null ? amount + gstAmount : amount;
 
-      qtyLines.push(`Recv ${formatNumber(g.qtyReceived)} / Bal ${formatNumber(g.qtyBalance)}`);
-      rateLines.push(g.rate !== null ? formatNumber(g.rate) : "—");
-      amountLines.push(amount !== null ? formatNumber(amount) : "—");
-      gstLines.push(gstAmount !== null ? formatNumber(gstAmount) : "—");
-      totalLines.push(total !== null ? formatNumber(total) : "—");
-      vendorLines.push(g.vendorName);
-      poNoLines.push(g.poNo ?? "—");
-      poDateLines.push(g.poDate ? formatDate(g.poDate) : "—");
-      grnNoLines.push(g.grnNos.length ? g.grnNos.join(", ") : "—");
-      projectLines.push(g.projectNo ?? "—");
-      gstNoLines.push(g.gstNo ?? "—");
-      panLines.push(g.pan ?? "—");
-      contactLines.push(g.contact ?? "—");
-      emailLines.push(g.email ?? "—");
-      websiteLines.push(g.website ?? "—");
-    }
-
-    const consumedLines = r.consumedProjects.map(
-      (c) => `${c.projectNo}: ${formatNumber(c.qty)}${r.uom ? ` ${r.uom}` : ""} consumed`,
-    );
-
-    aoa.push([
-      i + 1,
-      `${r.component_no} — ${r.name}`,
-      stack(qtyLines),
-      r.uom ?? "—",
-      stack(rateLines),
-      stack(amountLines),
-      stack(gstLines),
-      stack(totalLines),
-      stack(vendorLines),
-      stack(poNoLines),
-      stack(poDateLines),
-      stack(grnNoLines),
-      stack(projectLines),
-      stack(consumedLines),
-      stack(gstNoLines),
-      stack(panLines),
-      stack(contactLines),
-      stack(emailLines),
-      stack(websiteLines),
-    ]);
-  });
+      aoa.push([
+        isFirst ? sr : null,
+        isFirst ? `${r.component_no} — ${r.name}` : null,
+        received,
+        balance,
+        isFirst ? r.uom ?? "—" : null,
+        rate,
+        amount,
+        gst,
+        total,
+        vendor,
+        poNo,
+        poDate,
+        grn,
+        project,
+        isFirst ? consumed : null,
+        gstNo,
+        pan,
+        contact,
+        email,
+        website,
+      ]);
+    });
+  }
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws["!cols"] = EXPORT_HEADERS.map((h) => ({
     wch: h === "Consumed on Project" ? 28 : h === "GRN No." ? 24 : 20,
   }));
+  const qty = "#,##0.###";
+  applyNumberFormats(ws, { 0: "0", 2: qty, 3: qty, 5: "#,##0.00", 6: "#,##0", 7: "#,##0", 8: "#,##0" });
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Inventory");
   const today = new Date().toISOString().slice(0, 10);
