@@ -69,14 +69,9 @@ export default async function GrnPrintPage({ params }: { params: Promise<{ id: s
     );
   }
 
-  const [{ data: vendor }, { data: grnLines }, { data: checklistFields }] = await Promise.all([
+  const [{ data: vendor }, { data: grnLines }] = await Promise.all([
     grn.vendor_id ? supabase.from("vendors").select("name").eq("id", grn.vendor_id).maybeSingle() : Promise.resolve({ data: null }),
     supabase.from("grn_lines").select("id, component_id, po_line_id, jw_line_id, qty_received").eq("grn_id", grnId).order("created_at"),
-    supabase
-      .from("inspection_templates")
-      .select("id, inspection_template_fields(id, label, field_type, sort_order, is_active, show_on_printout)")
-      .eq("name", "MRIN Inspection Checklist")
-      .maybeSingle(),
   ]);
 
   const jwLineIds = [...new Set((grnLines ?? []).map((l) => l.jw_line_id).filter(Boolean))] as string[];
@@ -85,18 +80,12 @@ export default async function GrnPrintPage({ params }: { params: Promise<{ id: s
     : { data: [] };
   const jwNos = [...new Set((jwLines ?? []).map((l) => (l.job_work_orders as unknown as { jw_no: string } | null)?.jw_no).filter(Boolean))] as string[];
 
-  const fields = (
-    (checklistFields?.inspection_template_fields as { id: string; label: string; field_type: string; sort_order: number; is_active: boolean; show_on_printout: boolean }[] | null) ?? []
-  )
-    .filter((f) => f.is_active && f.show_on_printout)
-    .sort((a, b) => a.sort_order - b.sort_order);
-
   const componentIds = [...new Set((grnLines ?? []).map((l) => l.component_id).filter(Boolean))] as string[];
   const poLineIds = [...new Set((grnLines ?? []).map((l) => l.po_line_id).filter(Boolean))] as string[];
   const grnLineIds = (grnLines ?? []).map((l) => l.id);
   const [{ data: components }, { data: poLines }, { data: irns }] = await Promise.all([
     componentIds.length
-      ? supabase.from("components").select("id, component_no, name, uom, spec, grade, nominal_size, od_mm, id_mm, thk_mm, width_mm, length_mm").in("id", componentIds)
+      ? supabase.from("components").select("id, component_no, name, uom, spec, grade, nominal_size, od_mm, id_mm, thk_mm, width_mm, length_mm, inspection_template_id").in("id", componentIds)
       : Promise.resolve({ data: [] }),
     poLineIds.length ? supabase.from("po_lines").select("id, po_id, qty_ordered, purchase_orders(po_no)") .in("id", poLineIds) : Promise.resolve({ data: [] }),
     grnLineIds.length ? supabase.from("irns").select("id, grn_line_id, approval_remarks").in("grn_line_id", grnLineIds) : Promise.resolve({ data: [] }),
@@ -105,6 +94,35 @@ export default async function GrnPrintPage({ params }: { params: Promise<{ id: s
   const poLineById = new Map((poLines ?? []).map((p) => [p.id, p]));
   const irnByGrnLine = new Map((irns ?? []).map((i) => [i.grn_line_id, i]));
   const poNos = [...new Set((poLines ?? []).map((p) => (p.purchase_orders as unknown as { po_no: string } | null)?.po_no).filter(Boolean))] as string[];
+
+  // Checklist columns are merged by (label, field_type) across every template
+  // actually used by this GRN's lines — not tied to one hardcoded template.
+  // Two templates' fields with the same label+type share one printed column;
+  // each line's own answer is still looked up via its own template's real
+  // field id (fieldIdByTemplate), so answers never cross-match by accident.
+  const templateIds = [...new Set((components ?? []).map((c) => c.inspection_template_id).filter((v): v is string => !!v))];
+  const { data: templateFields } = templateIds.length
+    ? await supabase
+        .from("inspection_template_fields")
+        .select("id, template_id, label, field_type, sort_order")
+        .in("template_id", templateIds)
+        .eq("is_active", true)
+        .eq("show_on_printout", true)
+    : { data: [] };
+
+  type Column = { label: string; field_type: string; sortOrder: number; fieldIdByTemplate: Map<string, string> };
+  const columnsByKey = new Map<string, Column>();
+  for (const f of templateFields ?? []) {
+    const key = `${f.label}::${f.field_type}`;
+    let col = columnsByKey.get(key);
+    if (!col) {
+      col = { label: f.label, field_type: f.field_type, sortOrder: f.sort_order, fieldIdByTemplate: new Map() };
+      columnsByKey.set(key, col);
+    }
+    col.sortOrder = Math.min(col.sortOrder, f.sort_order);
+    col.fieldIdByTemplate.set(f.template_id, f.id);
+  }
+  const fields = [...columnsByKey.values()].sort((a, b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label));
 
   const irnIds = (irns ?? []).map((i) => i.id);
   const { data: answers } = irnIds.length
@@ -130,7 +148,9 @@ export default async function GrnPrintPage({ params }: { params: Promise<{ id: s
       poQty: pl?.qty_ordered ?? null,
       receivedQty: gl.qty_received,
       checklist: fields.map((f) => {
-        const a = irnAnswers?.get(f.id);
+        const templateId = c?.inspection_template_id;
+        const fieldId = templateId ? f.fieldIdByTemplate.get(templateId) : undefined;
+        const a = fieldId ? irnAnswers?.get(fieldId) : undefined;
         if (!a) return { value: "—", isLink: false };
         if (f.field_type === "checkbox") {
           return { value: a.choice_value === "true" ? "✓" : a.choice_value === "false" ? "✗" : "—", isLink: false };
@@ -206,7 +226,7 @@ export default async function GrnPrintPage({ params }: { params: Promise<{ id: s
               <th className="border-r border-black p-1 text-right">PO Qty</th>
               <th className="border-r border-black p-1 text-right">Received</th>
               {fields.map((f) => (
-                <th key={f.id} className="border-r border-black p-1 text-center">{f.label}</th>
+                <th key={`${f.label}::${f.field_type}`} className="border-r border-black p-1 text-center">{f.label}</th>
               ))}
             </tr>
           </thead>
