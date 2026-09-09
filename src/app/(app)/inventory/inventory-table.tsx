@@ -54,7 +54,6 @@ function downloadInventoryExcel(rows: InventoryRow[]) {
   let sr = 0;
 
   for (const r of rows) {
-    if (aoa.length > 1) aoa.push([]); // blank row between components
     sr += 1;
     // "Consumed on Project" is a different axis from the PO/GRN breakdown — keep
     // its entries comma-joined in one cell on the group's first row.

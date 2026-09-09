@@ -83,7 +83,6 @@ function downloadPoRegisterExcel(rows: PoRegisterRow[], finance: boolean) {
   let sr = 0;
 
   for (const r of rows) {
-    if (aoa.length > 1) aoa.push([]); // blank row between component groups
     sr += 1;
     // "Sr. No." + component columns appear once, on the group's first row.
     const first: Cell[] = [sr, r.componentNo, r.name, r.uom ?? "—"];

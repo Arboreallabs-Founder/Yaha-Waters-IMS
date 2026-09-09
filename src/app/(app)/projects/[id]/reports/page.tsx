@@ -355,7 +355,6 @@ export default async function ProjectReportsPage({ params }: { params: Promise<{
     const stockValue = weightedAvgRate !== null ? onHand * weightedAvgRate : null;
     const status = accountsMaterialStatus(lines.length > 0, onHand, consumed, openOrderQty);
 
-    if (accountsRows.length > 0) accountsRows.push([]); // blank row between materials
     accSr += 1;
 
     type LineCells = {
