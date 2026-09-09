@@ -3,7 +3,7 @@
 import * as XLSX from "xlsx";
 import { FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { formatDate, formatNumber } from "@/lib/utils";
+import { formatDate, formatNumber, formatINR } from "@/lib/utils";
 
 export type PoLineEntry = {
   poNo: string;
@@ -13,6 +13,8 @@ export type PoLineEntry = {
   orderedQty: number;
   receivedQty: number;
   remainingQty: number;
+  rate: number | null;
+  amount: number | null;
   receipts: { grnNo: string; date: string | null; qty: number }[];
   vendorName: string;
   vendorContact: string | null;
@@ -29,14 +31,6 @@ export type PoRegisterRow = {
   lines: PoLineEntry[];
 };
 
-const HEADERS = [
-  "Sr. No.", "Component No.", "Material Description", "UOM",
-  "PO No.", "PO Date", "Expected Date", "Project No.", "Ordered Qty", "Received Qty", "Remaining Qty",
-  "Receipts (GRN — Date — Qty)",
-  "Vendor Name", "Vendor Contact No.", "Vendor Email", "Vendor PAN", "Vendor GST No.", "Vendor Website",
-];
-const COL_WIDTHS = [6, 16, 40, 8, 16, 14, 14, 22, 12, 12, 12, 42, 22, 16, 24, 16, 18, 24];
-
 /** Join per-PO-line fragments into one newline-stacked spreadsheet cell. */
 function stack(lines: string[]) {
   return lines.length ? lines.join("\n") : "—";
@@ -49,17 +43,40 @@ function receiptsText(entry: PoLineEntry) {
     .join(", ");
 }
 
-function downloadPoRegisterExcel(rows: PoRegisterRow[]) {
-  const aoa: (string | number)[][] = [HEADERS];
+function downloadPoRegisterExcel(rows: PoRegisterRow[], finance: boolean) {
+  // Rate / Amount sit right after "PO No." and are only included for roles that
+  // can see financials.
+  const headers = [
+    "Sr. No.", "Component No.", "Material Description", "UOM",
+    "PO No.",
+    ...(finance ? ["Rate", "Amount"] : []),
+    "PO Date", "Expected Date", "Project No.", "Ordered Qty", "Received Qty", "Remaining Qty",
+    "Receipts (GRN — Date — Qty)",
+    "Vendor Name", "Vendor Contact No.", "Vendor Email", "Vendor PAN", "Vendor GST No.", "Vendor Website",
+  ];
+  const colWidths = [
+    6, 16, 40, 8,
+    16,
+    ...(finance ? [14, 16] : []),
+    14, 14, 22, 12, 12, 12, 42, 22, 16, 24, 16, 18, 24,
+  ];
+
+  const aoa: (string | number)[][] = [headers];
 
   rows.forEach((r, i) => {
-    const lines = r.lines.length > 0 ? r.lines : null;
-    if (!lines) {
-      aoa.push([i + 1, r.componentNo, r.name, r.uom ?? "—", "—", "—", "—", "—", "—", "—", "—", "—", "—", "—", "—", "—", "—", "—"]);
+    if (r.lines.length === 0) {
+      aoa.push([
+        i + 1, r.componentNo, r.name, r.uom ?? "—",
+        "—",
+        ...(finance ? ["—", "—"] : []),
+        "—", "—", "—", "—", "—", "—", "—", "—", "—", "—", "—", "—", "—",
+      ]);
       return;
     }
 
     const poNo: string[] = [];
+    const rate: string[] = [];
+    const amount: string[] = [];
     const poDate: string[] = [];
     const expected: string[] = [];
     const projectNo: string[] = [];
@@ -74,8 +91,10 @@ function downloadPoRegisterExcel(rows: PoRegisterRow[]) {
     const vGst: string[] = [];
     const vWebsite: string[] = [];
 
-    for (const e of lines) {
+    for (const e of r.lines) {
       poNo.push(e.poNo);
+      rate.push(e.rate == null ? "—" : `₹${formatNumber(e.rate)}`);
+      amount.push(formatINR(e.amount));
       poDate.push(formatDate(e.poDate));
       expected.push(formatDate(e.expectedDate));
       projectNo.push(e.projectNo ?? "—");
@@ -97,6 +116,7 @@ function downloadPoRegisterExcel(rows: PoRegisterRow[]) {
       r.name,
       r.uom ?? "—",
       stack(poNo),
+      ...(finance ? [stack(rate), stack(amount)] : []),
       stack(poDate),
       stack(expected),
       stack(projectNo),
@@ -114,7 +134,7 @@ function downloadPoRegisterExcel(rows: PoRegisterRow[]) {
   });
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"] = COL_WIDTHS.map((wch) => ({ wch }));
+  ws["!cols"] = colWidths.map((wch) => ({ wch }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "PO Register");
   const today = new Date().toISOString().slice(0, 10);
@@ -123,9 +143,11 @@ function downloadPoRegisterExcel(rows: PoRegisterRow[]) {
 
 export function DownloadPoRegisterButton({
   rows,
+  finance = false,
   className,
 }: {
   rows: PoRegisterRow[];
+  finance?: boolean;
   className?: string;
 }) {
   return (
@@ -135,7 +157,7 @@ export function DownloadPoRegisterButton({
       size="sm"
       className={className}
       disabled={rows.length === 0}
-      onClick={() => downloadPoRegisterExcel(rows)}
+      onClick={() => downloadPoRegisterExcel(rows, finance)}
     >
       <FileSpreadsheet className="size-4" /> Download PO Register
     </Button>

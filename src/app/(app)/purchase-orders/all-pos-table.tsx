@@ -50,7 +50,7 @@ export function AllPosTable({
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <SearchInput value={query} onChange={setQuery} placeholder="Search PO no. or vendor…" />
         <p className="text-sm text-muted-foreground">{filtered.length} of {pos.length}</p>
-        <DownloadPoRegisterButton rows={poRegisterRows} className="ml-auto" />
+        <DownloadPoRegisterButton rows={poRegisterRows} finance={finance} className="ml-auto" />
       </div>
       <Table>
         <TableHeader>

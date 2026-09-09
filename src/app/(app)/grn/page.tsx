@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { getProfile, canWriteMasters } from "@/lib/auth";
+import { getProfile, canWriteMasters, canSeeFinancials } from "@/lib/auth";
 import { getVendors } from "@/lib/masters-data";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -69,6 +69,7 @@ async function activeVendors() {
 
 async function AllGrnsTab() {
   const supabase = await createClient();
+  const finance = canSeeFinancials((await getProfile())?.role);
   const [{ data: grns }, vendors, { data: lines }, poRegisterRows] = await Promise.all([
     supabase.from("grns").select("*").order("received_at", { ascending: false }),
     activeVendors(),
@@ -91,7 +92,7 @@ async function AllGrnsTab() {
     received_at: g.received_at,
   }));
 
-  return <AllGrnsTable rows={rows} poRegisterRows={poRegisterRows} />;
+  return <AllGrnsTable rows={rows} poRegisterRows={poRegisterRows} finance={finance} />;
 }
 
 async function ApprovalTab({ canApprove, userId }: { canApprove: boolean; userId: string | null }) {
