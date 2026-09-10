@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getProfile, canWriteMasters } from "@/lib/auth";
+import { getCategories } from "@/lib/masters-data";
 import { PageHeader } from "@/components/page-header";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { StartBomForm } from "./start-bom-form";
@@ -11,14 +12,14 @@ export default async function BomBuilderPage() {
   const canWrite = canWriteMasters(profile?.role);
   const supabase = await createClient();
 
-  const [{ data: templates }, { data: products }, { data: categories }, { data: lines }] = await Promise.all([
+  const [{ data: templates }, { data: products }, categories, { data: lines }] = await Promise.all([
     supabase
       .from("bom_templates")
       .select("id, product_id, version, is_active, created_at")
       .not("product_id", "is", null)
       .order("created_at", { ascending: false }),
     supabase.from("products").select("id, sku_code, model_name, category_id"),
-    supabase.from("categories").select("id, name, parent_id").order("name"),
+    getCategories(),
     supabase.from("bom_template_lines").select("bom_template_id"),
   ]);
 

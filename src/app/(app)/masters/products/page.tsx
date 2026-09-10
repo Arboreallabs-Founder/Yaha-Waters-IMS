@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getProfile, canWriteMasters } from "@/lib/auth";
+import { getCategories } from "@/lib/masters-data";
 import { PageHeader } from "@/components/page-header";
 import { CrudManager, type Column, type Field } from "@/components/crud/crud-manager";
 import { upsert, remove } from "./actions";
@@ -7,12 +8,12 @@ import { upsert, remove } from "./actions";
 export default async function ProductsPage() {
   const profile = await getProfile();
   const supabase = await createClient();
-  const [{ data: products }, { data: categories }] = await Promise.all([
+  const [{ data: products }, categories] = await Promise.all([
     supabase.from("products").select("*").order("sku_code"),
-    supabase.from("categories").select("id, name").order("name"),
+    getCategories(),
   ]);
 
-  const catById = new Map((categories ?? []).map((c) => [c.id, c.name]));
+  const catById = new Map(categories.map((c) => [c.id, c.name]));
   const rows = (products ?? []).map((p) => ({
     ...p,
     category_name: p.category_id ? catById.get(p.category_id) ?? "—" : null,

@@ -4,6 +4,7 @@ import {
   deleteRecord,
   upsertRaw,
   parseOptions,
+  invalidateMasterCache,
   type ActionResult,
 } from "@/lib/server/crud";
 import { createClient } from "@/lib/supabase/server";
@@ -31,6 +32,7 @@ export async function upsert(fd: FormData): Promise<ActionResult> {
     // Edit — plain update, no redirect
     const { error } = await (supabase.from("products") as any).update(payload).eq("id", id);
     if (error) return { error: error.message };
+    invalidateMasterCache("products");
     return { ok: true };
   }
 
@@ -47,6 +49,7 @@ export async function upsert(fd: FormData): Promise<ActionResult> {
     .single();
   if (bomErr) return { error: bomErr.message };
 
+  invalidateMasterCache("products");
   return { ok: true, redirect: `/masters/bom-templates/${bom.id}` };
 }
 

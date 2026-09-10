@@ -6,6 +6,7 @@ import {
   upsertRaw,
   parseOptions,
   type ActionResult,
+  invalidateMasterCache,
 } from "@/lib/server/crud";
 import { getProfile, canWriteMasters } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -68,5 +69,6 @@ export async function toggleFieldEligibility(fd: FormData): Promise<ActionResult
     ? await supabase.from("component_inspection_field_exclusions").delete().eq("component_id", componentId).eq("field_id", fieldId)
     : await supabase.from("component_inspection_field_exclusions").insert({ component_id: componentId, field_id: fieldId, created_by: profile!.id });
   if (resp.error && resp.error.code !== "23505") return { error: resp.error.message };
+  invalidateMasterCache("component_inspection_field_exclusions");
   return { ok: true };
 }

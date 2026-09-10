@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile, canWriteMasters } from "@/lib/auth";
+import { getCategories } from "@/lib/masters-data";
 import { PageHeader } from "@/components/page-header";
 import { TemplateLineEditor, type Line, type PreviewLine } from "../../bom-templates/[id]/template-line-editor";
 import { VariantParamEditor } from "../../products/[id]/variant-param-editor";
@@ -170,9 +171,9 @@ export default async function BomBuilderDetailPage({ params }: { params: Promise
   }
 
   // ---- product template: full builder ----
-  const [{ data: product }, { data: categories }, { data: vparams }] = await Promise.all([
+  const [{ data: product }, categories, { data: vparams }] = await Promise.all([
     supabase.from("products").select("id, sku_code, model_name, category_id, is_serialized, description").eq("id", template.product_id).maybeSingle(),
-    supabase.from("categories").select("id, name").order("name"),
+    getCategories(),
     supabase.from("product_variant_params").select("*").eq("product_id", template.product_id).order("sort_order"),
   ]);
 

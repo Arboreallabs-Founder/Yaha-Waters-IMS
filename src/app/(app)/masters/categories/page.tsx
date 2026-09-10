@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getProfile, canWriteMasters } from "@/lib/auth";
+import { getCategories } from "@/lib/masters-data";
 import { PageHeader } from "@/components/page-header";
 import { CrudManager, type Column, type Field } from "@/components/crud/crud-manager";
 import { upsert, remove } from "./actions";
@@ -7,7 +8,7 @@ import { upsert, remove } from "./actions";
 export default async function CategoriesPage() {
   const profile = await getProfile();
   const supabase = await createClient();
-  const { data } = await supabase.from("categories").select("*").order("name");
+  const data = await getCategories();
   const categories = data ?? [];
 
   const nameById = new Map(categories.map((c) => [c.id, c.name]));

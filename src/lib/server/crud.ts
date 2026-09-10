@@ -1,4 +1,4 @@
-import { revalidateTag } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile, canWriteMasters } from "@/lib/auth";
 import { MASTER_TAGS } from "@/lib/masters-data";
@@ -18,8 +18,29 @@ const TABLE_TAGS: Record<string, readonly string[]> = {
   components: [MASTER_TAGS.componentsFull, MASTER_TAGS.componentsSafe],
 };
 
-function invalidateMasterCache(table: string) {
-  for (const tag of TABLE_TAGS[table] ?? []) revalidateTag(tag);
+/**
+ * Invalidate everything a write to `table` could be showing anywhere.
+ *
+ * Tables with a cached getter are invalidated precisely, by tag. The rest —
+ * products, bom_templates, bom_template_lines, product_variant_params,
+ * inspection_templates, inspection_template_fields, vendor_components,
+ * projects — had no invalidation at all, so an edit on one device could leave
+ * another device (or a later render on the same one) showing the old row.
+ *
+ * They get a whole-tree revalidation rather than a per-path list: their rows
+ * are read across a wide and shifting set of routes (a BOM template line shows
+ * up under masters, the BOM builder, and every project page that expands it),
+ * and enumerating those is exactly the kind of list that silently goes stale.
+ * Master data is edited rarely, so paying for a broad invalidation on write is
+ * the right trade against serving a stale row.
+ */
+export function invalidateMasterCache(table: string) {
+  const tags = TABLE_TAGS[table];
+  if (tags) {
+    for (const tag of tags) revalidateTag(tag);
+    return;
+  }
+  revalidatePath("/", "layout");
 }
 
 /**

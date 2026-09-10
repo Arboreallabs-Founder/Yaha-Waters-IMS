@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getProfile, canWriteMasters, canSeeFinancials } from "@/lib/auth";
+import { getCustomers } from "@/lib/masters-data";
 import { PageHeader } from "@/components/page-header";
 import { ProjectsList } from "./projects-list";
 import { upsert, remove } from "./actions";
@@ -8,12 +9,12 @@ export default async function ProjectsPage() {
   const profile = await getProfile();
   const supabase = await createClient();
 
-  const [{ data: projects }, { data: customers }] = await Promise.all([
+  const [{ data: projects }, customers] = await Promise.all([
     supabase.from("projects").select("*").order("created_at", { ascending: false }),
-    supabase.from("customers").select("id, name").order("name"),
+    getCustomers(),
   ]);
 
-  const custById = new Map((customers ?? []).map((c) => [c.id, c.name]));
+  const custById = new Map(customers.map((c) => [c.id, c.name]));
 
   const rows = (projects ?? []).map((p) => ({
     ...p,

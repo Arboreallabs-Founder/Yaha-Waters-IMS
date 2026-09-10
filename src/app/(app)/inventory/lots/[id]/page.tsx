@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile, canSeeFinancials } from "@/lib/auth";
+import { getCustomers } from "@/lib/masters-data";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,7 +30,7 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
   const { data: lot } = await supabase.from("inventory_lots").select("*").eq("id", id).single();
   if (!lot) notFound();
 
-  const [{ data: comp }, { data: vendor }, { data: project }, { data: moves }, { data: projects }, { data: parentLot }, { data: customers }] =
+  const [{ data: comp }, { data: vendor }, { data: project }, { data: moves }, { data: projects }, { data: parentLot }, customers] =
     await Promise.all([
       lot.component_id ? supabase.from("components").select("component_no, name").eq("id", lot.component_id).maybeSingle() : Promise.resolve({ data: null }),
       lot.vendor_id ? supabase.from("vendors").select("name").eq("id", lot.vendor_id).maybeSingle() : Promise.resolve({ data: null }),
@@ -37,7 +38,7 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
       supabase.from("stock_movements").select("*").eq("lot_id", id).order("performed_at", { ascending: false }),
       supabase.from("projects").select("id, project_no, customer_id").order("project_no"),
       lot.parent_lot_id ? supabase.from("inventory_lots").select("id, lot_code").eq("id", lot.parent_lot_id).maybeSingle() : Promise.resolve({ data: null }),
-      supabase.from("customers").select("id, name"),
+      getCustomers(),
     ]);
   const isBox = !!lot.container_no;
 
@@ -47,7 +48,7 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
     : { data: [] };
   const reversedIds = new Set((reversals ?? []).map((r) => r.reference_id));
 
-  const custName = new Map((customers ?? []).map((c) => [c.id, c.name]));
+  const custName = new Map(customers.map((c) => [c.id, c.name]));
   const projectsWithCustomer = (projects ?? []).map((p) => ({ ...p, customer_name: p.customer_id ? custName.get(p.customer_id) ?? null : null }));
   const projNo = new Map(projectsWithCustomer.map((p) => [p.id, projectLabel(p)]));
   const projectDisplay = project ? projectLabel({ project_no: project.project_no, customer_name: project.customer_id ? custName.get(project.customer_id) ?? null : null }) : undefined;

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile, canSeeFinancials } from "@/lib/auth";
+import { getCustomers } from "@/lib/masters-data";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -24,10 +25,10 @@ export default async function DashboardPage() {
       supabase.from("v_project_costing").select("*"),
       finance ? supabase.from("v_component_on_hand").select("stock_value") : Promise.resolve({ data: [] }),
       supabase.from("projects").select("id, customer_id"),
-      supabase.from("customers").select("id, name"),
+      getCustomers(),
     ]);
 
-  const custName = new Map((customersRes.data ?? []).map((c) => [c.id, c.name]));
+  const custName = new Map(customersRes.map((c) => [c.id, c.name]));
   const custIdByProject = new Map((projectsRes.data ?? []).map((p) => [p.id, p.customer_id]));
 
   const c = (r: { count: number | null }) => r.count ?? 0;

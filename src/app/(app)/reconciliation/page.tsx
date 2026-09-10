@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile, canWriteMasters } from "@/lib/auth";
+import { getCustomers } from "@/lib/masters-data";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +22,7 @@ export default async function ReconciliationPage() {
     { data: overdue },
     { data: projects },
     { data: components },
-    { data: customers },
+    customers,
   ] = await Promise.all([
     supabase.from("v_bom_variance").select("*").or("uncovered_qty.gt.0,receive_gap.gt.0"),
     supabase.from("v_untagged_receipts").select("*").order("received_at", { ascending: false }),
@@ -30,10 +31,10 @@ export default async function ReconciliationPage() {
     supabase.from("v_po_overdue").select("*").order("days_overdue", { ascending: false }),
     supabase.from("projects").select("id, project_no, customer_id"),
     supabase.from("components").select("id, component_no, name"),
-    supabase.from("customers").select("id, name"),
+    getCustomers(),
   ]);
 
-  const custName = new Map((customers ?? []).map((c) => [c.id, c.name]));
+  const custName = new Map(customers.map((c) => [c.id, c.name]));
   const projectsWithCustomer = (projects ?? []).map((p) => ({ ...p, customer_name: p.customer_id ? custName.get(p.customer_id) ?? null : null }));
   const projNo = new Map(projectsWithCustomer.map((p) => [p.id, projectLabel(p)]));
   const compLabel = new Map((components ?? []).map((c) => [c.id, `${c.component_no} — ${c.name}`]));
