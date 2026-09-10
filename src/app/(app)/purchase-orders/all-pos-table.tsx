@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { AlertTriangle, ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
@@ -19,6 +19,12 @@ const STATUS_VARIANT: Record<string, "secondary" | "warning" | "success" | "dest
   superseded: "secondary",
 };
 
+function overReceivedLabel(n: number) {
+  return n === 1
+    ? "1 line received more than was ordered — open the PO to review"
+    : `${n} lines received more than was ordered — open the PO to review`;
+}
+
 export type PoRow = {
   id: string;
   po_no: string;
@@ -27,6 +33,8 @@ export type PoRow = {
   status: string;
   total_amount: number | null;
   waiting_on?: string | null;
+  /** Lines on this PO that received more than was ordered. 0 for a normal PO. */
+  over_received_lines?: number;
 };
 
 export function AllPosTable({
@@ -69,7 +77,21 @@ export function AllPosTable({
           ) : (
             filtered.map((po) => (
               <TableRow key={po.id}>
-                <TableCell className="font-medium">{po.po_no}</TableCell>
+                <TableCell className="font-medium">
+                  <span className="inline-flex items-center gap-1.5">
+                    {po.po_no}
+                    {!!po.over_received_lines && (
+                      <span
+                        title={overReceivedLabel(po.over_received_lines)}
+                        aria-label={overReceivedLabel(po.over_received_lines)}
+                        role="img"
+                        className="inline-flex text-destructive"
+                      >
+                        <AlertTriangle className="size-4 shrink-0" />
+                      </span>
+                    )}
+                  </span>
+                </TableCell>
                 <TableCell>{po.vendor_name ?? <span className="text-muted-foreground">—</span>}</TableCell>
                 <TableCell className="text-muted-foreground">{formatDate(po.po_date)}</TableCell>
                 <TableCell>

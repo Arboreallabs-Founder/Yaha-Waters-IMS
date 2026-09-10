@@ -118,6 +118,22 @@ async function AllPosTab({ finance, vendors }: { finance: boolean; vendors: { id
     : { data: [] };
   const signerName = new Map((signerProfiles ?? []).map((p) => [p.id, p.full_name]));
 
+  // PO lines that took in more than was ordered. The line-level badge for this
+  // already exists on the PO itself, but it was only reachable by opening each
+  // PO in turn, so a mis-keyed receipt could sit unnoticed. Counting it here
+  // surfaces it on the list. Derived from the register rows already loaded
+  // above — same scope (no drafts, no superseded, no cancelled lines) and no
+  // extra query. The tolerance matches the PO editor's, so a float artefact
+  // like 73.19999999999999 vs 73.2 isn't reported as an over-receipt.
+  const overReceivedByPoNo = new Map<string, number>();
+  for (const r of poRegisterRows) {
+    for (const l of r.lines) {
+      if (l.receivedQty > l.orderedQty + 1e-6) {
+        overReceivedByPoNo.set(l.poNo, (overReceivedByPoNo.get(l.poNo) ?? 0) + 1);
+      }
+    }
+  }
+
   const rows = (pos ?? []).map((po) => ({
     id: po.id,
     po_no: po.po_no,
@@ -126,6 +142,7 @@ async function AllPosTab({ finance, vendors }: { finance: boolean; vendors: { id
     status: po.status,
     total_amount: po.total_amount,
     waiting_on: po.status === "pending_signature" ? signerName.get(nextSignerIdByPo.get(po.id) ?? "") ?? null : null,
+    over_received_lines: overReceivedByPoNo.get(po.po_no) ?? 0,
   }));
 
   return <AllPosTable pos={rows} finance={finance} poRegisterRows={poRegisterRows} />;
