@@ -18,7 +18,6 @@ export default async function ComponentsPage() {
   ]);
   const assemblies = data.filter((c) => c.is_assembly);
   const vendorOptions = (vendors ?? []).map((v) => ({ value: v.id, label: v.name }));
-  const assemblyOptions = (assemblies ?? []).map((a) => ({ value: a.id, label: `${a.component_no} — ${a.name}` }));
   const assemblyLabel = new Map((assemblies ?? []).map((a) => [a.id, `${a.component_no} — ${a.name}`]));
   const templateOptions = (templates ?? []).map((t) => ({ value: t.id, label: t.name }));
 
@@ -84,8 +83,6 @@ export default async function ComponentsPage() {
     { name: "by_weight", label: "Priced / issued by weight", type: "checkbox" },
     { name: "weight_uom", label: "Weight UoM", type: "text", placeholder: "Kg" },
     { name: "cut_from_plate", label: "Cut from plate", type: "checkbox" },
-    { name: "parent_assembly_id", label: "Sub-assembly", type: "select", options: assemblyOptions, help: "Which sub-assembly this component belongs to." },
-    { name: "is_assembly", label: "Assembly (stockable sub-BOM)", type: "checkbox" },
     { name: "is_serialized", label: "Serialized (1 lot = 1 unit)", type: "checkbox" },
     { name: "reorder_level", label: "Reorder level", type: "number", step: "any" },
     { name: "standard_cost", label: "Standard cost (₹)", type: "number", step: "any", financial: true },
