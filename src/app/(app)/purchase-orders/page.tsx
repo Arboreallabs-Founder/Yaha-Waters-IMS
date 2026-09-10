@@ -188,13 +188,17 @@ async function ApprovalsTab({ canApprove, mySignatures }: { canApprove: boolean;
   // but shouldn't clutter the live worklist.
   const pending = (allPending ?? []).filter((l) => poStatus.get(l.po_id) !== "superseded");
 
-  const componentIds = [...new Set(pending.map((l) => l.component_id).filter((v): v is string => !!v))];
   const raiserIds = [...new Set(pending.map((l) => l.created_by).filter((v): v is string => !!v))];
-  const [{ data: components }, { data: raisers }] = await Promise.all([
-    componentIds.length ? supabase.from("components").select("id, component_no, name").in("id", componentIds) : Promise.resolve({ data: [] }),
+  // Components come from the shared cached loader rather than an `.in("id", …)` over
+  // every pending line's component: that array reached 380 ids here, and PostgREST
+  // rejects the request once the ids push the URL past the ~16 KB header limit — the
+  // same failure that was silently blanking the inventory export. The loader is already
+  // resolved for this render, so this also drops a round trip.
+  const [components, { data: raisers }] = await Promise.all([
+    getComponentsFull(),
     raiserIds.length ? supabase.from("profiles").select("id, full_name").in("id", raiserIds) : Promise.resolve({ data: [] }),
   ]);
-  const compLabel = new Map((components ?? []).map((c) => [c.id, `${c.component_no} — ${c.name}`]));
+  const compLabel = new Map(components.map((c) => [c.id, `${c.component_no} — ${c.name}`]));
   const raiserName = new Map((raisers ?? []).map((p) => [p.id, p.full_name]));
 
   if (!canApprove) {

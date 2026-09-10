@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile, canWriteMasters, canSeeFinancials } from "@/lib/auth";
-import { getVendors } from "@/lib/masters-data";
+import { getVendors, getComponentsSafe } from "@/lib/masters-data";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -111,7 +111,6 @@ async function ApprovalTab({ canApprove, userId }: { canApprove: boolean; userId
       : Promise.resolve({ data: [] }),
   ]);
 
-  const componentIds = [...new Set((irns ?? []).map((i) => i.component_id))];
   const generatorIds = [...new Set((irns ?? []).map((i) => i.generated_by))];
   const irnGrnIds = [...new Set((irns ?? []).map((i) => i.grn_id))];
 
@@ -125,16 +124,18 @@ async function ApprovalTab({ canApprove, userId }: { canApprove: boolean; userId
     return s?.canSignNow && !s.fullySigned;
   });
   const creatorIds = [...new Set(signaturePendingGrns.map((g) => g.created_by).filter(Boolean))] as string[];
-  const vendorIds = [...new Set(signaturePendingGrns.map((g) => g.vendor_id).filter(Boolean))] as string[];
 
-  const [{ data: components }, { data: generators }, { data: irnGrns }, { data: creators }, { data: vendors }] = await Promise.all([
-    componentIds.length ? supabase.from("components").select("id, component_no, name").in("id", componentIds) : Promise.resolve({ data: [] }),
+  // Components and vendors come from the shared cached loaders instead of `.in("id", …)`
+  // over every referenced id — those arrays grow with the data and eventually push the
+  // request URL past PostgREST's ~16 KB header limit, which fails silently.
+  const [components, { data: generators }, { data: irnGrns }, { data: creators }, vendors] = await Promise.all([
+    getComponentsSafe(),
     generatorIds.length ? supabase.from("profiles").select("id, full_name").in("id", generatorIds) : Promise.resolve({ data: [] }),
     irnGrnIds.length ? supabase.from("grns").select("id, grn_no").in("id", irnGrnIds) : Promise.resolve({ data: [] }),
     creatorIds.length ? supabase.from("profiles").select("id, full_name").in("id", creatorIds) : Promise.resolve({ data: [] }),
-    vendorIds.length ? supabase.from("vendors").select("id, name").in("id", vendorIds) : Promise.resolve({ data: [] }),
+    getVendors(),
   ]);
-  const compLabel = new Map((components ?? []).map((c) => [c.id, `${c.component_no} — ${c.name}`]));
+  const compLabel = new Map(components.map((c) => [c.id, `${c.component_no} — ${c.name}`]));
   const genName = new Map((generators ?? []).map((p) => [p.id, p.full_name]));
   const grnNo = new Map((irnGrns ?? []).map((g) => [g.id, g.grn_no]));
   const creatorName = new Map((creators ?? []).map((p) => [p.id, p.full_name]));
@@ -243,15 +244,14 @@ async function RegisterTab({ from, to, q }: { from: string; to: string; q: strin
   if (to) query = query.lte("generated_at", `${to}T23:59:59`);
   const { data: irns } = await query;
 
-  const componentIds = [...new Set((irns ?? []).map((i) => i.component_id))];
   const peopleIds = [...new Set([...(irns ?? []).map((i) => i.generated_by), ...(irns ?? []).map((i) => i.approved_by)].filter(Boolean))] as string[];
   const grnIds = [...new Set((irns ?? []).map((i) => i.grn_id))];
-  const [{ data: components }, { data: people }, { data: grns }] = await Promise.all([
-    componentIds.length ? supabase.from("components").select("id, component_no, name").in("id", componentIds) : Promise.resolve({ data: [] }),
+  const [components, { data: people }, { data: grns }] = await Promise.all([
+    getComponentsSafe(),
     peopleIds.length ? supabase.from("profiles").select("id, full_name").in("id", peopleIds) : Promise.resolve({ data: [] }),
     grnIds.length ? supabase.from("grns").select("id, grn_no").in("id", grnIds) : Promise.resolve({ data: [] }),
   ]);
-  const compLabel = new Map((components ?? []).map((c) => [c.id, `${c.component_no} — ${c.name}`]));
+  const compLabel = new Map(components.map((c) => [c.id, `${c.component_no} — ${c.name}`]));
   const personName = new Map((people ?? []).map((p) => [p.id, p.full_name]));
   const grnNo = new Map((grns ?? []).map((g) => [g.id, g.grn_no]));
 

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getProfile, canSeeFinancials } from "@/lib/auth";
+import { getVendors } from "@/lib/masters-data";
 import { PageHeader } from "@/components/page-header";
 import { formatINR } from "@/lib/utils";
 import { InventoryTable, type InventoryRow, type BreakdownEntry } from "./inventory-table";
@@ -21,17 +22,34 @@ export default async function InventoryPage() {
 
   const totalValue = finance ? allComponents.reduce((s, r) => s + Number(r.stock_value ?? 0), 0) : null;
 
-  const componentIds = allComponents.map((c) => c.component_id);
-
   // ---- Vendor / price / PO / GRN breakdown per component (for the Excel export) ----
   // Consumed lots are included on purpose: a fully-consumed component must still show its
   // real received qty, vendor, PO and GRN in the export (Balance just reads 0).
-  const { data: lots } = componentIds.length
-    ? await supabase
-        .from("inventory_lots")
-        .select("id, component_id, vendor_id, qty_on_hand, qty_initial, unit_cost, grn_line_id")
-        .in("component_id", componentIds)
-    : { data: [] };
+  //
+  // These reads used to run one after another, which cost nine serial round trips to
+  // Postgres. They are issued here in dependency tiers instead: everything within a tier
+  // is independent, so each tier is one round trip and the page waits five times, not
+  // nine. Vendors come from the shared cached loader (`vendors_sel` is `using (true)`,
+  // so it returns exactly what a per-request query would) and cost nothing at all.
+  //
+  // Neither read filters by `componentIds`. Doing so put all 512 ids in the query
+  // string, which built a ~20 KB URL and made PostgREST reject the request for
+  // exceeding the header limit — silently, since the failure surfaces only as a null
+  // `data`, which is why the export's vendor/PO/GRN/rate columns came out blank. The
+  // filter bought nothing anyway: both tables are keyed to components, so the maps
+  // built below are only ever read for a component already on the page.
+  const [{ data: lots }, { data: consumption }, vendorRows] = await Promise.all([
+    supabase
+      .from("inventory_lots")
+      .select("id, component_id, vendor_id, qty_on_hand, qty_initial, unit_cost, grn_line_id"),
+    // Which project(s) each component was actually *consumed* on — from the issue/return
+    // ledger, netted, independent of the PO the stock was ordered against. Powers the
+    // "Consumed on Project" column in the Excel export.
+    supabase.from("v_project_consumption").select("project_id, component_id, consumed_qty"),
+    getVendors(),
+  ]);
+
+  const vendorById = new Map(vendorRows.map((v) => [v.id, v]));
 
   const grnLineIds = [...new Set((lots ?? []).map((l) => l.grn_line_id).filter((v): v is string => !!v))];
   const { data: grnLines } = grnLineIds.length
@@ -41,49 +59,35 @@ export default async function InventoryPage() {
   const grnIdByGrnLine = new Map((grnLines ?? []).map((g) => [g.id, g.grn_id]));
 
   const grnIds = [...new Set((grnLines ?? []).map((g) => g.grn_id).filter((v): v is string => !!v))];
-  const { data: grns } = grnIds.length
-    ? await supabase.from("grns").select("id, grn_no").in("id", grnIds)
-    : { data: [] };
-  const grnNoById = new Map((grns ?? []).map((g) => [g.id, g.grn_no]));
-
   const poLineIds = [...new Set((grnLines ?? []).map((g) => g.po_line_id).filter((v): v is string => !!v))];
-  const { data: poLines } = poLineIds.length
-    ? await supabase.from("po_lines").select("id, rate, project_id, po_id").in("id", poLineIds)
-    : { data: [] };
+  const [{ data: grns }, { data: poLines }] = await Promise.all([
+    grnIds.length
+      ? supabase.from("grns").select("id, grn_no").in("id", grnIds)
+      : Promise.resolve({ data: [] }),
+    poLineIds.length
+      ? supabase.from("po_lines").select("id, rate, project_id, po_id").in("id", poLineIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+  const grnNoById = new Map((grns ?? []).map((g) => [g.id, g.grn_no]));
   const poLineById = new Map((poLines ?? []).map((p) => [p.id, p]));
 
   const poIds = [...new Set((poLines ?? []).map((p) => p.po_id).filter((v): v is string => !!v))];
-  const { data: purchaseOrders } = poIds.length
-    ? await supabase.from("purchase_orders").select("id, po_no, po_date, gst_percent").in("id", poIds)
-    : { data: [] };
-  const poById = new Map((purchaseOrders ?? []).map((p) => [p.id, p]));
-
-  // Which project(s) each component was actually *consumed* on — from the issue/return
-  // ledger, netted, independent of the PO the stock was ordered against. Powers the
-  // "Consumed on Project" column in the Excel export.
-  const { data: consumption } = componentIds.length
-    ? await supabase
-        .from("v_project_consumption")
-        .select("project_id, component_id, consumed_qty")
-        .in("component_id", componentIds)
-    : { data: [] };
-
   const projectIds = [
     ...new Set([
       ...(poLines ?? []).map((p) => p.project_id).filter((v): v is string => !!v),
       ...(consumption ?? []).map((c) => c.project_id).filter((v): v is string => !!v),
     ]),
   ];
-  const { data: projects } = projectIds.length
-    ? await supabase.from("projects").select("id, project_no").in("id", projectIds)
-    : { data: [] };
+  const [{ data: purchaseOrders }, { data: projects }] = await Promise.all([
+    poIds.length
+      ? supabase.from("purchase_orders").select("id, po_no, po_date, gst_percent").in("id", poIds)
+      : Promise.resolve({ data: [] }),
+    projectIds.length
+      ? supabase.from("projects").select("id, project_no").in("id", projectIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+  const poById = new Map((purchaseOrders ?? []).map((p) => [p.id, p]));
   const projectNoById = new Map((projects ?? []).map((p) => [p.id, p.project_no]));
-
-  const vendorIds = [...new Set((lots ?? []).map((l) => l.vendor_id).filter((v): v is string => !!v))];
-  const { data: vendors } = vendorIds.length
-    ? await supabase.from("vendors").select("id, name, gst_no, pan, email, website, contact").in("id", vendorIds)
-    : { data: [] };
-  const vendorById = new Map((vendors ?? []).map((v) => [v.id, v]));
 
   // Group lots per component into receipt-groups: one entry per distinct po_line
   // (or per distinct vendor+rate for lots with no traceable PO, e.g. site purchases).
