@@ -27,7 +27,9 @@ export default async function JobWorkPage({
       supabase.from("job_work_orders").select("*").neq("status", "superseded").order("created_at", { ascending: false }),
       getVendors(),
       supabase.from("projects").select("id, project_no, customer_id").order("project_no"),
-      supabase.from("inventory_lots").select("component_id, qty_on_hand").eq("jw_stage", "raw").eq("status", "open").gt("qty_on_hand", 0),
+      // "issued" (project-reserved) raw lots can still be sent for job work under
+      // an order for that project, so count them here alongside free "open" stock.
+      supabase.from("inventory_lots").select("component_id, qty_on_hand").eq("jw_stage", "raw").in("status", ["open", "issued"]).gt("qty_on_hand", 0),
       getComponentsFull(),
       getCustomers(),
       supabase.from("job_work_orders").select("id", { count: "exact", head: true }).eq("status", "pending_signature"),

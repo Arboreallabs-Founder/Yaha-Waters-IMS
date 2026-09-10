@@ -28,7 +28,10 @@ export default async function JobWorkDetailPage({ params }: { params: Promise<{ 
     supabase.from("job_work_orders").select("*").eq("id", id).single(),
     supabase.from("job_work_lines").select("*").eq("jw_order_id", id).order("created_at"),
     getComponentsFull(),
-    supabase.from("inventory_lots").select("id, component_id, lot_code, qty_on_hand, unit_cost").eq("jw_stage", "raw").eq("status", "open").gt("qty_on_hand", 0),
+    // Raw lots we can send: free stock ("open") plus stock already reserved to
+    // this order's project ("issued" with a matching project_id). Reserved rows
+    // for a *different* project are filtered out in JS once `order` is known.
+    supabase.from("inventory_lots").select("id, component_id, lot_code, qty_on_hand, unit_cost, status, project_id").eq("jw_stage", "raw").in("status", ["open", "issued"]).gt("qty_on_hand", 0),
     getVendors(),
     profile ? supabase.from("signatures").select("id, label, method, image_data_url, is_default").eq("user_id", profile.id).order("is_default", { ascending: false }) : Promise.resolve({ data: [] }),
   ]);
@@ -80,6 +83,9 @@ export default async function JobWorkDetailPage({ params }: { params: Promise<{ 
     }
   }
   const rawLots: RawLot[] = (lots ?? [])
+    // "open" lots are free stock; "issued" lots are reserved to a project and
+    // may only be sent for job work under an order for that same project.
+    .filter((l) => l.status === "open" || (order.project_id != null && l.project_id === order.project_id))
     .map((l) => ({
       id: l.id, component_id: l.component_id, lot_code: l.lot_code,
       qty_on_hand: Number(l.qty_on_hand ?? 0) - (committedByLot.get(l.id) ?? 0),
