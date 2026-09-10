@@ -63,7 +63,7 @@ export function PoLineApprovalActions({ lineId, signatures }: { lineId: string; 
         <Button size="sm" disabled={busy !== null} onClick={() => { setError(null); setOpen(true); }}>
           <Check className="size-4" /> Approve
         </Button>
-        <Button size="sm" variant="outline" className="text-destructive" disabled={busy !== null} onClick={onReject}>
+        <Button size="sm" variant="outline" className="text-destructive" loading={busy === "reject"} disabled={busy !== null} onClick={onReject}>
           <X className="size-4" /> Reject
         </Button>
       </div>
@@ -91,7 +91,7 @@ export function PoLineApprovalActions({ lineId, signatures }: { lineId: string; 
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button type="submit" disabled={busy === "approve" || !signatureId}>{busy === "approve" ? "Approving…" : "Confirm approval"}</Button>
+            <Button type="submit" loading={busy === "approve"} disabled={!signatureId}>Confirm approval</Button>
           </div>
         </form>
       </Dialog>

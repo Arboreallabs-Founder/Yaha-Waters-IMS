@@ -93,7 +93,7 @@ export function CategoryManager({ rows, canWrite }: { rows: CategoryRow[]; canWr
                 autoFocus
                 onKeyDown={(e) => e.key === "Enter" && onCreate()}
               />
-              <Button size="sm" onClick={onCreate} disabled={pending}>Add</Button>
+              <Button size="sm" onClick={onCreate} loading={pending}>Add</Button>
               <Button size="sm" variant="outline" onClick={() => { setCreating(false); setNewName(""); }}>Cancel</Button>
             </>
           ) : (
@@ -134,7 +134,7 @@ export function CategoryManager({ rows, canWrite }: { rows: CategoryRow[]; canWr
                   <TableCell className="text-muted-foreground">{r.products_using}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon" onClick={saveEdit} disabled={pending} aria-label="Save">
+                      <Button variant="ghost" size="icon" onClick={saveEdit} loading={pending} aria-label="Save">
                         <Check className="size-4" />
                       </Button>
                       <Button variant="ghost" size="icon" onClick={() => setEditId(null)} aria-label="Cancel">

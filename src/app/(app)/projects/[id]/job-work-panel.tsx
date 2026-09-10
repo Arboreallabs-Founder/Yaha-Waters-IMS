@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { startNavProgress } from "@/components/navigation-progress";
 import { Hammer, CheckCircle2, AlertTriangle, Clock, MinusCircle, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -67,6 +68,7 @@ export function JobWorkPanel({
     setBusy(false);
     if (res?.error) { setError(res.error); return; }
     if (res.created?.length === 1) {
+      startNavProgress();
       router.push(`/job-work/${res.created[0].id}`);
     } else if (res.created?.length) {
       setRaised({ message: res.message, created: res.created });
@@ -82,7 +84,7 @@ export function JobWorkPanel({
     <div className="space-y-4">
       {canWrite && (
         <div className="flex flex-wrap gap-2">
-          <Button disabled={busy || !needsJobWork} onClick={onRaise}>
+          <Button loading={busy} disabled={!needsJobWork} onClick={onRaise}>
             <Hammer className="size-4" /> Send raw stock for job work
           </Button>
           {!needsJobWork && <span className="self-center text-xs text-muted-foreground">Nothing needs job work right now.</span>}

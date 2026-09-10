@@ -28,8 +28,8 @@ function LoginForm() {
       {state.error && (
         <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</p>
       )}
-      <Button type="submit" className="w-full" disabled={pending}>
-        {pending ? "Signing in…" : "Sign in"}
+      <Button type="submit" className="w-full" loading={pending}>
+        Sign in
       </Button>
     </form>
   );

@@ -89,14 +89,14 @@ export function SignatureManager({ signatures }: { signatures: SignatureRow[] })
             </div>
             <div className="flex gap-1">
               {!s.is_default && (
-                <Button variant="ghost" size="icon" disabled={busy === `def-${s.id}`} onClick={() => onSetDefault(s.id)} title="Set as default" aria-label="Set as default">
+                <Button variant="ghost" size="icon" loading={busy === `def-${s.id}`} onClick={() => onSetDefault(s.id)} title="Set as default" aria-label="Set as default">
                   <Star className="size-4" />
                 </Button>
               )}
               <Button variant="ghost" size="icon" onClick={() => { setEditingLabel(s); setLabelInput(s.label ?? ""); }} title="Rename" aria-label="Rename">
                 <Pencil className="size-4" />
               </Button>
-              <Button variant="ghost" size="icon" className="text-destructive" disabled={busy === `del-${s.id}`} onClick={() => onDelete(s.id)} title="Delete" aria-label="Delete">
+              <Button variant="ghost" size="icon" className="text-destructive" loading={busy === `del-${s.id}`} onClick={() => onDelete(s.id)} title="Delete" aria-label="Delete">
                 <Trash2 className="size-4" />
               </Button>
             </div>
@@ -122,7 +122,7 @@ export function SignatureManager({ signatures }: { signatures: SignatureRow[] })
             <Input value={labelInput} onChange={(e) => setLabelInput(e.target.value)} placeholder="e.g. Formal signature" autoFocus />
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setEditingLabel(null)}>Cancel</Button>
-              <Button type="submit" disabled={busy === `label-${editingLabel.id}`}><Check className="size-4" /> Save</Button>
+              <Button type="submit" loading={busy === `label-${editingLabel.id}`}><Check className="size-4" /> Save</Button>
             </div>
           </form>
         )}

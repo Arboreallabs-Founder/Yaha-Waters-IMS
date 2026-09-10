@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { startNavProgress } from "@/components/navigation-progress";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -28,6 +29,7 @@ export function NewRequisitionButton({ projects }: { projects: { id: string; pro
       return;
     }
     setOpen(false);
+    startNavProgress();
     if (res.id) router.push(`/requisitions/${res.id}`);
     else router.refresh();
   }
@@ -46,7 +48,7 @@ export function NewRequisitionButton({ projects }: { projects: { id: string; pro
           {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button type="submit" disabled={pending}>{pending ? "Creating…" : "Create"}</Button>
+            <Button type="submit" loading={pending}>Create</Button>
           </div>
         </form>
       </Dialog>

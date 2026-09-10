@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { startNavProgress } from "@/components/navigation-progress";
 import { Plus, Pencil, Trash2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -136,6 +137,7 @@ export function PoEditor({
     const res = await action(fd);
     setBusy(false);
     if (res?.error) { setError(res.error); return; }
+    startNavProgress();
     if (res?.revisedPoId) { router.push(`/purchase-orders/${res.revisedPoId}`); return; }
     onOk?.(); router.refresh();
   }
@@ -200,7 +202,7 @@ export function PoEditor({
             />
           </div>
           <div className="sm:col-span-3">
-            <Button type="submit" variant="secondary" disabled={busy}><Save className="size-4" /> Save header</Button>
+            <Button type="submit" variant="secondary" loading={busy}><Save className="size-4" /> Save header</Button>
           </div>
         </form>
       ) : (
@@ -397,7 +399,7 @@ export function PoEditor({
             </div>
           )}
 
-          <Button type="submit" variant="secondary" disabled={busy || (addQt !== "nos" && derivedQty === null)}>
+          <Button type="submit" variant="secondary" loading={busy} disabled={(addQt !== "nos" && derivedQty === null)}>
             <Plus className="size-4" /> Add line
           </Button>
         </form>
@@ -450,7 +452,7 @@ export function PoEditor({
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancel</Button>
-              <Button type="submit" disabled={busy}>{busy ? "Saving…" : "Save"}</Button>
+              <Button type="submit" loading={busy}>Save</Button>
             </div>
           </form>
         )}

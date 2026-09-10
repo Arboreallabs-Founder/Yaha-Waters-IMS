@@ -103,7 +103,7 @@ export function BomPanel({
           <div className="ml-auto flex flex-wrap gap-2">
             <Button
               variant="outline"
-              disabled={busy}
+              loading={busy}
               onClick={() =>
                 run(generateAction, {}, bom ? "Regenerate BOM from templates? Template lines are rebuilt (manual lines kept; an approved BOM reverts to draft)." : undefined)
               }
@@ -111,17 +111,17 @@ export function BomPanel({
               <Cog className="size-4" /> {bom ? "Regenerate" : "Generate BOM"}
             </Button>
             {!bom && (
-              <Button variant="outline" disabled={busy} onClick={() => run(startCustomAction, {})}>
+              <Button variant="outline" loading={busy} onClick={() => run(startCustomAction, {})}>
                 <Plus className="size-4" /> Build Custom BOM
               </Button>
             )}
             {bom && !approved && (
-              <Button disabled={busy || lines.length === 0} onClick={() => run(approveAction, { bom_id: bom.id })}>
+              <Button loading={busy} disabled={lines.length === 0} onClick={() => run(approveAction, { bom_id: bom.id })}>
                 <Check className="size-4" /> Approve
               </Button>
             )}
             {bom && approved && (
-              <Button variant="outline" disabled={busy} onClick={() => run(unapproveAction, { bom_id: bom.id })}>
+              <Button variant="outline" loading={busy} onClick={() => run(unapproveAction, { bom_id: bom.id })}>
                 <Unlock className="size-4" /> Unapprove
               </Button>
             )}
@@ -193,7 +193,7 @@ export function BomPanel({
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Note</label>
                 <Input name="note" placeholder="optional" />
               </div>
-              <Button type="submit" variant="secondary" disabled={busy}>
+              <Button type="submit" variant="secondary" loading={busy}>
                 <Plus className="size-4" /> Add
               </Button>
             </form>

@@ -29,7 +29,7 @@ export function UnissueLotButton({ lotId, componentId }: { lotId: string; compon
       <Button
         variant="ghost"
         size="icon"
-        disabled={busy}
+        loading={busy}
         onClick={handleClick}
         title="Unissue — return to open stock"
         className="text-amber-600 hover:text-amber-800"

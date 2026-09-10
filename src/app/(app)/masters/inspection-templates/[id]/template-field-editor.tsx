@@ -203,7 +203,7 @@ export function TemplateFieldEditor({
           {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button type="submit" disabled={pending}>{pending ? "Saving…" : "Save"}</Button>
+            <Button type="submit" loading={pending}>Save</Button>
           </div>
         </form>
       </Dialog>

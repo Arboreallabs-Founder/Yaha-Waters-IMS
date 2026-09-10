@@ -480,7 +480,7 @@ export function GrnReceiver({
 
             <div className="flex items-center gap-2">
               <Button type="submit" variant="secondary"
-                disabled={busy === "manual" || (qt !== "nos" && derivedQty === null) || (!!manualComp && !selectedPoLineId) || overReceipt}>
+                loading={busy === "manual"} disabled={(qt !== "nos" && derivedQty === null) || (!!manualComp && !selectedPoLineId) || overReceipt}>
                 <Plus className="size-4" /> {needsInspection ? "Submit for inspection" : "Add line"}
               </Button>
             </div>

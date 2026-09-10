@@ -679,7 +679,7 @@ export function TemplateLineEditor({
           {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button type="submit" disabled={pending}>{pending ? "Saving…" : "Save"}</Button>
+            <Button type="submit" loading={pending}>Save</Button>
           </div>
         </form>
       </Dialog>
@@ -716,7 +716,7 @@ export function TemplateLineEditor({
             {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setCompDialogOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={pending}>{pending ? "Creating…" : "Create & select"}</Button>
+              <Button type="submit" loading={pending}>Create & select</Button>
             </div>
           </form>
         </Dialog>
@@ -736,7 +736,7 @@ export function TemplateLineEditor({
             {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setPromoteLine(null)}>Cancel</Button>
-              <Button type="submit" disabled={pending}>{pending ? "Working…" : "Promote"}</Button>
+              <Button type="submit" loading={pending}>Promote</Button>
             </div>
           </form>
         </Dialog>

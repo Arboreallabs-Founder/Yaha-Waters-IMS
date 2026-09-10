@@ -51,7 +51,7 @@ export function ReverseConsumptionButton({ movementId }: { movementId: string })
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button type="submit" disabled={busy}>Reverse to open stock</Button>
+            <Button type="submit" loading={busy}>Reverse to open stock</Button>
           </div>
         </form>
       </Dialog>

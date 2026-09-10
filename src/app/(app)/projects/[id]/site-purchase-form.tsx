@@ -96,8 +96,8 @@ export function SitePurchaseForm({
           <Input name="note" placeholder="what for / why unplanned" />
         </div>
         <div className="flex items-end lg:col-span-4">
-          <Button type="submit" disabled={busy}>
-            <ShoppingBag className="size-4" /> {busy ? "Logging…" : "Log purchase & consume"}
+          <Button type="submit" loading={busy}>
+            <ShoppingBag className="size-4" /> Log purchase & consume
           </Button>
         </div>
       </form>

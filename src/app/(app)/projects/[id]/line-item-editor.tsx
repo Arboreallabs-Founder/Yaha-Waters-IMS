@@ -145,8 +145,8 @@ export function LineItemEditor({
           </div>
           {error && <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
           <div className="mt-3">
-            <Button type="submit" disabled={pending}>
-              <Plus className="size-4" /> {pending ? "Adding…" : "Add line item"}
+            <Button type="submit" loading={pending}>
+              <Plus className="size-4" /> Add line item
             </Button>
           </div>
         </form>

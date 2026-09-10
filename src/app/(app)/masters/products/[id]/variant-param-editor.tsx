@@ -269,7 +269,7 @@ function ParamForm({
       )}
       <div className="flex justify-end gap-2 pt-2">
         <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
-        <Button type="submit" disabled={pending}>{pending ? "Saving…" : "Save"}</Button>
+        <Button type="submit" loading={pending}>Save</Button>
       </div>
     </form>
   );

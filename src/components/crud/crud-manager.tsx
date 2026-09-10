@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { startNavProgress } from "@/components/navigation-progress";
 import { Plus, Pencil, Trash2, Search, ArrowRight } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -120,6 +121,7 @@ export function CrudManager({
     }
     close();
     if (wasCreating && res?.redirect) {
+      startNavProgress();
       router.push(res.redirect);
     } else {
       router.refresh();
@@ -245,8 +247,8 @@ export function CrudManager({
             <Button type="button" variant="outline" onClick={close}>
               Cancel
             </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? "Saving…" : "Save"}
+            <Button type="submit" loading={pending}>
+              Save
             </Button>
           </div>
         </form>

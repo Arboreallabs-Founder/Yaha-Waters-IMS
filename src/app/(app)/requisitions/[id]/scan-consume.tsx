@@ -103,7 +103,7 @@ export function ScanConsume({
                   <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="R&D, sample showing…" />
                 </div>
               )}
-              <Button className="w-full sm:w-auto" disabled={busy || lot.qty_on_hand <= 0} onClick={handleConsume}>
+              <Button className="w-full sm:w-auto" loading={busy} disabled={lot.qty_on_hand <= 0} onClick={handleConsume}>
                 <MinusCircle className="size-4" /> Consume
               </Button>
             </div>

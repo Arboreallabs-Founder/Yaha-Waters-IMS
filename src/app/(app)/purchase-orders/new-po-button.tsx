@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { startNavProgress } from "@/components/navigation-progress";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,7 @@ export function NewPoButton({ vendors, defaultPoNo }: { vendors: { id: string; n
     setPending(false);
     if (res?.error) { setError(res.error); return; }
     setOpen(false);
+    startNavProgress();
     if (res.id) router.push(`/purchase-orders/${res.id}`);
     else router.refresh();
   }
@@ -51,7 +53,7 @@ export function NewPoButton({ vendors, defaultPoNo }: { vendors: { id: string; n
           {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button type="submit" disabled={pending}>{pending ? "Creating…" : "Create"}</Button>
+            <Button type="submit" loading={pending}>Create</Button>
           </div>
         </form>
       </Dialog>

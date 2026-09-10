@@ -1,6 +1,7 @@
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
 
 const buttonVariants = cva(
   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0",
@@ -27,11 +28,28 @@ const buttonVariants = cva(
 
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {}
+    VariantProps<typeof buttonVariants> {
+  /**
+   * Shows a spinner and disables the button. Use for any click that waits on a
+   * server action — without it the button looks dead while the request is in
+   * flight and users click again.
+   */
+  loading?: boolean;
+}
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, ...props }, ref) => (
-    <button ref={ref} className={cn(buttonVariants({ variant, size, className }))} {...props} />
+  ({ className, variant, size, loading = false, disabled, children, ...props }, ref) => (
+    <button
+      ref={ref}
+      className={cn(buttonVariants({ variant, size, className }))}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
+      {...props}
+    >
+      {loading && <Spinner size="sm" />}
+      {/* An icon button has no room beside its glyph — the spinner replaces it. */}
+      {loading && size === "icon" ? null : children}
+    </button>
   ),
 );
 Button.displayName = "Button";

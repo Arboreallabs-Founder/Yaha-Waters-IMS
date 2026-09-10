@@ -176,8 +176,8 @@ export function SignaturePad({
         </div>
       )}
 
-      <Button type="button" onClick={handleSave} disabled={saving || (mode === "typed" ? !typedText.trim() : !hasDrawing)}>
-        {saving ? "Saving…" : "Save signature"}
+      <Button type="button" onClick={handleSave} loading={saving} disabled={(mode === "typed" ? !typedText.trim() : !hasDrawing)}>
+        Save signature
       </Button>
     </div>
   );

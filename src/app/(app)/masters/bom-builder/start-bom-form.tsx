@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { startNavProgress } from "@/components/navigation-progress";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +38,7 @@ export function StartBomForm({ categories }: { categories: Category[] }) {
       setError(res.error);
       return;
     }
+    startNavProgress();
     if (res?.redirect) router.push(res.redirect);
   }
 
@@ -78,7 +80,7 @@ export function StartBomForm({ categories }: { categories: Category[] }) {
           </div>
           {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
           <div className="flex justify-end">
-            <Button type="submit" disabled={pending}>{pending ? "Creating…" : "Start BOM"}</Button>
+            <Button type="submit" loading={pending}>Start BOM</Button>
           </div>
         </form>
       </CardContent>

@@ -96,7 +96,7 @@ export function StockStatusPanel({
 
       {canWrite && (
         <div className="flex flex-wrap items-center gap-2">
-          <Button disabled={busy || !bomApproved} onClick={onBlock}>
+          <Button loading={busy} disabled={!bomApproved} onClick={onBlock}>
             <Lock className="size-4" /> Block stock for BOM
           </Button>
           {!bomApproved && <span className="text-xs text-muted-foreground">Approve the BOM first.</span>}

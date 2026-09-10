@@ -1,19 +1,17 @@
-import { Skeleton } from "@/components/ui/skeleton";
+import { HeaderSkeleton, StatsSkeleton, PanelsSkeleton } from "@/components/ui/page-skeletons";
 
+/**
+ * Fallback for the dashboard and any segment without its own `loading.tsx`.
+ * Shaped like the dashboard (stat strip + panels) since every other route now
+ * defines a skeleton that matches its own layout.
+ */
 export default function Loading() {
   return (
     <div>
-      <div className="mb-6 flex items-end justify-between gap-3">
-        <div className="space-y-2">
-          <Skeleton className="h-7 w-48" />
-          <Skeleton className="h-4 w-72" />
-        </div>
-        <Skeleton className="h-9 w-28" />
-      </div>
-      <div className="space-y-2">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-10 w-full" />
-        ))}
+      <HeaderSkeleton />
+      <StatsSkeleton count={5} />
+      <div className="mt-8">
+        <PanelsSkeleton count={2} />
       </div>
     </div>
   );

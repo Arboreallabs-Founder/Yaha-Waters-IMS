@@ -82,7 +82,7 @@ export function DocumentSignButton({
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button type="submit" disabled={busy || !signatureId}>{busy ? "Signing…" : "Confirm signature"}</Button>
+            <Button type="submit" loading={busy} disabled={!signatureId}>Confirm signature</Button>
           </div>
         </form>
       </Dialog>

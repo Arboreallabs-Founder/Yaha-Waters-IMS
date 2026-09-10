@@ -76,7 +76,7 @@ export function RequisitionEditor({
         {canProcure && status === "open" && lines.length > 0 && (
           <Button
             className="ml-auto"
-            disabled={busy}
+            loading={busy}
             onClick={() => {
               const fd = new FormData();
               fd.set("requisition_id", requisitionId);

@@ -294,8 +294,8 @@ export function CustomerManager({
             <Button type="button" variant="outline" onClick={close}>
               Cancel
             </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? "Saving…" : "Save"}
+            <Button type="submit" loading={pending}>
+              Save
             </Button>
           </div>
         </form>

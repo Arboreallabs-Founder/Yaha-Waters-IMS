@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { startNavProgress } from "@/components/navigation-progress";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +36,7 @@ export function DeletePoButton({ poId, poNo, isRevisioned }: { poId: string; poN
       setError(res.error);
       return;
     }
+    startNavProgress();
     router.push("/purchase-orders");
   }
 
@@ -70,10 +72,10 @@ export function DeletePoButton({ poId, poNo, isRevisioned }: { poId: string; poN
             <Button
               type="button"
               variant="destructive"
-              disabled={confirmText !== CONFIRM_WORD || pending}
+              loading={pending} disabled={confirmText !== CONFIRM_WORD}
               onClick={onDelete}
             >
-              {pending ? "Deleting…" : "Delete permanently"}
+              Delete permanently
             </Button>
           </div>
         </div>

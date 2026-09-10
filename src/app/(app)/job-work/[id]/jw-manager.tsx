@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { startNavProgress } from "@/components/navigation-progress";
 import { Plus, Trash2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,6 +63,7 @@ export function JwManager({
     const res = await fn();
     setBusy(null);
     if (res?.error) { setError(res.error); return false; }
+    startNavProgress();
     if (res?.revisedJwId) { router.push(`/job-work/${res.revisedJwId}`); return true; }
     router.refresh();
     return true;
@@ -140,7 +142,7 @@ export function JwManager({
               <Input type="number" step="any" min="0" value={jwRate} onChange={(e) => setJwRate(e.target.value)} placeholder="component default" />
             </div>
           )}
-          <Button type="submit" disabled={busy === "add"}><Plus className="size-4" /> Add{isEditableSent ? " (creates a revision)" : ""}</Button>
+          <Button type="submit" loading={busy === "add"}><Plus className="size-4" /> Add{isEditableSent ? " (creates a revision)" : ""}</Button>
         </form>
       )}
 
@@ -255,7 +257,7 @@ export function JwManager({
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setEditingRate(null)}>Cancel</Button>
-              <Button type="submit" disabled={busy === `rate-${editingRate.id}`}>Save (creates a revision)</Button>
+              <Button type="submit" loading={busy === `rate-${editingRate.id}`}>Save (creates a revision)</Button>
             </div>
           </form>
         )}

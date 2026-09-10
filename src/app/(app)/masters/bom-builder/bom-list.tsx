@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { startNavProgress } from "@/components/navigation-progress";
 import { ArrowRight, Copy, Trash2 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,6 +54,7 @@ export function BomList({ rows, canWrite }: { rows: BomRow[]; canWrite: boolean 
       setError(res.error);
       return;
     }
+    startNavProgress();
     if (res?.redirect) router.push(res.redirect);
   }
 
@@ -141,7 +143,7 @@ export function BomList({ rows, canWrite }: { rows: BomRow[]; canWrite: boolean 
           {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setDupRow(null)}>Cancel</Button>
-            <Button type="submit" disabled={pending}>{pending ? "Duplicating…" : "Duplicate"}</Button>
+            <Button type="submit" loading={pending}>Duplicate</Button>
           </div>
         </form>
       </Dialog>

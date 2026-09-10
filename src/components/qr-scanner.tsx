@@ -103,7 +103,7 @@ export function QrScanner({ onDetect, pending }: { onDetect: (code: string) => v
           className="flex flex-1 items-center gap-2 min-w-[220px]"
         >
           <Input placeholder="…or type lot code" value={manual} onChange={(e) => setManual(e.target.value)} />
-          <Button type="submit" variant="secondary" disabled={pending}><Search className="size-4" /> Look up</Button>
+          <Button type="submit" variant="secondary" loading={pending}><Search className="size-4" /> Look up</Button>
         </form>
       </div>
       <video ref={videoRef} className={scanning ? "w-full max-w-md rounded-lg border border-border" : "hidden"} muted playsInline />

@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { startNavProgress } from "@/components/navigation-progress";
 import { ShoppingCart, CheckCircle2, AlertTriangle, MinusCircle, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +41,7 @@ export function ShortfallPanel({ projectId, rows, canProcure }: { projectId: str
     // One supplier → straight to that PO (matches the old single-PO UX).
     // Multiple suppliers → stay here and list every PO that was raised.
     if (res.created?.length === 1) {
+      startNavProgress();
       router.push(`/purchase-orders/${res.created[0].id}`);
     } else if (res.created?.length) {
       setRaised({ message: res.message, created: res.created });
@@ -59,7 +61,7 @@ export function ShortfallPanel({ projectId, rows, canProcure }: { projectId: str
         <div className="flex flex-wrap gap-2">
           <Button
             variant="destructive"
-            disabled={busy === "po" || !hasShortfall}
+            loading={busy === "po"} disabled={!hasShortfall}
             onClick={raisePo}
           >
             <ShoppingCart className="size-4" /> Raise PO for shortfall

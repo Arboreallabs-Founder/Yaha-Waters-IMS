@@ -176,8 +176,8 @@ export function JwGrnReceiver({
           {notice && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{notice}</p>}
 
           <div className="flex justify-end">
-            <Button type="submit" disabled={busy || !openLines.length}>
-              <PackageCheck className="size-4" /> {busy ? "Receiving…" : "Receive"}
+            <Button type="submit" loading={busy} disabled={!openLines.length}>
+              <PackageCheck className="size-4" /> Receive
             </Button>
           </div>
         </form>

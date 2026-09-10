@@ -46,7 +46,7 @@ export function LotActions({
           <Label className="mb-1 block text-xs">Stock-take: actual qty</Label>
           <Input name="actual_qty" type="number" step="any" min="0" placeholder={String(qtyOnHand)} />
         </div>
-        <Button type="submit" variant="secondary" disabled={busy === "adjust"}><ClipboardCheck className="size-4" /> Adjust</Button>
+        <Button type="submit" variant="secondary" loading={busy === "adjust"}><ClipboardCheck className="size-4" /> Adjust</Button>
         <span className="text-xs text-muted-foreground">Writes an adjustment movement for the difference.</span>
       </form>
 
@@ -58,7 +58,7 @@ export function LotActions({
             <Label className="mb-1 block text-xs">Transfer to location</Label>
             <Input name="location" placeholder="e.g. Store-A / Rack-3" />
           </div>
-          <Button type="submit" variant="outline" disabled={busy === "transfer"}><MoveRight className="size-4" /> Transfer</Button>
+          <Button type="submit" variant="outline" loading={busy === "transfer"}><MoveRight className="size-4" /> Transfer</Button>
         </form>
       )}
     </div>

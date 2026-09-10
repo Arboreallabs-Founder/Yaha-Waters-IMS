@@ -149,7 +149,7 @@ export function BuilderProductHeader({
             {addingCat ? (
               <div className="flex gap-2">
                 <Input value={newCat} onChange={(e) => setNewCat(e.target.value)} placeholder="Category name" />
-                <Button type="button" size="sm" onClick={addCategory} disabled={pending}>Add</Button>
+                <Button type="button" size="sm" onClick={addCategory} loading={pending}>Add</Button>
               </div>
             ) : (
               <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
@@ -179,7 +179,7 @@ export function BuilderProductHeader({
         {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={() => setEditing(false)}>Cancel</Button>
-          <Button onClick={save} disabled={pending}>{pending ? "Saving…" : "Save"}</Button>
+          <Button onClick={save} loading={pending}>Save</Button>
         </div>
       </CardContent>
     </Card>

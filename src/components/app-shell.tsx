@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Menu, X, LogOut, ChevronsUpDown, Circle,
@@ -16,6 +16,7 @@ import { ROLE_LABELS, type Role } from "@/lib/roles";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Spinner } from "@/components/ui/spinner";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
@@ -177,20 +178,51 @@ function NavList({
                 onClick={onNavigate}
                 className={cn(
                   base,
-                  "font-medium",
+                  "relative font-medium",
                   active
                     ? "bg-primary text-primary-foreground"
                     : "text-slate-600 hover:bg-accent hover:text-accent-foreground",
                 )}
               >
-                <Icon className="size-4 shrink-0" />
-                {expanded && <span className="whitespace-nowrap">{item.label}</span>}
+                <NavItemContent Icon={Icon} label={item.label} expanded={expanded} active={active} />
               </Link>
             );
           })}
         </div>
       ))}
     </nav>
+  );
+}
+
+/**
+ * Inner content of a nav link. Must be a child of `<Link>` — `useLinkStatus()`
+ * reports that link's own pending state, so the tab the user clicked shows a
+ * spinner and highlights itself the instant it is clicked, rather than after
+ * the new page has finished loading.
+ */
+function NavItemContent({
+  Icon,
+  label,
+  expanded,
+  active,
+}: {
+  Icon: LucideIcon;
+  label: string;
+  expanded: boolean;
+  active: boolean;
+}) {
+  const { pending } = useLinkStatus();
+
+  return (
+    <>
+      {pending && !active && (
+        <span aria-hidden="true" className="absolute inset-0 rounded-md bg-accent" />
+      )}
+      <span className="relative flex size-4 shrink-0 items-center justify-center">
+        {pending ? <Spinner size="sm" label={`Loading ${label}`} /> : <Icon className="size-4" />}
+      </span>
+      {expanded && <span className="relative whitespace-nowrap">{label}</span>}
+    </>
   );
 }
 

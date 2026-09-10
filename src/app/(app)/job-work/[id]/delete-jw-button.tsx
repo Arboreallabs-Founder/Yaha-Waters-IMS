@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { startNavProgress } from "@/components/navigation-progress";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +36,7 @@ export function DeleteJwButton({ jwId, jwNo }: { jwId: string; jwNo: string }) {
       setError(res.error);
       return;
     }
+    startNavProgress();
     router.push("/job-work");
   }
 
@@ -66,10 +68,10 @@ export function DeleteJwButton({ jwId, jwNo }: { jwId: string; jwNo: string }) {
             <Button
               type="button"
               variant="destructive"
-              disabled={confirmText !== CONFIRM_WORD || pending}
+              loading={pending} disabled={confirmText !== CONFIRM_WORD}
               onClick={onDelete}
             >
-              {pending ? "Deleting…" : "Delete permanently"}
+              Delete permanently
             </Button>
           </div>
         </div>

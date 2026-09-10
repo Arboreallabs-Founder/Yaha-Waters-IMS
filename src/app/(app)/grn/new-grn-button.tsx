@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { startNavProgress } from "@/components/navigation-progress";
 import { Plus, Truck, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +44,7 @@ export function NewGrnButton({
     setPending(false);
     if (res?.error) { setError(res.error); return; }
     setStep("closed");
+    startNavProgress();
     if (res.id) router.push(`/grn/${res.id}`);
     else router.refresh();
   }
@@ -107,7 +109,7 @@ export function NewGrnButton({
           {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setStep("type")}>Back</Button>
-            <Button type="submit" disabled={pending}>{pending ? "Creating…" : "Create"}</Button>
+            <Button type="submit" loading={pending}>Create</Button>
           </div>
         </form>
       </Dialog>
