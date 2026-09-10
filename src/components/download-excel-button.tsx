@@ -1,9 +1,9 @@
 "use client";
 
-import * as XLSX from "xlsx";
+import * as React from "react";
 import { FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { applyNumberFormats } from "@/lib/xlsx-format";
+import { downloadSheet } from "@/lib/xlsx-format";
 
 export function DownloadExcelButton({
   label,
@@ -25,17 +25,25 @@ export function DownloadExcelButton({
   numberFormats?: Record<number, string>;
   disabled?: boolean;
 }) {
-  function handleDownload() {
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-    if (colWidths) ws["!cols"] = colWidths.map((wch) => ({ wch }));
-    if (numberFormats) applyNumberFormats(ws, numberFormats);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
-    XLSX.writeFile(wb, filename);
+  const [busy, setBusy] = React.useState(false);
+
+  async function handleDownload() {
+    setBusy(true);
+    try {
+      await downloadSheet({
+        aoa: [headers, ...rows],
+        filename,
+        sheetName,
+        colWidths,
+        numberFormats,
+      });
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
-    <Button type="button" variant="outline" onClick={handleDownload} disabled={disabled}>
+    <Button type="button" variant="outline" onClick={handleDownload} loading={busy} disabled={disabled}>
       <FileSpreadsheet className="size-4" /> {label}
     </Button>
   );

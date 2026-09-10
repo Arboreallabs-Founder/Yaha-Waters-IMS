@@ -1,14 +1,21 @@
 "use client";
 
 import * as React from "react";
-import QRCode from "qrcode";
 
-/** Renders a QR code (PNG data URL) for the given value, client-side. */
+/**
+ * Renders a QR code (PNG data URL) for the given value, client-side. The
+ * `qrcode` library is imported on demand inside the effect so it stays out of
+ * the bundle of every page that merely *might* show a code; the pulse
+ * placeholder below covers the moment it takes to arrive.
+ */
 export function QrCode({ value, size = 160, className }: { value: string; size?: number; className?: string }) {
   const [src, setSrc] = React.useState<string>("");
   React.useEffect(() => {
     let active = true;
-    QRCode.toDataURL(value, { margin: 1, width: size, errorCorrectionLevel: "M" })
+    import("qrcode")
+      .then(({ default: QRCode }) =>
+        QRCode.toDataURL(value, { margin: 1, width: size, errorCorrectionLevel: "M" }),
+      )
       .then((url) => active && setSrc(url))
       .catch(() => {});
     return () => {

@@ -2,14 +2,13 @@
 
 import * as React from "react";
 import Link from "next/link";
-import * as XLSX from "xlsx";
 import { ArrowRight, FileSpreadsheet } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { MobileRowCard } from "@/components/ui/mobile-row-card";
 import { formatINR, formatNumber, formatDate } from "@/lib/utils";
-import { applyNumberFormats } from "@/lib/xlsx-format";
+import { downloadSheet } from "@/lib/xlsx-format";
 
 export type BreakdownEntry = {
   vendorName: string;
@@ -49,7 +48,7 @@ const EXPORT_HEADERS = [
 
 type Cell = string | number | null;
 
-function downloadInventoryExcel(rows: InventoryRow[]) {
+async function downloadInventoryExcel(rows: InventoryRow[]) {
   const aoa: Cell[][] = [EXPORT_HEADERS];
   let sr = 0;
 
@@ -122,20 +121,22 @@ function downloadInventoryExcel(rows: InventoryRow[]) {
     }
   }
 
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"] = EXPORT_HEADERS.map((h) => ({
-    wch: h === "Consumed on Project" ? 28 : h === "GRN No." ? 24 : 20,
-  }));
   const qty = "#,##0.###";
-  applyNumberFormats(ws, { 0: "0", 2: qty, 3: qty, 5: "#,##0.00", 6: "#,##0", 7: "#,##0", 8: "#,##0" });
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Inventory");
   const today = new Date().toISOString().slice(0, 10);
-  XLSX.writeFile(wb, `Inventory-Export-${today}.xlsx`);
+  await downloadSheet({
+    aoa,
+    filename: `Inventory-Export-${today}.xlsx`,
+    sheetName: "Inventory",
+    colWidths: EXPORT_HEADERS.map((h) =>
+      h === "Consumed on Project" ? 28 : h === "GRN No." ? 24 : 20,
+    ),
+    numberFormats: { 0: "0", 2: qty, 3: qty, 5: "#,##0.00", 6: "#,##0", 7: "#,##0", 8: "#,##0" },
+  });
 }
 
 export function InventoryTable({ rows, exportRows, finance }: { rows: InventoryRow[]; exportRows: InventoryRow[]; finance: boolean }) {
   const [query, setQuery] = React.useState("");
+  const [exporting, setExporting] = React.useState(false);
   const matches = (r: { component_no: string; name: string }) => {
     if (!query) return true;
     const q = query.toLowerCase();
@@ -157,7 +158,15 @@ export function InventoryTable({ rows, exportRows, finance }: { rows: InventoryR
           variant="outline"
           size="sm"
           className="ml-auto"
-          onClick={() => downloadInventoryExcel(exportRows.filter(matches))}
+          loading={exporting}
+          onClick={async () => {
+            setExporting(true);
+            try {
+              await downloadInventoryExcel(exportRows.filter(matches));
+            } finally {
+              setExporting(false);
+            }
+          }}
         >
           <FileSpreadsheet className="size-4" /> Download Excel
         </Button>

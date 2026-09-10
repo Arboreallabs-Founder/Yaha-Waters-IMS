@@ -1,10 +1,10 @@
 "use client";
 
-import * as XLSX from "xlsx";
+import * as React from "react";
 import { FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatDate, formatNumber } from "@/lib/utils";
-import { applyNumberFormats } from "@/lib/xlsx-format";
+import { downloadSheet } from "@/lib/xlsx-format";
 
 export type PoLineEntry = {
   poNo: string;
@@ -42,7 +42,7 @@ function receiptsText(entry: PoLineEntry) {
     .join(", ");
 }
 
-function downloadPoRegisterExcel(rows: PoRegisterRow[], finance: boolean) {
+async function downloadPoRegisterExcel(rows: PoRegisterRow[], finance: boolean) {
   // Rate / Amount sit right after "PO No." and are only included for roles that
   // can see financials.
   const headers = [
@@ -101,21 +101,17 @@ function downloadPoRegisterExcel(rows: PoRegisterRow[], finance: boolean) {
     }
   }
 
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"] = colWidths.map((wch) => ({ wch }));
-
   const qty = "#,##0.###";
-  applyNumberFormats(
-    ws,
-    finance
+  const today = new Date().toISOString().slice(0, 10);
+  await downloadSheet({
+    aoa,
+    filename: `PO-Register-${today}.xlsx`,
+    sheetName: "PO Register",
+    colWidths,
+    numberFormats: finance
       ? { 0: "0", 5: '"₹"#,##0.00', 6: '"₹"#,##0', 10: qty, 11: qty, 12: qty }
       : { 0: "0", 8: qty, 9: qty, 10: qty },
-  );
-
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "PO Register");
-  const today = new Date().toISOString().slice(0, 10);
-  XLSX.writeFile(wb, `PO-Register-${today}.xlsx`);
+  });
 }
 
 export function DownloadPoRegisterButton({
@@ -127,14 +123,24 @@ export function DownloadPoRegisterButton({
   finance?: boolean;
   className?: string;
 }) {
+  const [busy, setBusy] = React.useState(false);
+
   return (
     <Button
       type="button"
       variant="outline"
       size="sm"
       className={className}
+      loading={busy}
       disabled={rows.length === 0}
-      onClick={() => downloadPoRegisterExcel(rows, finance)}
+      onClick={async () => {
+        setBusy(true);
+        try {
+          await downloadPoRegisterExcel(rows, finance);
+        } finally {
+          setBusy(false);
+        }
+      }}
     >
       <FileSpreadsheet className="size-4" /> Download PO Register
     </Button>

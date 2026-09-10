@@ -1,8 +1,10 @@
 "use client";
 
-import * as XLSX from "xlsx";
+import * as React from "react";
+
 import { FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { downloadSheet } from "@/lib/xlsx-format";
 
 type LineRow = { sr: number; item: string; uom: string; qty: number; rate: number; amount: number };
 
@@ -37,7 +39,9 @@ export function DownloadExcelButton({
   gstAmount: number;
   total: number;
 }) {
-  function handleDownload() {
+  const [busy, setBusy] = React.useState(false);
+
+  async function handleDownload() {
     const rows: (string | number)[][] = [
       [our.billingName],
       [our.billingAddress.join(", ")],
@@ -62,15 +66,28 @@ export function DownloadExcelButton({
       ["GSTIN", our.gstin, "PAN", our.pan],
     ];
 
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws["!cols"] = [{ wch: 10 }, { wch: 42 }, { wch: 8 }, { wch: 10 }, { wch: 12 }, { wch: 14 }];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "PO");
-    XLSX.writeFile(wb, `${poNo.replace(/[\\/]/g, "-")}.xlsx`);
+    await downloadSheet({
+      aoa: rows,
+      filename: `${poNo.replace(/[\\/]/g, "-")}.xlsx`,
+      sheetName: "PO",
+      colWidths: [10, 42, 8, 10, 12, 14],
+    });
   }
 
   return (
-    <Button variant="outline" onClick={handleDownload} className="print:hidden">
+    <Button
+      variant="outline"
+      loading={busy}
+      onClick={async () => {
+        setBusy(true);
+        try {
+          await handleDownload();
+        } finally {
+          setBusy(false);
+        }
+      }}
+      className="print:hidden"
+    >
       <FileSpreadsheet className="size-4" /> Download Excel
     </Button>
   );
