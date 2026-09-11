@@ -83,11 +83,24 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
             <Info label="Received" value={formatDate(lot.created_at)} />
           </CardContent>
         </Card>
+        {/*
+          The QR still encodes the bare lot code — the scanner hands whatever it
+          reads straight to exact-match lookups (traceability, and consuming
+          against a requisition), so the payload must not become a URL. Only the
+          card around it links anywhere. The "View traceability" line is there
+          because a QR image gives no hint that it is pressable.
+        */}
         <Card>
-          <CardContent className="flex flex-col items-center gap-2 p-5">
+          <Link
+            href={`/traceability/${lot.lot_code}`}
+            className="group flex flex-col items-center gap-2 p-5"
+          >
             <QrCode value={lot.lot_code} size={140} />
             <p className="font-mono text-[11px] text-muted-foreground">{lot.lot_code}</p>
-          </CardContent>
+            <p className="text-sm font-medium text-primary group-hover:underline">
+              View traceability →
+            </p>
+          </Link>
         </Card>
       </div>
 

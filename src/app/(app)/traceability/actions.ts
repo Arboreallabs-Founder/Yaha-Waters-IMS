@@ -1,30 +1,23 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
-import { getProfile } from "@/lib/auth";
+import { getLotTraceability } from "@/lib/server/traceability";
 
 export type ActionResult = { ok?: true; error?: string; data?: unknown };
 
+/**
+ * Scanner entry point. The fetch itself lives in `@/lib/server/traceability` so
+ * the `[lotCode]` route can share it without going through a server action.
+ *
+ * The try/catch belongs here rather than in the helper: the scanner shows errors
+ * as inline text beside the camera, whereas the route wants a thrown error to
+ * reach `error.tsx`.
+ */
 export async function lookupTraceability(lotCode: string): Promise<ActionResult> {
-  const profile = await getProfile();
-  if (!profile) return { error: "Not authorized." };
   if (!lotCode.trim()) return { error: "Enter or scan a lot code." };
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc("get_lot_traceability", { p_lot_code: lotCode.trim() });
-  if (error) return { error: error.message };
-  const res = data as { error?: string; lot?: { component_id?: string } };
-  if (res?.error) return { error: res.error };
-
-  if (res?.lot?.component_id) {
-    const { data: comp } = await supabase
-      .from("components")
-      .select("component_no, name")
-      .eq("id", res.lot.component_id)
-      .maybeSingle();
-    if (comp) {
-      (res.lot as Record<string, unknown>).component_no = comp.component_no;
-      (res.lot as Record<string, unknown>).component_name = comp.name;
-    }
+  try {
+    const data = await getLotTraceability(lotCode);
+    return data ? { ok: true, data } : { error: "Lot not found" };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Lookup failed." };
   }
-  return { ok: true, data: res };
 }
