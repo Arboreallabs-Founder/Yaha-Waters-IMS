@@ -1,15 +1,18 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile, canSeeFinancials } from "@/lib/auth";
+import { getCustomers } from "@/lib/masters-data";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { MobileRowCard } from "@/components/ui/mobile-row-card";
-import { formatNumber, formatINR, formatDate } from "@/lib/utils";
+import { CollapsibleSection } from "@/components/ui/collapsible-section";
+import { formatNumber, formatINR, formatDate, projectLabel } from "@/lib/utils";
 import { UnissueLotButton } from "./unissue-button";
 
 type Lot = {
@@ -51,6 +54,57 @@ function qtUnit(qt: string) {
   return "";
 }
 
+/**
+ * Unwrap a PostgREST to-one embed. At runtime a many-to-one relationship comes
+ * back as a single object, but the generated types widen every embed to an
+ * array — so accept either shape rather than betting the page on one of them.
+ */
+function one<T>(v: T | T[] | null | undefined): T | null {
+  if (v === null || v === undefined) return null;
+  return Array.isArray(v) ? v[0] ?? null : v;
+}
+
+/** The four WIP quantity buckets, summed identically for a project and for a lot. */
+type Totals = { intoBuild: number; atJobWorker: number; reversed: number; net: number };
+
+// Length and weight lots carry fractional quantities (28 such movements live),
+// so a reversed consumption can leave floating-point residue like 1e-13 rather
+// than a clean 0. Comparing against a tolerance stops that residue printing a
+// phantom "Reversed" card or counting an emptied project as still holding stock.
+// Same 1e-6 tolerance the over-receipt check uses.
+const isZero = (n: number) => Math.abs(n) < 1e-6;
+
+/**
+ * The quantity columns of the WIP table. A project row and its lot rows must
+ * line up cell for cell, including which optional columns are present, so they
+ * render through one component rather than two copies that could drift.
+ */
+function QtyCells({
+  row, showJobWork, showReversed, unitSuffix, muted = false,
+}: {
+  row: Totals; showJobWork: boolean; showReversed: boolean; unitSuffix: string; muted?: boolean;
+}) {
+  const qty = (n: number, prefix = "") => (isZero(n) ? "—" : `${prefix}${formatNumber(n)}${unitSuffix}`);
+  return (
+    <>
+      <TableCell>{qty(row.intoBuild)}</TableCell>
+      {showJobWork && (
+        <TableCell className={!muted && !isZero(row.atJobWorker) ? "text-blue-700" : undefined}>
+          {qty(row.atJobWorker)}
+        </TableCell>
+      )}
+      {showReversed && (
+        <TableCell className={!muted && !isZero(row.reversed) ? "text-green-700" : undefined}>
+          {qty(row.reversed, "−")}
+        </TableCell>
+      )}
+      <TableCell className={muted ? undefined : "font-semibold"}>
+        {formatNumber(row.net)}{unitSuffix}
+      </TableCell>
+    </>
+  );
+}
+
 export default async function ComponentInventoryPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const profile = await getProfile();
@@ -66,10 +120,18 @@ export default async function ComponentInventoryPage({ params }: { params: Promi
   if (!comp) notFound();
   const qt = (comp as { quantity_type?: string }).quantity_type ?? "nos";
 
-  const [{ data: allLots }, { data: movements }] = await Promise.all([
+  const [{ data: allLots }, { data: movements }, { data: consumptionValue }, customers] = await Promise.all([
     supabase
       .from("inventory_lots")
-      .select("id, lot_code, qty_on_hand, qty_initial, location, status, unit_cost, created_at, project_id, vendor_id, piece_count, piece_length, piece_weight")
+      // The PO a lot came from is three hops away (lot -> grn_line -> po_line ->
+      // purchase_order). Fetching it as a nested embed makes PostgREST resolve
+      // the whole chain inside this one request, so the WIP table's "From PO"
+      // column costs no extra round trip — chaining three dependent queries
+      // instead would have added ~1.2s to the page. Every FK in the chain
+      // exists, and all three tables are `select using (true)`, so this resolves
+      // for every role. Only `po_no` is pulled through — no rates, so the embed
+      // carries nothing a non-finance role may not see.
+      .select("id, lot_code, qty_on_hand, qty_initial, location, status, unit_cost, created_at, project_id, vendor_id, piece_count, piece_length, piece_weight, grn_lines!inventory_lots_grn_line_id_fkey(po_lines(purchase_orders(id, po_no)))")
       .eq("component_id", id)
       .order("created_at", { ascending: false }),
     supabase
@@ -81,27 +143,139 @@ export default async function ComponentInventoryPage({ params }: { params: Promi
       // agree with the project's "Materials issued" panel.
       .in("movement_type", ["issue", "return"])
       .order("performed_at", { ascending: false })
-      .limit(200),
+      // These rows are summed into the WIP figures below, not just listed,
+      // so the fetch must not be truncated the way a display-only list could be
+      // — a short read would under-report the total and silently disagree with
+      // v_project_consumption. The limit only guards against an unbounded read
+      // (and against PostgREST's own default cap applying unannounced): the
+      // busiest component in live data has 25 such movements. The *display*
+      // list is sliced separately.
+      .limit(2000),
+    // Only the ₹ figure is taken from here — the quantities below are derived
+    // from the ledger so the Into build / Reversed / Net columns can never
+    // disagree with one another. The view already nets reversals off and
+    // already prefers the approved PO rate (migrations 0062, 0069), so this is
+    // the app's one valuation of consumed stock rather than a second one.
+    finance
+      ? supabase.from("v_project_consumption").select("project_id, consumption_value").eq("component_id", id)
+      : Promise.resolve({ data: [] }),
+    getCustomers(),
   ]);
 
-  const lots = (allLots ?? []) as Lot[];
+  // lot id -> the PO it was received against. Read off the embed before `lots`
+  // is narrowed to the hand-written Lot type below, which doesn't carry it.
+  // Absent for stock with no PO trail — site purchases, job-work output lots,
+  // and receipts never tagged to a PO line — which render as "—".
+  const poByLot = new Map<string, { id: string; po_no: string }>();
+  for (const l of allLots ?? []) {
+    const po = one(one(one(l.grn_lines)?.po_lines)?.purchase_orders);
+    if (po?.id && po.po_no) poByLot.set(l.id, { id: po.id, po_no: po.po_no });
+  }
+
+  const lots = (allLots ?? []) as unknown as Lot[];
   const openLots   = lots.filter((l) => l.status === "open");
   const issuedLots = lots.filter((l) => l.status === "issued");
 
   const openQty   = openLots.reduce((s, l) => s + Number(l.qty_on_hand), 0);
   const issuedQty = issuedLots.reduce((s, l) => s + Number(l.qty_on_hand), 0);
-  const consumedQty = lots
-    .filter((l) => l.status === "consumed")
-    .reduce((s, l) => s + (Number(l.qty_initial) - Number(l.qty_on_hand)), 0);
+
+  // ---- Work in progress: what is sitting in a project, per project and lot --
+  // Derived from the ledger, never from lot status. A lot only reaches
+  // status='consumed' once it is drained to zero, so a partially consumed lot
+  // stays 'open'/'issued' — counting drained lots alone missed most of the
+  // consumption (it read 0 for components with thousands of units issued).
+  //
+  // 'issue' rows are stored negative and 'return' rows positive, so summing
+  // -qty nets reversals off automatically. That is the same definition
+  // v_project_consumption uses, which keeps this page in step with the
+  // Inventory export and the project pages.
+  //
+  // Job-work issues are split out rather than folded in: they carry a
+  // project_id but the material is at a vendor being machined, not in the
+  // build. They stay inside Net — the view counts them, and netting them out
+  // here would make this page quietly disagree with everywhere else.
+  //
+  // Grouped two levels deep — project, then the individual lots that went into
+  // it. Every issue/return row carries a lot_id (verified across the whole
+  // ledger), so no movement falls outside a lot, and a project row therefore
+  // always has at least one lot row under it.
+  type WipLot     = Totals & { lotId: string };
+  type WipProject = Totals & { projectId: string; lots: Map<string, WipLot> };
+
+  const zero = (): Totals => ({ intoBuild: 0, atJobWorker: 0, reversed: 0, net: 0 });
+  // One movement contributes identically to its lot and to its project, so the
+  // two levels can never drift apart.
+  function add(t: Totals, m: { movement_type: string; reference_type: string | null; qty: number | string | null }) {
+    const signed = Number(m.qty ?? 0);          // stored: issue negative, return positive
+    if (m.movement_type === "return") t.reversed += signed;
+    else if (m.reference_type === "job_work") t.atJobWorker += -signed;
+    else t.intoBuild += -signed;
+    t.net += -signed;
+  }
+
+  const wipByProject = new Map<string, WipProject>();
+  for (const m of movements ?? []) {
+    if (!m.project_id) continue;
+    let proj = wipByProject.get(m.project_id);
+    if (!proj) {
+      proj = { projectId: m.project_id, ...zero(), lots: new Map() };
+      wipByProject.set(m.project_id, proj);
+    }
+    add(proj, m);
+
+    if (!m.lot_id) continue;
+    let lot = proj.lots.get(m.lot_id);
+    if (!lot) {
+      lot = { lotId: m.lot_id, ...zero() };
+      proj.lots.set(m.lot_id, lot);
+    }
+    add(lot, m);
+  }
+
+  const hasActivity = (t: Totals) => !isZero(t.intoBuild) || !isZero(t.atJobWorker) || !isZero(t.reversed);
+
+  // A project that nets to zero *after* a reversal is kept — "we issued 380 and
+  // took it all back" is worth seeing. Only rows with no activity at all go.
+  const wipRows = [...wipByProject.values()]
+    .filter(hasActivity)
+    .map((p) => ({ ...p, lotRows: [...p.lots.values()].filter(hasActivity).sort((a, b) => b.net - a.net) }))
+    .sort((a, b) => b.net - a.net);
+
+  const consumedQty  = wipRows.reduce((s, r) => s + r.net, 0);
+  const reversedQty  = wipRows.reduce((s, r) => s + r.reversed, 0);
+  const jobWorkerQty = wipRows.reduce((s, r) => s + r.atJobWorker, 0);
+  // A fully-reversed project still earns a table row, but it is not a project
+  // the material is sitting in — so it doesn't count towards "across N projects".
+  const projectsHolding = wipRows.filter((r) => !isZero(r.net)).length;
+  const showReversed = !isZero(reversedQty);
+  const showJobWork  = !isZero(jobWorkerQty);
+
+  const valueByProject = new Map(
+    (consumptionValue ?? []).map((v) => [v.project_id, Number(v.consumption_value ?? 0)]),
+  );
 
   const allProjectIds = [...new Set([
     ...lots.map((l) => l.project_id),
     ...(movements ?? []).map((m) => m.project_id),
   ].filter(Boolean))];
   const { data: projects } = allProjectIds.length
-    ? await supabase.from("projects").select("id, project_no").in("id", allProjectIds)
+    ? await supabase.from("projects").select("id, project_no, customer_id").in("id", allProjectIds)
     : { data: [] };
+  const custName = new Map(customers.map((c) => [c.id, c.name]));
   const projNo = new Map((projects ?? []).map((p) => [p.id, p.project_no]));
+  // Full "PO-123 — Customer" label for the consumed table; the compact badges in
+  // the lot tables keep the bare project_no they already show.
+  const projFull = new Map(
+    (projects ?? []).map((p) => [
+      p.id,
+      projectLabel({ project_no: p.project_no, customer_name: p.customer_id ? custName.get(p.customer_id) ?? null : null }),
+    ]),
+  );
+
+  // The aggregate above reads every movement; the list below is capped so a
+  // component with a very long ledger can't render an unbounded table.
+  const allMovements = movements ?? [];
+  const historyRows = allMovements.slice(0, 200);
 
   const performerIds = [...new Set((movements ?? []).map((m) => m.performed_by).filter(Boolean))];
   const { data: perfProfiles } = performerIds.length
@@ -112,6 +286,9 @@ export default async function ComponentInventoryPage({ params }: { params: Promi
 
   const unit = qtUnit(qt);
   const unitSuffix = unit ? ` ${unit}` : "";
+  // Which optional columns exist is decided once, so a project row and its lot
+  // rows can never disagree about the shape of the table.
+  const qtyCellProps = { showJobWork, showReversed, unitSuffix };
 
   return (
     <div>
@@ -128,7 +305,7 @@ export default async function ComponentInventoryPage({ params }: { params: Promi
       />
 
       {/* Summary */}
-      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className={`mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 ${showReversed ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
         <Card>
           <CardContent className="p-5">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Open</p>
@@ -145,11 +322,25 @@ export default async function ComponentInventoryPage({ params }: { params: Promi
         </Card>
         <Card>
           <CardContent className="p-5">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Consumed (all time)</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">WIP (in projects)</p>
             <p className="mt-1 text-2xl font-bold text-muted-foreground">{formatNumber(consumedQty)}{unitSuffix}</p>
-            <p className="text-xs text-muted-foreground">{(movements ?? []).length} movements</p>
+            <p className="text-xs text-muted-foreground">
+              across {projectsHolding} project{projectsHolding !== 1 ? "s" : ""}
+              {showJobWork && ` · ${formatNumber(jobWorkerQty)}${unitSuffix} at job worker`}
+            </p>
           </CardContent>
         </Card>
+        {/* Only shown when a reversal has actually happened, so the usual case
+            stays three cards. */}
+        {showReversed && (
+          <Card>
+            <CardContent className="p-5">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Reversed</p>
+              <p className="mt-1 text-2xl font-bold text-green-700">{formatNumber(reversedQty)}{unitSuffix}</p>
+              <p className="text-xs text-muted-foreground">returned to stock</p>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Open lots */}
@@ -282,10 +473,147 @@ export default async function ComponentInventoryPage({ params }: { params: Promi
         )}
       </section>
 
-      {/* Consumption history */}
-      <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Consumption history</h2>
-        {(movements ?? []).length === 0 ? (
+      {/* Work in progress — what is in the projects right now, lot by lot */}
+      <section className="mb-10">
+        <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Work in Progress (WIP)
+        </h2>
+        <p className="mb-3 text-xs text-muted-foreground">
+          Net of reversals. Reversed material is not counted here — it is in the history below.
+        </p>
+        {wipRows.length === 0 ? (
+          <p className="py-6 text-center text-muted-foreground">Nothing in progress yet.</p>
+        ) : (
+          <>
+            <div className="hidden sm:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Project / lot</TableHead>
+                    <TableHead>From PO</TableHead>
+                    <TableHead>Into build</TableHead>
+                    {showJobWork && <TableHead>At job worker</TableHead>}
+                    {showReversed && <TableHead>Reversed</TableHead>}
+                    <TableHead>Net in project</TableHead>
+                    {finance && <TableHead>Value</TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {wipRows.map((r) => (
+                    // A project and its lots are one visual group, so they share a
+                    // fragment rather than each project rendering its own table.
+                    <Fragment key={r.projectId}>
+                      <TableRow>
+                        <TableCell>
+                          <Link href={`/projects/${r.projectId}`} className="font-medium text-primary hover:underline">
+                            {projFull.get(r.projectId) ?? "—"}
+                          </Link>
+                        </TableCell>
+                        {/* The PO belongs to a lot, not to the project — a project
+                            row can span several POs, so it stays blank here. */}
+                        <TableCell />
+                        <QtyCells row={r} {...qtyCellProps} />
+                        {finance && (
+                          <TableCell className="text-muted-foreground">{formatINR(valueByProject.get(r.projectId) ?? null)}</TableCell>
+                        )}
+                      </TableRow>
+                      {r.lotRows.map((l) => (
+                        <TableRow key={l.lotId} className="text-muted-foreground">
+                          <TableCell className="pl-8 font-mono text-xs">
+                            <Link href={`/inventory/lots/${l.lotId}`} className="text-primary hover:underline">
+                              {lotCode.get(l.lotId) ?? "—"}
+                            </Link>
+                          </TableCell>
+                          <TableCell className="text-xs">
+                            {poByLot.has(l.lotId) ? (
+                              <Link href={`/purchase-orders/${poByLot.get(l.lotId)!.id}`} className="text-primary hover:underline">
+                                {poByLot.get(l.lotId)!.po_no}
+                              </Link>
+                            ) : "—"}
+                          </TableCell>
+                          <QtyCells row={l} {...qtyCellProps} muted />
+                          {finance && <TableCell />}
+                        </TableRow>
+                      ))}
+                    </Fragment>
+                  ))}
+                  <TableRow className="border-t-2">
+                    <TableCell className="font-semibold">Total</TableCell>
+                    <TableCell />
+                    <TableCell />
+                    {showJobWork && <TableCell />}
+                    {showReversed && <TableCell />}
+                    <TableCell className="font-bold">{formatNumber(consumedQty)}{unitSuffix}</TableCell>
+                    {finance && (
+                      <TableCell className="font-semibold">
+                        {formatINR(wipRows.reduce((s, r) => s + (valueByProject.get(r.projectId) ?? 0), 0))}
+                      </TableCell>
+                    )}
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+            {/* MobileRowCard can't nest, so each project becomes a heading line
+                with its own lot cards underneath. */}
+            <div className="space-y-6 sm:hidden">
+              {wipRows.map((r) => (
+                <div key={r.projectId} className="space-y-3">
+                  <div className="flex items-baseline justify-between gap-2 border-b border-border pb-1">
+                    <Link href={`/projects/${r.projectId}`} className="text-sm font-medium text-primary hover:underline">
+                      {projFull.get(r.projectId) ?? "—"}
+                    </Link>
+                    <span className="shrink-0 text-sm font-bold">{formatNumber(r.net)}{unitSuffix}</span>
+                  </div>
+                  {finance && (
+                    <p className="text-xs text-muted-foreground">Value: {formatINR(valueByProject.get(r.projectId) ?? null)}</p>
+                  )}
+                  {r.lotRows.map((l) => (
+                    <Link key={l.lotId} href={`/inventory/lots/${l.lotId}`} className="block">
+                      <MobileRowCard
+                        title={lotCode.get(l.lotId) ?? "—"}
+                        fields={[
+                          { label: "From PO", value: poByLot.get(l.lotId)?.po_no ?? "—" },
+                          { label: "Into build", value: !isZero(l.intoBuild) ? `${formatNumber(l.intoBuild)}${unitSuffix}` : "—" },
+                          ...(showJobWork ? [{ label: "At job worker", value: !isZero(l.atJobWorker) ? `${formatNumber(l.atJobWorker)}${unitSuffix}` : "—" }] : []),
+                          ...(showReversed ? [{ label: "Reversed", value: !isZero(l.reversed) ? `−${formatNumber(l.reversed)}${unitSuffix}` : "—" }] : []),
+                          { label: "Net", value: <span className="font-semibold">{formatNumber(l.net)}{unitSuffix}</span> },
+                        ]}
+                      />
+                    </Link>
+                  ))}
+                </div>
+              ))}
+              <p className="px-1 text-sm">
+                <span className="text-muted-foreground">Total</span>{" "}
+                <span className="font-bold">{formatNumber(consumedQty)}{unitSuffix}</span>
+              </p>
+            </div>
+            {showJobWork && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                &ldquo;At job worker&rdquo; material has left stock against the project but is with a vendor
+                for machining, not yet in the build. It is included in Net.
+              </p>
+            )}
+          </>
+        )}
+      </section>
+
+      {/* Consumption history — collapsed by default; it is the audit trail, not
+          the day-to-day view. CollapsibleSection is a native <details>, so it
+          opens without JavaScript. */}
+      <CollapsibleSection
+        title="Consumption history"
+        badge={
+          <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-normal normal-case text-muted-foreground">
+            {allMovements.length}
+          </span>
+        }
+      >
+        <p className="mb-3 text-xs text-muted-foreground">
+          Every issue and reversal, newest first
+          {historyRows.length < allMovements.length && ` — showing the latest ${historyRows.length}`}.
+        </p>
+        {allMovements.length === 0 ? (
           <p className="py-6 text-center text-muted-foreground">No consumption recorded yet.</p>
         ) : (
           <>
@@ -295,14 +623,14 @@ export default async function ComponentInventoryPage({ params }: { params: Promi
                   <TableRow>
                     <TableHead>Date</TableHead>
                     <TableHead>Lot</TableHead>
-                    <TableHead>Qty consumed</TableHead>
+                    <TableHead>Qty</TableHead>
                     <TableHead>Project</TableHead>
                     <TableHead>By</TableHead>
                     <TableHead>Via</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(movements ?? []).map((m) => {
+                  {historyRows.map((m) => {
                     const isReturn = m.movement_type === "return";
                     return (
                     <TableRow key={m.id}>
@@ -335,7 +663,7 @@ export default async function ComponentInventoryPage({ params }: { params: Promi
               </Table>
             </div>
             <div className="space-y-3 sm:hidden">
-              {(movements ?? []).map((m) => {
+              {historyRows.map((m) => {
                 const isReturn = m.movement_type === "return";
                 return (
                 <MobileRowCard
@@ -360,7 +688,7 @@ export default async function ComponentInventoryPage({ params }: { params: Promi
             </div>
           </>
         )}
-      </section>
+      </CollapsibleSection>
     </div>
   );
 }
