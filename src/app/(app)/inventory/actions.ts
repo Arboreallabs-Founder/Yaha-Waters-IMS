@@ -169,11 +169,23 @@ export async function unissueLot(fd: FormData): Promise<ActionResult> {
 }
 
 /**
- * Reverse a specific consumption (`issue`) movement back to open stock —
- * admin-only. Writes a compensating `return` movement (never mutates the
- * original ledger row); `recompute_lot_on_hand()` picks it up and restores
- * qty_on_hand / flips status back to 'open'. Also clears the lot's project
- * tag so it's genuinely open again, matching `unissueLot`'s convention.
+ * Reverse a specific consumption (`issue`) movement — admin-only. Writes a
+ * compensating `return` movement (never mutates the original ledger row);
+ * `recompute_lot_on_hand()` picks it up and restores qty_on_hand.
+ *
+ * A reversal puts the lot back exactly as it was held before the consumption:
+ *
+ *   - consumed out of **free stock**  -> returns to free stock ('open')
+ *   - consumed while **frozen to a project** -> returns to frozen, same project
+ *
+ * The lot's own `project_id` is what distinguishes the two, and it is reliable:
+ * consuming writes a ledger row and never touches the lot's tag, so the tag
+ * still says how the lot was held. This function used to *clear* that tag,
+ * which destroyed the only record of it — and, because the recompute trigger
+ * only flips 'consumed' -> 'open' (it preserves 'issued' on a lot that still
+ * has stock), a partly-consumed frozen lot was left marked frozen with no
+ * project on it. Nothing could then use that stock, and consuming it failed
+ * with a misleading "issued to another project".
  */
 export async function reverseConsumption(fd: FormData): Promise<ActionResult> {
   const p = await getProfile();
@@ -195,6 +207,15 @@ export async function reverseConsumption(fd: FormData): Promise<ActionResult> {
     return { error: "Job-work dispatches are reversed from the Job Work order's revision flow, not here." };
   }
   if (!move.lot_id) return { error: "This movement has no lot to reverse into." };
+
+  // Read the tag *before* writing the reversal — this is what decides whether
+  // the stock goes back to free or back to frozen.
+  const { data: lotBefore } = await supabase
+    .from("inventory_lots")
+    .select("id, project_id")
+    .eq("id", move.lot_id)
+    .maybeSingle();
+  if (!lotBefore) return { error: "Lot not found." };
 
   const { data: existingReversal } = await supabase
     .from("stock_movements")
@@ -218,12 +239,20 @@ export async function reverseConsumption(fd: FormData): Promise<ActionResult> {
   });
   if (insErr) return { error: insErr.message };
 
-  if (move.project_id) {
-    await supabase
+  // The lot keeps its project tag either way — it is the record of how the
+  // stock was held. Only the status needs restoring, and only for a frozen lot:
+  // the trigger has just flipped it to 'open' if the lot had been emptied, so
+  // put it back to 'issued'. Guarded on qty_on_hand > 0 because reversing one
+  // of several consumptions can leave the lot still empty, and an empty lot
+  // must stay 'consumed'. A lot with no tag was free stock and the trigger has
+  // already landed it correctly.
+  if (lotBefore.project_id) {
+    const { error: statusErr } = await supabase
       .from("inventory_lots")
-      .update({ project_id: null })
+      .update({ status: "issued" })
       .eq("id", move.lot_id)
-      .eq("project_id", move.project_id);
+      .gt("qty_on_hand", 0);
+    if (statusErr) return { error: `Stock returned, but re-freezing the lot failed: ${statusErr.message}` };
   }
 
   revalidatePath(`/inventory/lots/${move.lot_id}`);

@@ -37,12 +37,12 @@ export function ReverseConsumptionButton({ movementId }: { movementId: string })
         variant="ghost"
         size="icon"
         onClick={() => { setError(null); setOpen(true); }}
-        title="Reverse — return this consumption to open stock"
+        title="Reverse — undo this consumption"
         className="text-amber-600 hover:text-amber-800"
       >
         <Undo2 className="size-4" />
       </Button>
-      <Dialog open={open} onClose={() => setOpen(false)} title="Reverse consumption" description="This returns the material to open inventory (no project tag).">
+      <Dialog open={open} onClose={() => setOpen(false)} title="Reverse consumption" description="Puts the material back exactly as it was held — free stock returns to free stock, and stock frozen for a project returns to that project.">
         <form onSubmit={onConfirm} className="space-y-4">
           {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
           <div className="space-y-1.5">
@@ -51,7 +51,7 @@ export function ReverseConsumptionButton({ movementId }: { movementId: string })
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button type="submit" loading={busy}>Reverse to open stock</Button>
+            <Button type="submit" loading={busy}>Reverse consumption</Button>
           </div>
         </form>
       </Dialog>
