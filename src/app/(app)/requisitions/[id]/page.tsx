@@ -98,7 +98,7 @@ export default async function RequisitionDetailPage({ params }: { params: Promis
       {consumedRows.length > 0 && (
         <div className="mt-6">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Consumed in this requisition
+            Issued in this requisition
           </h2>
           <div className="hidden sm:block">
             <Table>

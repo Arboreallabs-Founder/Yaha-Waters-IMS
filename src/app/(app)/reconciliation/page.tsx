@@ -68,7 +68,7 @@ export default async function ReconciliationPage() {
         <Table>
           <TableHeader><TableRow>
             <TableHead>Project</TableHead><TableHead>Component</TableHead><TableHead>Required</TableHead>
-            <TableHead>Ordered</TableHead><TableHead>Received</TableHead><TableHead>Consumed / stock</TableHead>
+            <TableHead>Ordered</TableHead><TableHead>Received</TableHead><TableHead>WIP / stock</TableHead>
             <TableHead>Still to order</TableHead><TableHead>Receive gap</TableHead>
           </TableRow></TableHeader>
           <TableBody>
@@ -98,7 +98,7 @@ export default async function ReconciliationPage() {
 
       <Check id="missing-po" title="Missing PO (BOM demand not ordered and not covered by stock)" empty={(missingPo?.length ?? 0) === 0}>
         <Table>
-          <TableHeader><TableRow><TableHead>Project</TableHead><TableHead>Component</TableHead><TableHead>Required</TableHead><TableHead>Received</TableHead><TableHead>Consumed / stock</TableHead><TableHead>Still to order</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>Project</TableHead><TableHead>Component</TableHead><TableHead>Required</TableHead><TableHead>Received</TableHead><TableHead>WIP / stock</TableHead><TableHead>Still to order</TableHead></TableRow></TableHeader>
           <TableBody>
             {(missingPo ?? []).slice(0, 100).map((r, i) => (
               <TableRow key={i}>

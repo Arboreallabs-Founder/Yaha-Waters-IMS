@@ -99,7 +99,7 @@ export default async function DashboardPage() {
             ) : (
               <Table>
                 <TableHeader><TableRow>
-                  <TableHead>Project</TableHead><TableHead>Budgeted Cost</TableHead><TableHead>Ordered</TableHead><TableHead>Consumed</TableHead>
+                  <TableHead>Project</TableHead><TableHead>Budgeted Cost</TableHead><TableHead>Ordered</TableHead><TableHead>WIP</TableHead>
                 </TableRow></TableHeader>
                 <TableBody>
                   {costingRows.map((r) => (

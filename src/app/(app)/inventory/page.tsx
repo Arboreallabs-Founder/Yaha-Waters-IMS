@@ -44,7 +44,7 @@ export default async function InventoryPage() {
       .select("id, component_id, vendor_id, qty_on_hand, qty_initial, unit_cost, grn_line_id"),
     // Which project(s) each component was actually *consumed* on — from the issue/return
     // ledger, netted, independent of the PO the stock was ordered against. Powers the
-    // "Consumed on Project" column in the Excel export.
+    // "WIP on Project" column in the Excel export.
     supabase.from("v_project_consumption").select("project_id, component_id, consumed_qty"),
     getVendors(),
   ]);

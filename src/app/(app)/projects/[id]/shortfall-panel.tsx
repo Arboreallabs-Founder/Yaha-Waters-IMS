@@ -90,7 +90,7 @@ export function ShortfallPanel({ projectId, rows, canProcure }: { projectId: str
             <TableHead>Required</TableHead>
             <TableHead>On hand</TableHead>
             <TableHead>Ordered</TableHead>
-            <TableHead>Consumed</TableHead>
+            <TableHead>WIP</TableHead>
             <TableHead>Sent to JW</TableHead>
             <TableHead>Shortfall</TableHead>
             <TableHead>Status</TableHead>
@@ -114,7 +114,7 @@ export function ShortfallPanel({ projectId, rows, canProcure }: { projectId: str
                 {r.shortfall <= 0 ? (
                   <span className="inline-flex items-center gap-1 text-xs text-green-700">
                     <CheckCircle2 className="size-3.5" /> Covered
-                    {r.on_hand <= 0 && r.consumed > 0 ? " (consumed)" : ""}
+                    {r.on_hand <= 0 && r.consumed > 0 ? " (in WIP)" : ""}
                     {r.on_hand <= 0 && r.consumed <= 0 && r.sent_to_jw > 0 ? " (in job-work)" : ""}
                   </span>
                 ) : r.on_hand > 0 ? (

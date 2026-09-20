@@ -42,7 +42,7 @@ export type InventoryRow = {
 
 const EXPORT_HEADERS = [
   "Sr.No.", "Material Description", "Received Qty", "Balance Stock", "Unit", "Rate", "Amount",
-  "GST 18%", "Total Amount", "Vendor Name", "PO. No.", "PO Date", "GRN No.", "Project No.", "Consumed on Project",
+  "GST 18%", "Total Amount", "Vendor Name", "PO. No.", "PO Date", "GRN No.", "Project No.", "WIP on Project",
   "GST No.", "PAN", "Vendor Contact Details", "Vendor Mail ID", "official Website",
 ];
 
@@ -54,7 +54,7 @@ async function downloadInventoryExcel(rows: InventoryRow[]) {
 
   for (const r of rows) {
     sr += 1;
-    // "Consumed on Project" is a different axis from the PO/GRN breakdown — its
+    // "WIP on Project" is a different axis from the PO/GRN breakdown — its
     // entries stay comma-joined in one cell (repeated on every breakdown row).
     const consumed = r.consumedProjects.length
       ? r.consumedProjects
@@ -128,7 +128,7 @@ async function downloadInventoryExcel(rows: InventoryRow[]) {
     filename: `Inventory-Export-${today}.xlsx`,
     sheetName: "Inventory",
     colWidths: EXPORT_HEADERS.map((h) =>
-      h === "Consumed on Project" ? 28 : h === "GRN No." ? 24 : 20,
+      h === "WIP on Project" ? 28 : h === "GRN No." ? 24 : 20,
     ),
     numberFormats: { 0: "0", 2: qty, 3: qty, 5: "#,##0.00", 6: "#,##0", 7: "#,##0", 8: "#,##0" },
   });

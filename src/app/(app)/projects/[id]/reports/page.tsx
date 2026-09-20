@@ -11,16 +11,16 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { formatDate, formatNumber } from "@/lib/utils";
 
 // ---- Accounts View's own simple status (kept as originally confirmed — unrelated to the richer ladder below) ----
-type AccountsStatus = "Not Ordered" | "PO Raised" | "Received" | "Consumed";
+type AccountsStatus = "Not Ordered" | "PO Raised" | "Received" | "WIP";
 function accountsMaterialStatus(hasPo: boolean, onHand: number, consumed: number, openOrderQty: number): AccountsStatus {
-  if (onHand <= 0 && consumed > 0 && openOrderQty <= 0) return "Consumed";
+  if (onHand <= 0 && consumed > 0 && openOrderQty <= 0) return "WIP";
   if (onHand > 0 || consumed > 0) return "Received";
   if (hasPo) return "PO Raised";
   return "Not Ordered";
 }
 
 // ---- Material Status section's richer, single-status-per-component ladder ----
-type MaterialStatus = "Not Ordered" | "PO Raised" | "PO Partial" | "Available" | "Blocked" | "Consumed" | "Job Work";
+type MaterialStatus = "Not Ordered" | "PO Raised" | "PO Partial" | "Available" | "Blocked" | "WIP" | "Job Work";
 
 const STATUS_META: Record<MaterialStatus, { label: string; icon: React.ElementType; className: string }> = {
   "Not Ordered": { label: "Not ordered", icon: MinusCircle, className: "text-muted-foreground" },
@@ -28,7 +28,7 @@ const STATUS_META: Record<MaterialStatus, { label: string; icon: React.ElementTy
   "PO Partial": { label: "PO partial", icon: AlertTriangle, className: "text-amber-700" },
   Available: { label: "Available — not yet blocked", icon: CheckCircle2, className: "text-green-700" },
   Blocked: { label: "Blocked for this project", icon: Lock, className: "text-blue-700" },
-  Consumed: { label: "Consumed", icon: CheckCircle2, className: "text-emerald-700" },
+  WIP: { label: "WIP", icon: CheckCircle2, className: "text-emerald-700" },
   "Job Work": { label: "Job work", icon: Hammer, className: "text-purple-700" },
 };
 
@@ -39,7 +39,7 @@ function computeMaterialStatus({
   hasPo: boolean; orderedTotal: number; receivedTotal: number;
 }): MaterialStatus {
   if (isJobWork) return "Job Work";
-  if (consumed > 0) return "Consumed";
+  if (consumed > 0) return "WIP";
   if (blockedMine > 0) return "Blocked";
   if (openAvailable > 0) return "Available";
   if (hasPo && receivedTotal > 0 && receivedTotal < orderedTotal) return "PO Partial";
@@ -383,7 +383,7 @@ export default async function ProjectReportsPage({ params }: { params: Promise<{
         x.value,                                                           // 13 PO Value
         x.recv,                                                            // 14 Received Qty
         first ? totalAvailable : null,                                     // 15 Total Available Qty
-        first ? consumed : null,                                           // 16 Consumed Qty
+        first ? consumed : null,                                           // 16 WIP Qty
         first ? onHand : null,                                             // 17 Balance Stock
         first ? stockValue : null,                                         // 18 Stock Value
         x.grnDate,                                                         // 19 Last GRN Date
@@ -468,7 +468,7 @@ export default async function ProjectReportsPage({ params }: { params: Promise<{
                 label="Download Material Status"
                 filename={`${project.project_no}-Material-Status.xlsx`}
                 sheetName="Material Status"
-                headers={["Sr. No.", "Component No.", "Material Description", "UOM", "Required Qty", "Status", "Ordered Qty", "Received Qty", "Blocked Qty", "Available Qty", "Consumed Qty", "Receipts (PO → GRN)"]}
+                headers={["Sr. No.", "Component No.", "Material Description", "UOM", "Required Qty", "Status", "Ordered Qty", "Received Qty", "Blocked Qty", "Available Qty", "WIP Qty", "Receipts (PO → GRN)"]}
                 rows={materialStatusExcelRows}
                 colWidths={[8, 18, 36, 10, 12, 14, 12, 12, 12, 12, 12, 40]}
               />
@@ -484,7 +484,7 @@ export default async function ProjectReportsPage({ params }: { params: Promise<{
                   <TableHead>Received</TableHead>
                   <TableHead>Blocked</TableHead>
                   <TableHead>Available</TableHead>
-                  <TableHead>Consumed</TableHead>
+                  <TableHead>WIP</TableHead>
                   <TableHead>Receipts (PO → GRN)</TableHead>
                 </TableRow>
               </TableHeader>
@@ -563,7 +563,7 @@ export default async function ProjectReportsPage({ params }: { params: Promise<{
               headers={[
                 "Sr. No.", "Customer Name", "Project PO No.", "Project PO Date", "Project Delivery Date", "Project Delivery Time (Days)",
                 "Purchase PO No.", "Purchase PO Date", "Supplier/Vendor Name", "Material Description", "UOM",
-                "PO Qty", "PO Rate", "PO Value", "Received Qty", "Total Available Qty", "Consumed Qty", "Balance Stock",
+                "PO Qty", "PO Rate", "PO Value", "Received Qty", "Total Available Qty", "WIP Qty", "Balance Stock",
                 "Stock Value", "Last GRN Date", "Material Status", "Invoice No.", "Remarks",
               ]}
               rows={accountsRows}

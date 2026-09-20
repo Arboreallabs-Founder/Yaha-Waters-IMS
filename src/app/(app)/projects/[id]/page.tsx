@@ -358,8 +358,8 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             <Info label="Budgeted Company Cost" value={formatINR(costing.customer_po_value)} />
             <Info label="Ordered" value={formatINR(costing.ordered_value)} />
             <Info label="Received" value={formatINR(costing.received_value)} />
-            <Info label="Consumed" value={formatINR(costing.consumed_value)} />
-            <Info label="Yet to consume" value={formatINR(Math.max(Number(costing.received_value ?? 0) - Number(costing.consumed_value ?? 0), 0))} />
+            <Info label="WIP" value={formatINR(costing.consumed_value)} />
+            <Info label="Not yet in WIP" value={formatINR(Math.max(Number(costing.received_value ?? 0) - Number(costing.consumed_value ?? 0), 0))} />
           </CardContent>
         </Card>
       )}
