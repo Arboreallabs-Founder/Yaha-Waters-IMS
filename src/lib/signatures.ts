@@ -91,6 +91,54 @@ export async function getSigningState(
   };
 }
 
+export type BatchSigningState = { fullySigned: boolean; canSignNow: boolean; nextSlot: number | null };
+
+/**
+ * The signing-chain arithmetic, over rows already in hand. Pure, so a caller
+ * that has already fetched `approval_rights` and `document_signatures` in its
+ * own first wave can reuse them instead of paying for another round trip —
+ * which is how the Purchase Orders page builds its "needs my signature" tab
+ * for free.
+ *
+ * `canSignNow` is deliberately chain-aware: only the *next* unsigned slot
+ * counts, so a later approver doesn't see a document until the one before them
+ * has signed. Slot 1 belongs to the document's creator, every other slot to the
+ * user configured at that approver_order.
+ */
+export function computeSigningStates(
+  docs: { id: string; created_by: string | null }[],
+  rights: { approver_order: number; user_id: string }[],
+  sigs: { document_id: string; slot: number }[],
+  actorId: string | null,
+): Map<string, BatchSigningState> {
+  const result = new Map<string, BatchSigningState>();
+  if (!actorId || docs.length === 0) return result;
+
+  const requiredSlots = [...new Set([1, ...rights.map((r) => r.approver_order)])].sort((a, b) => a - b);
+  const rightsByOrder = new Map(rights.map((r) => [r.approver_order, r.user_id]));
+
+  const signedSlotsByDoc = new Map<string, Set<number>>();
+  for (const s of sigs) {
+    const set = signedSlotsByDoc.get(s.document_id) ?? new Set<number>();
+    set.add(s.slot);
+    signedSlotsByDoc.set(s.document_id, set);
+  }
+
+  for (const doc of docs) {
+    const signedSlots = signedSlotsByDoc.get(doc.id) ?? new Set<number>();
+    const nextSlot = requiredSlots.find((s) => !signedSlots.has(s)) ?? null;
+    result.set(doc.id, {
+      fullySigned: nextSlot === null,
+      nextSlot,
+      canSignNow:
+        nextSlot !== null &&
+        (nextSlot === 1 ? actorId === doc.created_by : actorId === rightsByOrder.get(nextSlot)),
+    });
+  }
+
+  return result;
+}
+
 /**
  * Batched sibling of `getSigningState` for list views (e.g. a "pending
  * approval" tab) — one query on `approval_rights` + one on
@@ -101,9 +149,8 @@ export async function getSigningStatesBatch(
   documentType: DocumentType,
   docs: { id: string; created_by: string | null }[],
   actorId: string | null,
-): Promise<Map<string, { fullySigned: boolean; canSignNow: boolean }>> {
-  const result = new Map<string, { fullySigned: boolean; canSignNow: boolean }>();
-  if (!actorId || docs.length === 0) return result;
+): Promise<Map<string, BatchSigningState>> {
+  if (!actorId || docs.length === 0) return new Map();
 
   const supabase = await createClient();
   const [{ data: rights }, { data: sigsRaw }] = await Promise.all([
@@ -115,25 +162,5 @@ export async function getSigningStatesBatch(
       .in("document_id", docs.map((d) => d.id)),
   ]);
 
-  const requiredSlots = [...new Set([1, ...(rights ?? []).map((r) => r.approver_order)])].sort((a, b) => a - b);
-  const rightsByOrder = new Map((rights ?? []).map((r) => [r.approver_order, r.user_id]));
-
-  const signedSlotsByDoc = new Map<string, Set<number>>();
-  for (const s of sigsRaw ?? []) {
-    const set = signedSlotsByDoc.get(s.document_id) ?? new Set<number>();
-    set.add(s.slot);
-    signedSlotsByDoc.set(s.document_id, set);
-  }
-
-  for (const doc of docs) {
-    const signedSlots = signedSlotsByDoc.get(doc.id) ?? new Set<number>();
-    const nextSlot = requiredSlots.find((s) => !signedSlots.has(s)) ?? null;
-    const fullySigned = nextSlot === null;
-    const canSignNow =
-      nextSlot !== null &&
-      (nextSlot === 1 ? actorId === doc.created_by : actorId === rightsByOrder.get(nextSlot));
-    result.set(doc.id, { fullySigned, canSignNow });
-  }
-
-  return result;
+  return computeSigningStates(docs, rights ?? [], sigsRaw ?? [], actorId);
 }

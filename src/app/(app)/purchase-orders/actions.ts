@@ -293,19 +293,6 @@ export async function removePoLine(fd: FormData): Promise<ActionResult> {
   return { ok: true };
 }
 
-// ---- back-fill a PO line's project tag (worklist) ----
-export async function backfillProjectTag(fd: FormData): Promise<ActionResult> {
-  const p = await procurer();
-  if (!p) return { error: "Not authorized." };
-  const id = String(fd.get("id"));
-  const project_id = String(fd.get("project_id") ?? "") || null;
-  const supabase = await createClient();
-  const { error } = await supabase.from("po_lines").update({ project_id }).eq("id", id);
-  if (error) return { error: error.message };
-  revalidatePath("/purchase-orders");
-  return { ok: true };
-}
-
 // ---- price approval: gated to the configured PO approver (Masters →
 // Approval Rights, slot 2) — falls back to Admin-only until that's configured ----
 async function poApprover() {

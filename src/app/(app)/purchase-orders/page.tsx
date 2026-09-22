@@ -1,18 +1,20 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile, canSeeFinancials, canWriteMasters } from "@/lib/auth";
-import { getVendors, getComponentsFull, getCustomers } from "@/lib/masters-data";
+import { getVendors, getComponentsFull } from "@/lib/masters-data";
 import { canApprovePoLine } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { MobileRowCard } from "@/components/ui/mobile-row-card";
 import { formatDate, formatNumber, formatINR, cn } from "@/lib/utils";
+import { computeSigningStates } from "@/lib/signatures";
 import { NewPoButton } from "./new-po-button";
-import { UntaggedWorklist } from "./untagged-worklist";
 import { PoLineApprovalActions } from "./po-line-approval-actions";
 import { AllPosTable } from "./all-pos-table";
 import { DocumentSignButton } from "@/components/document-sign-button";
 import { getPoRegisterRows } from "@/lib/po-register-data";
-import { signPo } from "./actions";
+import { signPo, backfillPoSignature } from "./actions";
 
 export default async function PurchaseOrdersPage({
   searchParams,
@@ -25,10 +27,13 @@ export default async function PurchaseOrdersPage({
   const canWrite = canWriteMasters(profile?.role); // admin / team_lead
   const supabase = await createClient();
 
-  const [vendorsAll, { data: nextPoNo }, { count: untaggedCount }, { count: pendingApprovalCount }, { count: pendingSignatureCount }, { data: poApproverRight }, { data: mySignatures }] = await Promise.all([
+  // `livePos`, `poRights` and `poSigs` power the "Needs my signature" tab. They
+  // sit in this same wave because none of them depends on another, so the tab
+  // and its count cost no extra round trip — the arithmetic happens in memory
+  // via computeSigningStates.
+  const [vendorsAll, { data: nextPoNo }, { count: pendingApprovalCount }, { count: pendingSignatureCount }, { data: poApproverRight }, { data: mySignatures }, { data: livePos }, { data: poRights }, { data: poSigs }] = await Promise.all([
     getVendors(),
     supabase.rpc("peek_next_po_no"),
-    supabase.from("po_lines").select("id", { count: "exact", head: true }).is("project_id", null),
     supabase.from("po_lines")
       .select("id, purchase_orders!inner(status)", { count: "exact", head: true })
       .eq("approval_status", "pending_approval")
@@ -36,14 +41,30 @@ export default async function PurchaseOrdersPage({
     supabase.from("purchase_orders").select("id", { count: "exact", head: true }).eq("status", "pending_signature"),
     supabase.from("approval_rights").select("user_id").eq("document_type", "po").eq("approver_order", 2).maybeSingle(),
     profile ? supabase.from("signatures").select("id, label, method, image_data_url, is_default").eq("user_id", profile.id).order("is_default", { ascending: false }) : Promise.resolve({ data: [] }),
+    supabase.from("purchase_orders").select("id, po_no, vendor_id, status, created_by, created_at").is("superseded_by", null),
+    supabase.from("approval_rights").select("approver_order, user_id").eq("document_type", "po"),
+    supabase.from("document_signatures").select("document_id, slot").eq("document_type", "po"),
   ]);
   const vendors = vendorsAll.filter((v) => v.is_active);
   const canApprove = canApprovePoLine(profile?.role, profile?.id, poApproverRight?.user_id ?? null);
   const approvalsCount = canApprove ? (pendingApprovalCount ?? 0) + (pendingSignatureCount ?? 0) : 0;
 
+  // Every PO whose next unsigned slot belongs to this user — theirs alone, and
+  // only once the slot before it has been signed. Superseded revisions are
+  // excluded: they are dead history and can never be printed anyway.
+  const signingStates = computeSigningStates(
+    (livePos ?? []).map((p) => ({ id: p.id, created_by: p.created_by })),
+    poRights ?? [],
+    poSigs ?? [],
+    profile?.id ?? null,
+  );
+  const needsMySignature = (livePos ?? [])
+    .filter((p) => signingStates.get(p.id)?.canSignNow)
+    .sort((a, b) => (a.created_at ?? "").localeCompare(b.created_at ?? ""));
+
   const TABS = [
     { key: "all", label: "All POs" },
-    { key: "untagged", label: `Untagged lines${untaggedCount ? ` (${untaggedCount})` : ""}` },
+    { key: "signatures", label: `Needs my signature${needsMySignature.length ? ` (${needsMySignature.length})` : ""}` },
     { key: "approvals", label: `Approvals${approvalsCount ? ` (${approvalsCount})` : ""}` },
   ] as const;
 
@@ -70,8 +91,8 @@ export default async function PurchaseOrdersPage({
         ))}
       </div>
 
-      {tab === "untagged" ? (
-        <UntaggedTab canWrite={canWrite} />
+      {tab === "signatures" ? (
+        <NeedsMySignatureTab rows={needsMySignature} vendors={vendorsAll} mySignatures={mySignatures ?? []} />
       ) : tab === "approvals" ? (
         <ApprovalsTab canApprove={canApprove} mySignatures={mySignatures ?? []} />
       ) : (
@@ -148,29 +169,113 @@ async function AllPosTab({ finance, vendors }: { finance: boolean; vendors: { id
   return <AllPosTable pos={rows} finance={finance} poRegisterRows={poRegisterRows} />;
 }
 
-async function UntaggedTab({ canWrite }: { canWrite: boolean }) {
-  const supabase = await createClient();
-  const [{ data: untagged }, components, { data: projects }, customers] = await Promise.all([
-    supabase.from("po_lines").select("id, po_id, component_id, qty_ordered, purchase_orders(po_no)").is("project_id", null),
-    getComponentsFull(),
-    supabase.from("projects").select("id, project_no, customer_id").order("project_no"),
-    getCustomers(),
-  ]);
-  const compLabel = new Map(components.map((c) => [c.id, `${c.component_no} — ${c.name}`]));
-  const custName = new Map(customers.map((c) => [c.id, c.name]));
-  const projectsWithCustomer = (projects ?? []).map((p) => ({ ...p, customer_name: p.customer_id ? custName.get(p.customer_id) ?? null : null }));
-  const untaggedLines = (untagged ?? []).map((l) => {
-    const po = Array.isArray(l.purchase_orders) ? l.purchase_orders[0] : l.purchase_orders;
-    return {
-      id: l.id,
-      po_id: l.po_id,
-      po_no: po?.po_no ?? "—",
-      component_label: l.component_id ? compLabel.get(l.component_id) ?? "—" : "—",
-      qty_ordered: l.qty_ordered,
-    };
-  });
+type SignRow = {
+  id: string; po_no: string; vendor_id: string | null;
+  status: string; created_at: string | null;
+};
 
-  return <UntaggedWorklist lines={untaggedLines} projects={projectsWithCustomer} canWrite={canWrite} />;
+/**
+ * Every PO waiting on *this* user's signature — nobody else's. The rows are
+ * already computed on the page (one wave, no extra query), so this only has to
+ * render them.
+ *
+ * Which button appears matters. A PO still in draft/pending_signature is mid
+ * flow, so signing drives it forward via signPo. One already sent, received or
+ * completed has moved on without a signature — every PO raised before digital
+ * signatures existed is in that state — so it takes backfillPoSignature, which
+ * records the signature for the audit trail without touching the PO's status.
+ * This mirrors the same decision on the PO detail page.
+ */
+function NeedsMySignatureTab({
+  rows, vendors, mySignatures,
+}: {
+  rows: SignRow[];
+  vendors: { id: string; name: string }[];
+  mySignatures: MySig[];
+}) {
+  const vendorName = new Map(vendors.map((v) => [v.id, v.name]));
+
+  if (rows.length === 0) {
+    return <p className="py-8 text-center text-muted-foreground">Nothing is waiting on your signature.</p>;
+  }
+
+  return (
+    <>
+      <p className="mb-3 text-xs text-muted-foreground">
+        Waiting on you, oldest first. A PO only appears here once the signature before yours is in.
+      </p>
+      <div className="hidden sm:block">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>PO</TableHead>
+              <TableHead>Vendor</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Raised</TableHead>
+              <TableHead className="w-48 text-right">Action</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((po) => {
+              const isBackfill = !["draft", "pending_signature"].includes(po.status);
+              return (
+                <TableRow key={po.id}>
+                  <TableCell>
+                    <Link href={`/purchase-orders/${po.id}`} className="text-primary hover:underline">{po.po_no}</Link>
+                  </TableCell>
+                  <TableCell>{po.vendor_id ? vendorName.get(po.vendor_id) ?? "—" : "—"}</TableCell>
+                  <TableCell>
+                    <Badge variant={isBackfill ? "outline" : "secondary"}>{po.status}</Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{formatDate(po.created_at)}</TableCell>
+                  <TableCell className="text-right">
+                    <DocumentSignButton
+                      documentId={po.id}
+                      signatures={mySignatures}
+                      signAction={isBackfill ? backfillPoSignature : signPo}
+                      label={isBackfill ? "Sign (for the record)" : "Sign"}
+                      description={
+                        isBackfill
+                          ? "This PO already moved on before digital signatures existed — add yours for the record. It won't change its status."
+                          : "Your signature moves this PO forward."
+                      }
+                    />
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+      <div className="space-y-3 sm:hidden">
+        {rows.map((po) => {
+          const isBackfill = !["draft", "pending_signature"].includes(po.status);
+          return (
+            <MobileRowCard
+              key={po.id}
+              title={<Link href={`/purchase-orders/${po.id}`} className="text-primary hover:underline">{po.po_no}</Link>}
+              subtitle={formatDate(po.created_at)}
+              badge={<Badge variant={isBackfill ? "outline" : "secondary"}>{po.status}</Badge>}
+              fields={[{ label: "Vendor", value: po.vendor_id ? vendorName.get(po.vendor_id) ?? "—" : "—" }]}
+              actions={
+                <DocumentSignButton
+                  documentId={po.id}
+                  signatures={mySignatures}
+                  signAction={isBackfill ? backfillPoSignature : signPo}
+                  label={isBackfill ? "Sign (for the record)" : "Sign"}
+                  description={
+                    isBackfill
+                      ? "This PO already moved on before digital signatures existed — add yours for the record. It won't change its status."
+                      : "Your signature moves this PO forward."
+                  }
+                />
+              }
+            />
+          );
+        })}
+      </div>
+    </>
+  );
 }
 
 type MySig = { id: string; label: string | null; method: string; image_data_url: string; is_default: boolean };
