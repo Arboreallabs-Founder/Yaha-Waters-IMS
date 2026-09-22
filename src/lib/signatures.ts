@@ -15,6 +15,8 @@ export type SigningState = {
   printable: boolean;
   /** Slot 1 is missing but this document already moved on without it (grandfathered, or a PO/Job-Work already sent/dispatched before this feature existed) — the creator can still add it for the record via backfill_signature, with no status/dispatch effect. */
   isBackfill: boolean;
+  /** Every required slot in order, whose it is and whether it's done — so a UI can name who a document is waiting on instead of only counting how many are missing. */
+  slots: { slot: number; signerName: string | null; signedAt: string | null; isSigned: boolean }[];
 };
 
 /**
@@ -60,7 +62,19 @@ export async function getSigningState(
   const fullySigned = nextSlot === null;
   const nextSignerId = nextSlot === null ? null : nextSlot === 1 ? creatorId : rightsByOrder.get(nextSlot) ?? null;
 
-  const signerIds = [...new Set([...(sigsRaw ?? []).map((s) => s.user_id), ...(nextSignerId ? [nextSignerId] : [])])];
+  // Every slot's owner is resolved, not just the signed ones and the next —
+  // a caller showing "who is this waiting on" needs a name for each remaining
+  // slot, including ones further down the chain.
+  const signerIds = [
+    ...new Set(
+      [
+        ...(sigsRaw ?? []).map((s) => s.user_id),
+        ...(nextSignerId ? [nextSignerId] : []),
+        ...(creatorId ? [creatorId] : []),
+        ...(rights ?? []).map((r) => r.user_id),
+      ].filter((v): v is string => !!v),
+    ),
+  ];
   const { data: profiles } = signerIds.length
     ? await supabase.from("profiles").select("id, full_name").in("id", signerIds)
     : { data: [] };
@@ -88,6 +102,18 @@ export async function getSigningState(
     nextSignerName: nextSignerId ? nameById.get(nextSignerId) ?? null : null,
     printable: fullySigned || grandfathered,
     isBackfill: !fullySigned && grandfathered,
+    slots: requiredSlots.map((slot) => {
+      const sig = (sigsRaw ?? []).find((s) => s.slot === slot);
+      // Slot 1 always belongs to the document's creator; every other slot to
+      // whoever is configured at that approver_order.
+      const ownerId = slot === 1 ? creatorId : rightsByOrder.get(slot) ?? null;
+      return {
+        slot,
+        signerName: nameById.get(sig?.user_id ?? ownerId ?? "") ?? null,
+        signedAt: sig?.signed_at ?? null,
+        isSigned: !!sig,
+      };
+    }),
   };
 }
 

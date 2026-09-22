@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Printer } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile, canSeeFinancials, canWriteMasters } from "@/lib/auth";
 import { canDeletePurchaseOrders } from "@/lib/roles";
@@ -9,12 +9,12 @@ import { getSigningState } from "@/lib/signatures";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { buttonVariants } from "@/components/ui/button";
 import { DocumentSignButton } from "@/components/document-sign-button";
 import { PoEditor } from "./po-editor";
 import { DeletePoButton } from "./delete-po-button";
 import { signPo, backfillPoSignature } from "../actions";
-import { projectLabel, cn } from "@/lib/utils";
+import { PrintPoButton } from "./print-po-button";
+import { projectLabel } from "@/lib/utils";
 
 export default async function PoDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -92,14 +92,27 @@ export default async function PoDetailPage({ params }: { params: Promise<{ id: s
   }));
 
   const pricesApproved = lineRows.every((l) => l.approval_status === "approved");
-  const pendingCount = lineRows.filter((l) => l.approval_status !== "approved").length;
   // The print page enforces BOTH gates server-side; mirror them here so the
-  // button doesn't look ready while the destination is still blocked.
+  // button never offers a print the destination would refuse.
   const printable = pricesApproved && signingState.fullySigned;
-  const missingSignatures = signingState.requiredSlots.length - signingState.signed.length;
-  const printBlockReason = !pricesApproved
-    ? `${pendingCount} line(s) awaiting price approval`
-    : `${missingSignatures} signature(s) still needed`;
+
+  // What the "not ready to print" dialog shows. Naming the people is the point
+  // — a count of missing signatures doesn't tell anyone who to chase.
+  const printApprovalBlock = pricesApproved
+    ? null
+    : {
+        lines: lineRows.filter((l) => l.approval_status !== "approved").map((l) => l.component_label),
+        // Slot 2's owner is the configured PO approver: both read
+        // approval_rights at approver_order = 2, the same row canApprovePoLine
+        // checks, so this is the same person rather than a coincidence.
+        approverName: signingState.slots.find((s) => s.slot === 2)?.signerName ?? null,
+      };
+  const printSignatureSteps = signingState.slots.map((s) => ({
+    slot: s.slot,
+    signerName: s.signerName,
+    role: s.slot === 1 ? "raised this PO" : `approver ${s.slot - 1}`,
+    isSigned: s.isSigned,
+  }));
 
   return (
     <div>
@@ -112,18 +125,12 @@ export default async function PoDetailPage({ params }: { params: Promise<{ id: s
         action={
           <div className="flex items-center gap-3">
             <Badge variant="secondary">{po.status}</Badge>
-            {printable ? (
-              <Link href={`/purchase-orders/${id}/print`} className={buttonVariants({ variant: "outline" })}>
-                <Printer className="size-4" /> Print PO
-              </Link>
-            ) : (
-              <span
-                className={cn(buttonVariants({ variant: "outline" }), "cursor-not-allowed opacity-50")}
-                title={`Cannot print — ${printBlockReason}`}
-              >
-                <Printer className="size-4" /> Print PO
-              </span>
-            )}
+            <PrintPoButton
+              poId={id}
+              ready={printable}
+              approval={printApprovalBlock}
+              steps={printSignatureSteps}
+            />
             {signingState.canSignNow && isBackfill && (
               <DocumentSignButton
                 documentId={id}
