@@ -13,11 +13,10 @@ export default async function DashboardPage() {
   const finance = canSeeFinancials(profile?.role);
   const supabase = await createClient();
 
-  const [activeP, openPo, overdue, untagged, missingPo, stale, variance, costingRes, onhandRes, projectsRes, customersRes] =
+  const [activeP, overdue, untagged, missingPo, stale, variance, costingRes, onhandRes, projectsRes, customersRes] =
     await Promise.all([
       supabase.from("projects").select("*", { count: "exact", head: true }).neq("status", "closed"),
-      supabase.from("po_lines").select("*", { count: "exact", head: true }).in("line_status", ["pending", "partial"]),
-      supabase.from("v_po_overdue").select("*", { count: "exact", head: true }),
+      supabase.from("v_po_overdue").select("po_id"),
       supabase.from("v_untagged_receipts").select("*", { count: "exact", head: true }),
       supabase.from("v_missing_po").select("*", { count: "exact", head: true }),
       supabase.from("v_stale_stock").select("*", { count: "exact", head: true }),
@@ -32,13 +31,14 @@ export default async function DashboardPage() {
   const custIdByProject = new Map((projectsRes.data ?? []).map((p) => [p.id, p.customer_id]));
 
   const c = (r: { count: number | null }) => r.count ?? 0;
+  const overdueLines = overdue.data ?? [];
+  const overduePoCount = new Set(overdueLines.map((r) => r.po_id)).size;
   const stockValue = finance ? (onhandRes.data ?? []).reduce((s, r) => s + Number((r as { stock_value?: number }).stock_value ?? 0), 0) : null;
 
   const stats: { label: string; value: string; tone?: string }[] = [
     ...(stockValue !== null ? [{ label: "Live stock value", value: formatINR(stockValue) }] : []),
     { label: "Active projects", value: formatNumber(c(activeP)) },
-    { label: "Open PO lines", value: formatNumber(c(openPo)) },
-    { label: "Overdue POs", value: formatNumber(c(overdue)), tone: c(overdue) > 0 ? "text-red-600" : undefined },
+    { label: "Overdue POs", value: formatNumber(overduePoCount), tone: overduePoCount > 0 ? "text-red-600" : undefined },
     { label: "Untagged receipts", value: formatNumber(c(untagged)), tone: c(untagged) > 0 ? "text-amber-600" : undefined },
   ];
 
@@ -47,7 +47,7 @@ export default async function DashboardPage() {
     { label: "Untagged", n: c(untagged) },
     { label: "Missing PO", n: c(missingPo) },
     { label: "Stale stock", n: c(stale) },
-    { label: "PO overdue", n: c(overdue) },
+    { label: "PO overdue", n: overdueLines.length },
   ];
 
   const costingRows = (costingRes.data ?? [])
