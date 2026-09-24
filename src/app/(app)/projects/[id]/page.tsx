@@ -19,6 +19,7 @@ import { JobWorkPanel, type JwStockRow, type JwOrderRow } from "./job-work-panel
 import { ShortfallPanel } from "./shortfall-panel";
 import { PhaseBanner } from "./phase-banner";
 import { SitePurchaseForm } from "./site-purchase-form";
+import { FinishedGoodsForm } from "./finished-goods-form";
 import {
   addLineItem,
   removeLineItem,
@@ -32,6 +33,7 @@ import {
   blockStockForBom,
 } from "./actions";
 import { logSitePurchase } from "../../site-purchases/actions";
+import { logFinishedGoods } from "../../finished-goods/actions";
 
 function variantText(sel: unknown): string {
   if (!sel || typeof sel !== "object") return "";
@@ -432,6 +434,19 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           action={logSitePurchase}
         />
       </CollapsibleSection>
+
+      {canWrite && (
+        <CollapsibleSection id="finished-goods" title="Finished goods">
+          <FinishedGoodsForm
+            projectId={id}
+            bomApproved={bom?.status === "approved"}
+            hasConsumption={Number(costing?.consumed_value ?? 0) > 0}
+            lineItems={liRows}
+            products={(products ?? []).map((p) => ({ id: p.id, label: `${p.sku_code} — ${p.model_name}` }))}
+            action={logFinishedGoods}
+          />
+        </CollapsibleSection>
+      )}
     </div>
   );
 }

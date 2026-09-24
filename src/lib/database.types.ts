@@ -837,6 +837,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          custom_name: string | null
           id: string
           product_id: string | null
           project_line_item_id: string | null
@@ -848,6 +849,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          custom_name?: string | null
           id?: string
           product_id?: string | null
           project_line_item_id?: string | null
@@ -859,6 +861,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          custom_name?: string | null
           id?: string
           product_id?: string | null
           project_line_item_id?: string | null
@@ -4906,6 +4909,18 @@ export type Database = {
       issue_requisition: {
         Args: { p_req_id: string; p_user_id: string }
         Returns: Json
+      }
+      log_finished_goods: {
+        Args: {
+          p_custom_name?: string
+          p_product_id?: string
+          p_project_id: string
+          p_project_line_item_id?: string
+          p_quantity?: number
+          p_status?: Database["public"]["Enums"]["fg_status"]
+          p_user_id?: string
+        }
+        Returns: Database["public"]["Tables"]["finished_goods"]["Row"][]
       }
       next_fg_no: { Args: never; Returns: string }
       next_grn_no: { Args: never; Returns: string }
