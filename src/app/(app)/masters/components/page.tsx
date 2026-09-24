@@ -83,7 +83,6 @@ export default async function ComponentsPage() {
     { name: "by_weight", label: "Priced / issued by weight", type: "checkbox" },
     { name: "weight_uom", label: "Weight UoM", type: "text", placeholder: "Kg" },
     { name: "cut_from_plate", label: "Cut from plate", type: "checkbox" },
-    { name: "is_serialized", label: "Serialized (1 lot = 1 unit)", type: "checkbox" },
     { name: "reorder_level", label: "Reorder level", type: "number", step: "any" },
     { name: "standard_cost", label: "Standard cost (₹)", type: "number", step: "any", financial: true },
     // ---- job work ----

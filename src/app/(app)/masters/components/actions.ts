@@ -22,7 +22,6 @@ const FIELDS = {
   by_weight: "boolean",
   weight_uom: "string",
   cut_from_plate: "boolean",
-  is_serialized: "boolean",
   reorder_level: "number",
   standard_cost: "number",
   // job work
