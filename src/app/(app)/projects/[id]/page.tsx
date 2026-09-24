@@ -240,9 +240,23 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       }
       const elsewhere = [...elsewhereMap.entries()].map(([project_no, qty]) => ({ project_no, qty }));
 
+      // Material already consumed on this project has left stock — its lots read
+      // zero on hand — but it was used for exactly this demand, so it counts as
+      // covered rather than missing. Without this the panel called a fully-built
+      // project "Out of stock" on every line: 10 of them on 45005117511 alone,
+      // each consumed to the exact required quantity.
+      //
+      // project_shortfall() already nets consumption off demand this way
+      // (migration 0031, written against the same complaint), so the panel is
+      // brought in line with the shortfall table directly below it rather than
+      // inventing a second rule.
+      const consumedMine = issuedByComponent.get(cid) ?? 0;
+      const outstanding = Math.max(required - consumedMine, 0);
+
       let status: StockStatusRow["status"];
-      if (blockedMine >= required) status = "blocked";
-      else if (blockedMine + openAvailable >= required) status = "available";
+      if (outstanding <= 0) status = "in_wip";
+      else if (blockedMine >= outstanding) status = "blocked";
+      else if (blockedMine + openAvailable >= outstanding) status = "available";
       else if (elsewhere.length > 0) status = "issued_elsewhere";
       else status = "out_of_stock";
 
@@ -250,6 +264,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         component_id: cid,
         component_label: componentLabel.get(cid) ?? "—",
         required,
+        consumed_mine: consumedMine,
         blocked_mine: blockedMine,
         open_available: openAvailable,
         elsewhere,
