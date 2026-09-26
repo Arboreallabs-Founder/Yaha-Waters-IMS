@@ -4904,6 +4904,10 @@ export type Database = {
           version: string
         }[]
       }
+      duplicate_product_bom: {
+        Args: { p_model: string; p_sku: string; p_src_template: string }
+        Returns: string
+      }
       fiscal_year_label: { Args: { d?: string }; Returns: string }
       get_lot_traceability: { Args: { p_lot_code: string }; Returns: Json }
       issue_requisition: {
@@ -4920,7 +4924,24 @@ export type Database = {
           p_status?: Database["public"]["Enums"]["fg_status"]
           p_user_id?: string
         }
-        Returns: Database["public"]["Tables"]["finished_goods"]["Row"][]
+        Returns: {
+          created_at: string
+          created_by: string | null
+          custom_name: string | null
+          id: string
+          product_id: string | null
+          project_line_item_id: string | null
+          serial_no: string
+          status: Database["public"]["Enums"]["fg_status"]
+          updated_at: string | null
+          variant_selections: Json | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "finished_goods"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       next_fg_no: { Args: never; Returns: string }
       next_grn_no: { Args: never; Returns: string }
@@ -4947,10 +4968,6 @@ export type Database = {
           sent_to_jw_qty: number
           shortfall_qty: number
         }[]
-      }
-      duplicate_product_bom: {
-        Args: { p_model: string; p_sku: string; p_src_template: string }
-        Returns: string
       }
       promote_assembly_line: {
         Args: { p_component_no?: string; p_line: string }
@@ -5046,7 +5063,7 @@ export type Database = {
         | "on_hold"
       quantity_type: "nos" | "length" | "area" | "weight"
       req_status: "open" | "partially_issued" | "issued" | "closed"
-      role: "admin" | "founder" | "team_lead" | "team_member"
+      role: "admin" | "founder" | "team_lead" | "team_member" | "viewer"
       tracking_mode: "item" | "box" | "bulk"
     }
     CompositeTypes: {
@@ -5063,12 +5080,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -5092,11 +5109,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -5117,11 +5134,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -5142,11 +5159,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -5159,11 +5176,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -5209,7 +5226,7 @@ export const Constants = {
       ],
       quantity_type: ["nos", "length", "area", "weight"],
       req_status: ["open", "partially_issued", "issued", "closed"],
-      role: ["admin", "founder", "team_lead", "team_member"],
+      role: ["admin", "founder", "team_lead", "team_member", "viewer"],
       tracking_mode: ["item", "box", "bulk"],
     },
   },

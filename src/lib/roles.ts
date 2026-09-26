@@ -8,6 +8,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   founder: "Founder",
   team_lead: "Team Lead",
   team_member: "Team Member",
+  viewer: "Viewer",
 };
 
 /** Roles permitted to see pricing / financial columns. */

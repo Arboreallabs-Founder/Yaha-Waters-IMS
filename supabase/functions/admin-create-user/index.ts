@@ -13,7 +13,7 @@ function json(body: unknown, status = 200) {
   });
 }
 
-const ROLES = ["admin", "founder", "team_lead", "team_member"];
+const ROLES = ["admin", "founder", "team_lead", "team_member", "viewer"];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
