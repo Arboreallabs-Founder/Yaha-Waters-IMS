@@ -155,6 +155,9 @@ export default async function GrnDetailPage({ params }: { params: Promise<{ id: 
       component_label: l.component_id ? compLabel.get(l.component_id) ?? "—" : "—",
       qty: l.qty_received,
       is_untagged: l.is_untagged,
+      // Not yet turned into stock — the GRN carrying it isn't fully signed
+      // yet, so there is genuinely no lot/QR for it (see migration 0096).
+      pending: !(l as { processed_at?: string | null }).processed_at,
       lot_code: lot?.lot_code ?? null,
       lot_id: lot?.id ?? null,
       blocked_project: lot?.status === "issued" && lot.project_id ? projNo.get(lot.project_id) ?? null : null,
@@ -393,6 +396,8 @@ async function JobWorkGrnPage({
       jw_no: l.jw_line_id ? jwNoByLine.get(l.jw_line_id) ?? null : null,
       irn_status: irn?.status ?? null,
       irn_no: irn?.irn_no ?? null,
+      // Same deferred-until-fully-signed rule as the non-job-work GRN table.
+      pending: !(l as { processed_at?: string | null }).processed_at,
     };
   });
 

@@ -903,7 +903,12 @@ export type Database = {
           id: string
           is_untagged: boolean
           jw_line_id: string | null
+          piece_count: number | null
+          piece_length: number | null
+          piece_weight: number | null
+          piece_width: number | null
           po_line_id: string | null
+          processed_at: string | null
           project_id: string | null
           qty_received: number
           target_lot_id: string | null
@@ -918,7 +923,12 @@ export type Database = {
           id?: string
           is_untagged?: boolean
           jw_line_id?: string | null
+          piece_count?: number | null
+          piece_length?: number | null
+          piece_weight?: number | null
+          piece_width?: number | null
           po_line_id?: string | null
+          processed_at?: string | null
           project_id?: string | null
           qty_received?: number
           target_lot_id?: string | null
@@ -933,7 +943,12 @@ export type Database = {
           id?: string
           is_untagged?: boolean
           jw_line_id?: string | null
+          piece_count?: number | null
+          piece_length?: number | null
+          piece_weight?: number | null
+          piece_width?: number | null
           po_line_id?: string | null
+          processed_at?: string | null
           project_id?: string | null
           qty_received?: number
           target_lot_id?: string | null

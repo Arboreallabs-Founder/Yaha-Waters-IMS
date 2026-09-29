@@ -15,7 +15,7 @@ import { MobileRowCard } from "@/components/ui/mobile-row-card";
 import { formatNumber } from "@/lib/utils";
 import { addGrnLine, type ActionResult } from "../actions";
 
-type Posted = { id: string; component_label: string; qty: number; is_untagged: boolean; lot_code: string | null; lot_id: string | null; blocked_project: string | null };
+type Posted = { id: string; component_label: string; qty: number; is_untagged: boolean; pending: boolean; lot_code: string | null; lot_id: string | null; blocked_project: string | null };
 type OpenPoEntry = { po_line_id: string; po_no: string; tag: string; project_id: string | null; remaining: number };
 type Component = { id: string; component_no: string; name: string; quantity_type: string; tracking_mode: string; inspection_template_id?: string | null };
 type OpenBox = { id: string; lot_code: string; qty_on_hand: number; container_no: string | null };
@@ -498,6 +498,12 @@ export function GrnReceiver({
             </Link>
           )}
         </div>
+        {postedLines.some((l) => l.pending) && (
+          <p className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            {postedLines.filter((l) => l.pending).length} line(s) below are recorded but not yet counted as
+            stock — no lot, no QR — until this GRN carries every required signature.
+          </p>
+        )}
         {postedLines.length === 0 ? (
           <p className="py-6 text-center text-muted-foreground">Nothing received yet.</p>
         ) : (
@@ -525,9 +531,13 @@ export function GrnReceiver({
                           : <Badge variant="secondary">PO</Badge>}
                       </TableCell>
                       <TableCell>
-                        {l.lot_code && l.lot_id
-                          ? <Link href={`/inventory/lots/${l.lot_id}`} className="font-mono text-xs text-primary hover:underline">{l.lot_code}</Link>
-                          : (l.lot_code ?? "—")}
+                        {l.lot_code && l.lot_id ? (
+                          <Link href={`/inventory/lots/${l.lot_id}`} className="font-mono text-xs text-primary hover:underline">{l.lot_code}</Link>
+                        ) : l.pending ? (
+                          <Badge variant="warning">Pending signature</Badge>
+                        ) : (
+                          "—"
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -550,9 +560,13 @@ export function GrnReceiver({
                     { label: "Qty", value: formatNumber(l.qty) },
                     {
                       label: "Lot (QR)",
-                      value: l.lot_code && l.lot_id
-                        ? <Link href={`/inventory/lots/${l.lot_id}`} className="font-mono text-xs text-primary hover:underline">{l.lot_code}</Link>
-                        : (l.lot_code ?? "—"),
+                      value: l.lot_code && l.lot_id ? (
+                        <Link href={`/inventory/lots/${l.lot_id}`} className="font-mono text-xs text-primary hover:underline">{l.lot_code}</Link>
+                      ) : l.pending ? (
+                        <Badge variant="warning">Pending signature</Badge>
+                      ) : (
+                        "—"
+                      ),
                     },
                   ]}
                 />

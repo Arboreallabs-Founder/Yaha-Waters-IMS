@@ -20,6 +20,8 @@ export type OpenJwLine = {
 export type PostedJwLine = {
   id: string; component_label: string; qty: number; unit_cost: number | null;
   jw_no: string | null; irn_status: string | null; irn_no: string | null;
+  // Not yet turned into stock — the GRN carrying it isn't fully signed yet.
+  pending: boolean;
 };
 export type PendingJwIrn = {
   id: string; irn_no: string; component_label: string; qty: number; status: string;
@@ -222,11 +224,12 @@ export function JwGrnReceiver({
             <TableHead>Qty received</TableHead>
             {finance && <TableHead>Unit cost</TableHead>}
             <TableHead>Inspection</TableHead>
+            <TableHead>Stock</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {postedLines.length === 0 ? (
-            <TableRow><TableCell colSpan={finance ? 5 : 4} className="py-6 text-center text-muted-foreground">No lines yet.</TableCell></TableRow>
+            <TableRow><TableCell colSpan={finance ? 6 : 5} className="py-6 text-center text-muted-foreground">No lines yet.</TableCell></TableRow>
           ) : (
             postedLines.map((l) => (
               <TableRow key={l.id}>
@@ -241,6 +244,11 @@ export function JwGrnReceiver({
                       <span className="font-mono text-xs text-muted-foreground">{l.irn_no}</span>
                     </span>
                   ) : <span className="text-muted-foreground">—</span>}
+                </TableCell>
+                <TableCell>
+                  {l.pending
+                    ? <Badge variant="warning">Pending signature</Badge>
+                    : <Badge variant="success">Counted</Badge>}
                 </TableCell>
               </TableRow>
             ))
