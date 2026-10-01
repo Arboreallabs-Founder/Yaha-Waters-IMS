@@ -216,7 +216,6 @@ export default async function GrnDetailPage({ params }: { params: Promise<{ id: 
         openBoxesByComponent={openBoxesByComponent}
         lotIds={lotIds}
         canReceive={canReceive}
-        canSeeFinancials={canSeeFinancials(role)}
         vendorComponentIds={vendorComponentIds}
         vendorName={vendor?.data?.name ?? null}
         templateFieldsByTemplate={templateFieldsByTemplate}

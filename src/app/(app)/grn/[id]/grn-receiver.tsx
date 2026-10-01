@@ -44,7 +44,6 @@ export function GrnReceiver({
   openBoxesByComponent,
   lotIds,
   canReceive,
-  canSeeFinancials,
   vendorComponentIds,
   vendorName,
   templateFieldsByTemplate,
@@ -60,7 +59,6 @@ export function GrnReceiver({
   openBoxesByComponent: Record<string, OpenBox[]>;
   lotIds: string[];
   canReceive: boolean;
-  canSeeFinancials: boolean;
   /** Components tagged to this GRN's vendor (via vendor_components) — narrows the manual picker. */
   vendorComponentIds: string[];
   vendorName: string | null;
@@ -262,7 +260,7 @@ export function GrnReceiver({
 
                 {qt === "nos" && (
                   <div className="space-y-3">
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-3">
                       <div className="space-y-1.5">
                         <Label>Qty received{trackingMode === "box" && targetLotId ? " (pieces to add to box)" : ""}</Label>
                         <Input
@@ -275,12 +273,6 @@ export function GrnReceiver({
                           required
                         />
                       </div>
-                      {canSeeFinancials && (
-                        <div className="space-y-1.5">
-                          <Label>Unit cost (₹) — for comparison only, optional</Label>
-                          <Input name="unit_cost" type="number" step="any" />
-                        </div>
-                      )}
                     </div>
 
                     {trackingMode === "item" && (
@@ -309,7 +301,7 @@ export function GrnReceiver({
                 )}
 
                 {qt === "length" && (
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <Label>No. of pieces</Label>
                       <Input type="number" step="1" min="1" value={pieceCount}
@@ -322,14 +314,8 @@ export function GrnReceiver({
                         onChange={(e) => setTotalLength(e.target.value)}
                         required placeholder="e.g. 60" />
                     </div>
-                    {canSeeFinancials && (
-                      <div className="space-y-1.5">
-                        <Label>Unit cost (₹/m) — for comparison only, optional</Label>
-                        <Input name="unit_cost" type="number" step="any" />
-                      </div>
-                    )}
                     {derivedPieceLength !== null && (
-                      <div className="sm:col-span-3">
+                      <div className="sm:col-span-2">
                         <p className="text-sm font-medium text-green-700">
                           ≈ <span className="font-bold">{formatNumber(derivedPieceLength)} m/piece</span>
                           <span className="ml-2 text-muted-foreground">({totalLength} m ÷ {pieceCount} pieces)</span>
@@ -342,7 +328,7 @@ export function GrnReceiver({
                 )}
 
                 {qt === "weight" && (
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <Label>No. of pieces</Label>
                       <Input type="number" step="1" min="1" value={pieceCount}
@@ -355,14 +341,8 @@ export function GrnReceiver({
                         onChange={(e) => setTotalWeight(e.target.value)}
                         required placeholder="e.g. 125" />
                     </div>
-                    {canSeeFinancials && (
-                      <div className="space-y-1.5">
-                        <Label>Unit cost (₹/kg) — for comparison only, optional</Label>
-                        <Input name="unit_cost" type="number" step="any" />
-                      </div>
-                    )}
                     {derivedPieceWeight !== null && (
-                      <div className="sm:col-span-3">
+                      <div className="sm:col-span-2">
                         <p className="text-sm font-medium text-green-700">
                           ≈ <span className="font-bold">{formatNumber(derivedPieceWeight)} kg/piece</span>
                           <span className="ml-2 text-muted-foreground">({totalWeight} kg ÷ {pieceCount} pieces)</span>

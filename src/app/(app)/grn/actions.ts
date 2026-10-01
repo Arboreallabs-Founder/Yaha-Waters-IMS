@@ -103,7 +103,6 @@ export async function addGrnLine(fd: FormData): Promise<ActionResult> {
   if (!component_id) return { error: "Pick a component." };
   const qty = Number(fd.get("qty_received") ?? 0) || 0;
   if (qty <= 0) return { error: "Enter a received quantity." };
-  const unitCostRaw = String(fd.get("unit_cost") ?? "").trim();
 
   const po_line_id = String(fd.get("po_line_id") ?? "") || null;
   if (!po_line_id) return { error: "Select an open PO line — receiving without a PO is not allowed." };
@@ -157,7 +156,6 @@ export async function addGrnLine(fd: FormData): Promise<ActionResult> {
     qty_received: qty,
     po_line_id,
     project_id: String(fd.get("project_id") ?? "") || null,
-    unit_cost: unitCostRaw === "" ? null : Number(unitCostRaw),
     target_lot_id,
     piece_count: pieceCount,
     piece_length: pieceLength,
