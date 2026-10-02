@@ -33,16 +33,18 @@ export function ScanConsume({
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
+  const [notice, setNotice] = React.useState<string | null>(null);
 
   async function handleDetect(code: string) {
     setPending(true);
     setError(null);
+    setNotice(null);
     setLot(null);
-    const res = await resolveLot(code);
+    const res = await resolveLot(code, projectId);
     setPending(false);
     if (res.error) { setError(res.error); return; }
     setLot(res.lot ?? null);
-    setQty(String(res.lot?.qty_on_hand ?? ""));
+    setQty(res.lot && res.lot.reserved_qty > 0 ? String(res.lot.reserved_qty) : "");
     setReason("");
   }
 
@@ -59,6 +61,11 @@ export function ScanConsume({
     const res = await consumeLot(fd);
     setBusy(false);
     if (res?.error) { setError(res.error); return; }
+    setNotice(
+      res?.released
+        ? `Consumed ${qty}. ${res.released} reserved for this project was no longer needed and went back to open inventory.`
+        : `Consumed ${qty}.`,
+    );
     setLot(null);
     setQty("");
     setReason("");
@@ -76,6 +83,7 @@ export function ScanConsume({
         <QrScanner onDetect={handleDetect} pending={pending} />
 
         {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+        {notice && <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">{notice}</p>}
 
         {lot && (
           <div className="space-y-3 rounded-lg border border-border p-4">
@@ -83,19 +91,24 @@ export function ScanConsume({
               <div>
                 <p className="font-semibold">{lot.component_label}</p>
                 <p className="font-mono text-xs text-muted-foreground">{lot.lot_code}</p>
-                {lot.project_no && lot.project_no !== projectNo && (
-                  <p className="mt-1 text-xs text-amber-600">Currently tagged to project {lot.project_no}</p>
+                {lot.available_qty <= 0 && lot.project_no && lot.project_no !== projectNo && (
+                  <p className="mt-1 text-xs text-amber-600">Reserved for project {lot.project_no}</p>
                 )}
               </div>
               <div className="text-right">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">On hand</p>
-                <p className="text-xl font-semibold">{lot.qty_on_hand}</p>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Available</p>
+                <p className="text-xl font-semibold">{lot.available_qty}</p>
+                {lot.reserved_qty > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {lot.reserved_qty} reserved for this project + {lot.open_qty} open
+                  </p>
+                )}
               </div>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
               <div className="w-full sm:w-28">
                 <Label className="mb-1 block text-xs">Qty to consume</Label>
-                <Input type="number" step="any" min="0" max={lot.qty_on_hand} value={qty} onChange={(e) => setQty(e.target.value)} />
+                <Input type="number" step="any" min="0" max={lot.available_qty} value={qty} onChange={(e) => setQty(e.target.value)} />
               </div>
               {requireReason && (
                 <div className="w-full sm:min-w-[200px] sm:flex-1">
@@ -103,7 +116,7 @@ export function ScanConsume({
                   <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="R&D, sample showing…" />
                 </div>
               )}
-              <Button className="w-full sm:w-auto" loading={busy} disabled={lot.qty_on_hand <= 0} onClick={handleConsume}>
+              <Button className="w-full sm:w-auto" loading={busy} disabled={lot.available_qty <= 0} onClick={handleConsume}>
                 <MinusCircle className="size-4" /> Consume
               </Button>
             </div>

@@ -124,10 +124,24 @@ export default async function GrnDetailPage({ params }: { params: Promise<{ id: 
 
   // lots created by this GRN's lines (for lot code display + sticker printing)
   const grnLineIds = (grnLines ?? []).map((l) => l.id);
-  const { data: lots } = grnLineIds.length
-    ? await supabase.from("inventory_lots").select("id, lot_code, grn_line_id, status, project_id").in("grn_line_id", grnLineIds)
+  const { data: lineLots } = grnLineIds.length
+    ? await supabase.from("inventory_lots").select("id, lot_code, grn_line_id, status, project_id, source_lot_id").in("grn_line_id", grnLineIds)
     : { data: [] };
-  const lotByLine = new Map((lots ?? []).map((l) => [l.grn_line_id, l]));
+  // Project stock added to an existing box arrives as a reserved slice of that
+  // box (no sticker of its own), so the line shows — and prints — the box.
+  const lots = (lineLots ?? []).filter((l) => !l.source_lot_id);
+  const boxSlices = (lineLots ?? []).filter((l) => l.source_lot_id);
+  const boxIds = [...new Set(boxSlices.map((l) => l.source_lot_id as string))];
+  const { data: boxes } = boxIds.length
+    ? await supabase.from("inventory_lots").select("id, lot_code").in("id", boxIds)
+    : { data: [] };
+  const boxById = new Map((boxes ?? []).map((b) => [b.id, b]));
+  const lotByLine = new Map<string | null, { id: string; lot_code: string; status: string; project_id: string | null }>();
+  for (const sl of boxSlices) {
+    const box = boxById.get(sl.source_lot_id as string);
+    if (box) lotByLine.set(sl.grn_line_id, { id: box.id, lot_code: box.lot_code, status: sl.status, project_id: sl.project_id });
+  }
+  for (const l of lots) lotByLine.set(l.grn_line_id, l);
 
   // Build a per-component map of ALL open PO lines (for the lookup hint in manual entry)
   const projNo = new Map((projects ?? []).map((p) => [p.id, p.project_no]));
@@ -163,7 +177,7 @@ export default async function GrnDetailPage({ params }: { params: Promise<{ id: 
       blocked_project: lot?.status === "issued" && lot.project_id ? projNo.get(lot.project_id) ?? null : null,
     };
   });
-  const lotIds = (lots ?? []).map((l) => l.id);
+  const lotIds = lots.map((l) => l.id);
 
   return (
     <div>

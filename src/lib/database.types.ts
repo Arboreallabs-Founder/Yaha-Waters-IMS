@@ -1283,6 +1283,7 @@ export type Database = {
           project_id: string | null
           qty_initial: number
           qty_on_hand: number
+          source_lot_id: string | null
           status: Database["public"]["Enums"]["lot_status"]
           unit_cost: number | null
           updated_at: string | null
@@ -1307,6 +1308,7 @@ export type Database = {
           project_id?: string | null
           qty_initial?: number
           qty_on_hand?: number
+          source_lot_id?: string | null
           status?: Database["public"]["Enums"]["lot_status"]
           unit_cost?: number | null
           updated_at?: string | null
@@ -1331,6 +1333,7 @@ export type Database = {
           project_id?: string | null
           qty_initial?: number
           qty_on_hand?: number
+          source_lot_id?: string | null
           status?: Database["public"]["Enums"]["lot_status"]
           unit_cost?: number | null
           updated_at?: string | null
@@ -1441,6 +1444,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_projects_safe"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_lots_source_lot_id_fkey"
+            columns: ["source_lot_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_lots_source_lot_id_fkey"
+            columns: ["source_lot_id"]
+            isOneToOne: false
+            referencedRelation: "v_inventory_lots_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_lots_source_lot_id_fkey"
+            columns: ["source_lot_id"]
+            isOneToOne: false
+            referencedRelation: "v_stale_stock"
+            referencedColumns: ["lot_id"]
           },
           {
             foreignKeyName: "inventory_lots_vendor_id_fkey"
@@ -4826,6 +4850,22 @@ export type Database = {
       }
     }
     Functions: {
+      _auto_release: {
+        Args: { p_component: string; p_project: string; p_user: string }
+        Returns: number
+      }
+      _make_slice: {
+        Args: {
+          p_from_lot: string
+          p_project: string
+          p_qty: number
+          p_ref_id: string
+          p_ref_type: string
+          p_status: Database["public"]["Enums"]["lot_status"]
+          p_user: string
+        }
+        Returns: string
+      }
       _record_signature: {
         Args: {
           p_actor: string
@@ -4834,6 +4874,10 @@ export type Database = {
           p_signature_id: string
         }
         Returns: Json
+      }
+      _release_lot: {
+        Args: { p_lot: string; p_qty: number; p_ref: string; p_user: string }
+        Returns: undefined
       }
       admin_list_users: {
         Args: never
@@ -4887,6 +4931,16 @@ export type Database = {
           p_line_id: string
           p_old_po_id: string
           p_patch: Json
+        }
+        Returns: Json
+      }
+      consume_from_lot: {
+        Args: {
+          p_lot_id: string
+          p_note?: string
+          p_project_id: string
+          p_qty: number
+          p_requisition_id?: string
         }
         Returns: Json
       }
@@ -4971,6 +5025,7 @@ export type Database = {
         Returns: undefined
       }
       peek_next_po_no: { Args: never; Returns: string }
+      process_grn_line: { Args: { p_grn_line_id: string }; Returns: undefined }
       project_shortfall: {
         Args: { p_project: string }
         Returns: {
@@ -4999,6 +5054,10 @@ export type Database = {
         }
         Returns: Json
       }
+      recheck_project_reservations: {
+        Args: { p_project_id: string }
+        Returns: Json
+      }
       recompute_po_status: { Args: { p_po: string }; Returns: undefined }
       reject_irn: {
         Args: { p_approver_id: string; p_irn_id: string; p_reason: string }
@@ -5006,6 +5065,10 @@ export type Database = {
       }
       reject_po_line: {
         Args: { p_approver_id: string; p_line_id: string; p_reason: string }
+        Returns: Json
+      }
+      release_blocked_lot: {
+        Args: { p_lot_id: string; p_qty?: number }
         Returns: Json
       }
       resubmit_irn: {

@@ -45,9 +45,19 @@ export default async function RequisitionDetailPage({ params }: { params: Promis
 
   const consumedLotIds = [...new Set((movements ?? []).map((m) => m.lot_id).filter(Boolean))] as string[];
   const { data: consumedLots } = consumedLotIds.length
-    ? await supabase.from("inventory_lots").select("id, lot_code").in("id", consumedLotIds)
+    ? await supabase.from("inventory_lots").select("id, lot_code, source_lot_id").in("id", consumedLotIds)
     : { data: [] };
-  const lotCode = new Map((consumedLots ?? []).map((l) => [l.id, l.lot_code]));
+  // Stock taken from a reserved slice is labelled with the lot it sits in —
+  // the sticker that was actually scanned.
+  const sourceIds = [...new Set((consumedLots ?? []).map((l) => l.source_lot_id).filter((v): v is string => !!v))];
+  const { data: sourceLots } = sourceIds.length
+    ? await supabase.from("inventory_lots").select("id, lot_code").in("id", sourceIds)
+    : { data: [] };
+  const sourceCode = new Map((sourceLots ?? []).map((l) => [l.id, l.lot_code]));
+  const lotCode = new Map((consumedLots ?? []).map((l) => [
+    l.id,
+    l.source_lot_id ? `${l.lot_code} (in ${sourceCode.get(l.source_lot_id) ?? "another lot"})` : l.lot_code,
+  ]));
   const consumedRows = (movements ?? []).map((m) => ({
     id: m.id,
     component_label: m.component_id ? compLabel.get(m.component_id) ?? "—" : "—",

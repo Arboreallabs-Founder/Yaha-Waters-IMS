@@ -48,6 +48,18 @@ function computeMaterialStatus({
   return "Not Ordered";
 }
 
+/** Consumed more of a BOM component than the approved BOM planned. */
+function overIssuedBy(r: { required: number | null; isUnplanned: boolean; consumed: number }) {
+  if (r.isUnplanned || r.required === null) return 0;
+  const over = r.consumed - r.required;
+  return over > 1e-6 ? over : 0;
+}
+
+function overIssuedText(r: { required: number | null; isUnplanned: boolean; consumed: number }) {
+  const over = overIssuedBy(r);
+  return over > 0 ? ` — Over-issued by ${formatNumber(over)}` : "";
+}
+
 function stack(lines: string[]) {
   return lines.length ? lines.join("\n") : "—";
 }
@@ -303,7 +315,7 @@ export default async function ProjectReportsPage({ params }: { params: Promise<{
 
   const materialStatusExcelRows = materialStatusRows.map((r, i) => [
     i + 1, r.component_no, r.name, r.uom, r.required ?? "—",
-    STATUS_META[r.status].label + (r.isUnplanned ? " (Unplanned)" : ""),
+    STATUS_META[r.status].label + (r.isUnplanned ? " (Unplanned)" : "") + overIssuedText(r),
     r.isJobWork ? "—" : formatNumber(r.orderedTotal),
     r.isJobWork ? "—" : formatNumber(r.receivedTotal),
     r.isJobWork ? "—" : formatNumber(r.blockedMine),
@@ -509,6 +521,11 @@ export default async function ProjectReportsPage({ params }: { params: Promise<{
                           <span className={`inline-flex items-center gap-1 text-xs ${meta.className}`}>
                             <Icon className="size-3.5" /> {meta.label}{r.isUnplanned ? " (Unplanned)" : ""}
                           </span>
+                          {overIssuedBy(r) > 0 && (
+                            <span className="mt-0.5 flex items-center gap-1 text-xs text-amber-700">
+                              <AlertTriangle className="size-3.5" /> Over-issued by {formatNumber(overIssuedBy(r))}
+                            </span>
+                          )}
                         </TableCell>
                         {r.isJobWork ? (
                           <TableCell colSpan={6} className="text-muted-foreground">—</TableCell>
