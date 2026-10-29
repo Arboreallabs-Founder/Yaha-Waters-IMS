@@ -25,6 +25,9 @@ type Row = {
   consumed: number;
   sent_to_jw: number;
   shortfall: number;
+  /** On hand, split: blocked for this project vs open stock anyone can take. */
+  blocked: number;
+  open: number;
 };
 
 type Vendor = { id: string; name: string };
@@ -172,11 +175,7 @@ export function ShortfallPanel({
               </TableCell>
               <TableCell>
                 {r.shortfall <= 0 ? (
-                  <span className="inline-flex items-center gap-1 text-xs text-green-700">
-                    <CheckCircle2 className="size-3.5" /> Covered
-                    {r.on_hand <= 0 && r.consumed > 0 ? " (in WIP)" : ""}
-                    {r.on_hand <= 0 && r.consumed <= 0 && r.sent_to_jw > 0 ? " (in job-work)" : ""}
-                  </span>
+                  <CoveredStatus row={r} />
                 ) : r.on_hand > 0 ? (
                   <span className="inline-flex items-center gap-1 text-xs text-amber-700">
                     <AlertTriangle className="size-3.5" /> Partial stock
@@ -207,6 +206,42 @@ export function ShortfallPanel({
         />
       )}
     </div>
+  );
+}
+
+/**
+ * What covers a component that isn't short: what's still needed after WIP and
+ * job work comes from blocked stock first, then open stock, then open POs.
+ * Open stock is flagged amber — it isn't held for this project, so another
+ * project could use it first.
+ */
+function CoveredStatus({ row: r }: { row: Row }) {
+  const remaining = Math.max(r.required - r.consumed - r.sent_to_jw, 0);
+  if (remaining <= 0) {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs text-green-700">
+        <CheckCircle2 className="size-3.5" /> Covered
+        {r.consumed > 0 ? " (in WIP)" : r.sent_to_jw > 0 ? " (in job-work)" : ""}
+      </span>
+    );
+  }
+  const fromBlocked = Math.min(r.blocked, remaining);
+  const fromOpen = Math.min(r.open, remaining - fromBlocked);
+  const fromOrder = remaining - fromBlocked - fromOpen;
+  const parts = [
+    fromBlocked > 0 && `${formatNumber(fromBlocked)} blocked`,
+    fromOpen > 0 && `${formatNumber(fromOpen)} open`,
+    fromOrder > 0 && `${formatNumber(fromOrder)} on order`,
+  ].filter(Boolean) as string[];
+  const detail = parts.length === 1 ? parts[0].replace(/^[\d.,]+ /, "") : parts.join(" + ");
+  const openOnly = fromOpen > 0 && fromBlocked === 0 && fromOrder === 0;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 text-xs ${fromOpen > 0 ? "text-amber-700" : "text-green-700"}`}
+      title={fromOpen > 0 ? "Open stock isn't held for this project — another project could use it first. Block it to keep it." : undefined}
+    >
+      <CheckCircle2 className="size-3.5" /> Covered ({openOnly ? "open, not blocked" : detail})
+    </span>
   );
 }
 
