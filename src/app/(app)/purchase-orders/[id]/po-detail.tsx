@@ -119,9 +119,9 @@ export async function PoDetail({ id, scope }: { id: string; scope: "normal" | "c
     ? null
     : {
         lines: lineRows.filter((l) => l.approval_status !== "approved").map((l) => l.component_label),
-        // Slot 2's owner is the configured PO approver: both read
-        // approval_rights at approver_order = 2, the same row canApprovePoLine
-        // checks, so this is the same person rather than a coincidence.
+        // Slot 2's owners are the configured PO approvers: both read
+        // approval_rights at approver_order = 2, the same rows canApprovePoLine
+        // checks, so these are the same people rather than a coincidence.
         approverName: signingState.slots.find((s) => s.slot === 2)?.signerName ?? null,
       };
   const printSignatureSteps = signingState.slots.map((s) => ({

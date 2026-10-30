@@ -61,7 +61,7 @@ export default async function ApprovalRightsPage() {
     <div>
       <PageHeader
         title="Approval Rights"
-        description="Who must sign off Purchase Orders, GRNs, and Job-Work orders before the creator's own signature (slot 1) is enough. The creator always signs first; a document is sent/printable once every configured slot below is signed."
+        description="Who must sign off Purchase Orders, GRNs, and Job-Work orders before the creator's own signature (slot 1) is enough. The creator always signs first; a document is sent/printable once every configured slot below is signed. A slot can list several people — any one of them signs it."
       />
       <CrudManager
         title="Approval Rights"

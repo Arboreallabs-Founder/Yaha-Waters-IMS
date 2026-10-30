@@ -8,7 +8,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { Badge } from "@/components/ui/badge";
 import { MobileRowCard } from "@/components/ui/mobile-row-card";
 import { formatDate, formatNumber, formatINR, cn } from "@/lib/utils";
-import { computeSigningStates } from "@/lib/signatures";
+import { approversBySlot, computeSigningStates, joinSignerNames } from "@/lib/signatures";
 import { NewPoButton } from "./new-po-button";
 import { PoLineApprovalActions } from "./po-line-approval-actions";
 import { AllPosTable } from "./all-pos-table";
@@ -38,7 +38,7 @@ export async function PoListPage({ scope, tab }: { scope: PoScope; tab: string }
   // sit in this same wave because none of them depends on another, so the tab
   // and its count cost no extra round trip — the arithmetic happens in memory
   // via computeSigningStates.
-  const [vendorsAll, { data: nextPoNo }, pendingApprovalLines, pendingSignaturePos, { data: poApproverRight }, { data: mySignatures }, livePos, { data: poRights }, poSigs, consumablesPoIds] = await Promise.all([
+  const [vendorsAll, { data: nextPoNo }, pendingApprovalLines, pendingSignaturePos, { data: poApproverRights }, { data: mySignatures }, livePos, { data: poRights }, poSigs, consumablesPoIds] = await Promise.all([
     getVendors(),
     supabase.rpc("peek_next_po_no"),
     readAll((f, t) => supabase.from("po_lines")
@@ -47,7 +47,7 @@ export async function PoListPage({ scope, tab }: { scope: PoScope; tab: string }
       .neq("purchase_orders.status", "superseded")
       .order("id").range(f, t)),
     readAll((f, t) => supabase.from("purchase_orders").select("id").eq("status", "pending_signature").order("id").range(f, t)),
-    supabase.from("approval_rights").select("user_id").eq("document_type", "po").eq("approver_order", 2).maybeSingle(),
+    supabase.from("approval_rights").select("user_id").eq("document_type", "po").eq("approver_order", 2),
     profile ? supabase.from("signatures").select("id, label, method, image_data_url, is_default").eq("user_id", profile.id).order("is_default", { ascending: false }) : Promise.resolve({ data: [] }),
     readAll((f, t) => supabase.from("purchase_orders").select("id, po_no, vendor_id, status, created_by, created_at").is("superseded_by", null).order("id").range(f, t)),
     supabase.from("approval_rights").select("approver_order, user_id").eq("document_type", "po"),
@@ -60,7 +60,7 @@ export async function PoListPage({ scope, tab }: { scope: PoScope; tab: string }
   const vendors = vendorsAll.filter((v) => v.is_active && (!consumables || v.is_consumables_vendor));
   const pendingApprovalCount = pendingApprovalLines.filter((l) => inScope(l.po_id)).length;
   const pendingSignatureCount = pendingSignaturePos.filter((p) => inScope(p.id)).length;
-  const canApprove = canApprovePoLine(profile?.role, profile?.id, poApproverRight?.user_id ?? null);
+  const canApprove = canApprovePoLine(profile?.role, profile?.id, (poApproverRights ?? []).map((r) => r.user_id));
   const approvalsCount = canApprove ? (pendingApprovalCount ?? 0) + (pendingSignatureCount ?? 0) : 0;
 
   // Every PO whose next unsigned slot belongs to this user — theirs alone, and
@@ -151,21 +151,21 @@ async function AllPosTab({
       ? supabase.from("document_signatures").select("document_id, slot").eq("document_type", "po").in("document_id", pendingIds)
       : Promise.resolve({ data: [] }),
   ]);
-  const rightsByOrder = new Map((rights ?? []).map((r) => [r.approver_order, r.user_id]));
+  const rightsByOrder = approversBySlot(rights ?? []);
   const requiredSlots = [...new Set([1, ...(rights ?? []).map((r) => r.approver_order)])].sort((a, b) => a - b);
   const signedSlotsByPo = new Map<string, Set<number>>();
   for (const s of sigs ?? []) {
     if (!signedSlotsByPo.has(s.document_id)) signedSlotsByPo.set(s.document_id, new Set());
     signedSlotsByPo.get(s.document_id)!.add(s.slot);
   }
-  const nextSignerIdByPo = new Map<string, string | null>();
+  const nextSignerIdsByPo = new Map<string, string[]>();
   for (const po of pos ?? []) {
     if (po.status !== "pending_signature") continue;
     const signedSlots = signedSlotsByPo.get(po.id) ?? new Set();
     const nextSlot = requiredSlots.find((s) => !signedSlots.has(s)) ?? null;
-    nextSignerIdByPo.set(po.id, nextSlot === null ? null : nextSlot === 1 ? po.created_by : rightsByOrder.get(nextSlot) ?? null);
+    nextSignerIdsByPo.set(po.id, nextSlot === null ? [] : nextSlot === 1 ? (po.created_by ? [po.created_by] : []) : rightsByOrder.get(nextSlot) ?? []);
   }
-  const signerIds = [...new Set([...nextSignerIdByPo.values()].filter((v): v is string => !!v))];
+  const signerIds = [...new Set([...nextSignerIdsByPo.values()].flat())];
   const { data: signerProfiles } = signerIds.length
     ? await supabase.from("profiles").select("id, full_name").in("id", signerIds)
     : { data: [] };
@@ -194,7 +194,7 @@ async function AllPosTab({
     po_date: po.po_date,
     status: po.status,
     total_amount: finance ? po.total_amount : null,
-    waiting_on: po.status === "pending_signature" ? signerName.get(nextSignerIdByPo.get(po.id) ?? "") ?? null : null,
+    waiting_on: po.status === "pending_signature" ? joinSignerNames((nextSignerIdsByPo.get(po.id) ?? []).map((id) => signerName.get(id))) : null,
     over_received_lines: overReceivedByPoNo.get(po.po_no) ?? 0,
   }));
 

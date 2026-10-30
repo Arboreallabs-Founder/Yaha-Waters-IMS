@@ -25,7 +25,7 @@ export async function upsert(fd: FormData): Promise<ActionResult> {
     ? await supabase.from("approval_rights").update(payload).eq("id", id).select("id").single()
     : await supabase.from("approval_rights").insert(payload).select("id").single();
   if (resp.error) {
-    if (resp.error.code === "23505") return { error: "This document type already has an approver in that slot — edit or delete it instead." };
+    if (resp.error.code === "23505") return { error: "This person is already an approver in that slot." };
     return { error: resp.error.message };
   }
   revalidatePath("/masters/approval-rights");

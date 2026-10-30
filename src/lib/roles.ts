@@ -125,7 +125,7 @@ export function canDeletePurchaseOrders(
 }
 
 /**
- * Approving a PO line's price is gated to the configured PO approver
+ * Approving a PO line's price is gated to the configured PO approvers
  * (Masters → Approval Rights, document_type='po', slot 2) — falls back to
  * Admin-only if that hasn't been configured yet, so nothing breaks before
  * an admin sets it up. Mirrors the same fallback logic in the
@@ -134,9 +134,9 @@ export function canDeletePurchaseOrders(
 export function canApprovePoLine(
   role: Role | undefined | null,
   userId: string | undefined | null,
-  poApproverId: string | null,
+  poApproverIds: string[],
 ) {
   if (!userId) return false;
-  if (poApproverId) return userId === poApproverId;
+  if (poApproverIds.length) return poApproverIds.includes(userId);
   return role === "admin";
 }

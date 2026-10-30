@@ -11,6 +11,7 @@ import { formatNumber, formatDate, projectLabel, cn } from "@/lib/utils";
 import { NewJwButton } from "./new-jw-button";
 import { JwOrdersTable } from "./jw-orders-table";
 import { signJobWork } from "./actions";
+import { approversBySlot, joinSignerNames } from "@/lib/signatures";
 
 export default async function JobWorkPage({
   searchParams,
@@ -23,7 +24,7 @@ export default async function JobWorkPage({
   const canWrite = canWriteMasters(profile?.role); // admin / team_lead
   const supabase = await createClient();
 
-  const [{ data: orders }, vendorsAll, { data: projects }, { data: rawLots }, comps, customers, { count: pendingSignatureCount }, { data: jwApproverRight }] =
+  const [{ data: orders }, vendorsAll, { data: projects }, { data: rawLots }, comps, customers, { count: pendingSignatureCount }, { data: jwApproverRights }] =
     await Promise.all([
       supabase.from("job_work_orders").select("*").neq("status", "superseded").order("created_at", { ascending: false }),
       getVendors(),
@@ -34,12 +35,12 @@ export default async function JobWorkPage({
       getComponentsFull(),
       getCustomers(),
       supabase.from("job_work_orders").select("id", { count: "exact", head: true }).eq("status", "pending_signature"),
-      supabase.from("approval_rights").select("user_id").eq("document_type", "job_work").eq("approver_order", 2).maybeSingle(),
+      supabase.from("approval_rights").select("user_id").eq("document_type", "job_work").eq("approver_order", 2),
     ]);
   const vendors = vendorsAll.filter((v) => v.is_active);
 
-  const jwApproverId = jwApproverRight?.user_id ?? null;
-  const canApprove = !!profile?.id && (jwApproverId ? profile.id === jwApproverId : profile.role === "admin");
+  const jwApproverIds = (jwApproverRights ?? []).map((r) => r.user_id);
+  const canApprove = !!profile?.id && (jwApproverIds.length ? jwApproverIds.includes(profile.id) : profile.role === "admin");
   const approvalsCount = canApprove ? (pendingSignatureCount ?? 0) : 0;
 
   const vName = new Map((vendors ?? []).map((v) => [v.id, v.name]));
@@ -61,21 +62,21 @@ export default async function JobWorkPage({
       ? supabase.from("document_signatures").select("document_id, slot").eq("document_type", "job_work").in("document_id", pendingIds)
       : Promise.resolve({ data: [] }),
   ]);
-  const rightsByOrder = new Map((rights ?? []).map((r) => [r.approver_order, r.user_id]));
+  const rightsByOrder = approversBySlot(rights ?? []);
   const requiredSlots = [...new Set([1, ...(rights ?? []).map((r) => r.approver_order)])].sort((a, b) => a - b);
   const signedSlotsByOrder = new Map<string, Set<number>>();
   for (const s of sigs ?? []) {
     if (!signedSlotsByOrder.has(s.document_id)) signedSlotsByOrder.set(s.document_id, new Set());
     signedSlotsByOrder.get(s.document_id)!.add(s.slot);
   }
-  const nextSignerIdByOrder = new Map<string, string | null>();
+  const nextSignerIdsByOrder = new Map<string, string[]>();
   for (const o of orders ?? []) {
     if (o.status !== "pending_signature") continue;
     const signedSlots = signedSlotsByOrder.get(o.id) ?? new Set();
     const nextSlot = requiredSlots.find((s) => !signedSlots.has(s)) ?? null;
-    nextSignerIdByOrder.set(o.id, nextSlot === null ? null : nextSlot === 1 ? o.created_by : rightsByOrder.get(nextSlot) ?? null);
+    nextSignerIdsByOrder.set(o.id, nextSlot === null ? [] : nextSlot === 1 ? (o.created_by ? [o.created_by] : []) : rightsByOrder.get(nextSlot) ?? []);
   }
-  const signerIds = [...new Set([...nextSignerIdByOrder.values()].filter((v): v is string => !!v))];
+  const signerIds = [...new Set([...nextSignerIdsByOrder.values()].flat())];
   const { data: signerProfiles } = signerIds.length
     ? await supabase.from("profiles").select("id, full_name").in("id", signerIds)
     : { data: [] };
@@ -145,7 +146,7 @@ export default async function JobWorkPage({
               sent_date: o.sent_date,
               expected_date: o.expected_date,
               status: o.status,
-              waiting_on: o.status === "pending_signature" ? signerName.get(nextSignerIdByOrder.get(o.id) ?? "") ?? null : null,
+              waiting_on: o.status === "pending_signature" ? joinSignerNames((nextSignerIdsByOrder.get(o.id) ?? []).map((id) => signerName.get(id))) : null,
             }))}
           />
         </>

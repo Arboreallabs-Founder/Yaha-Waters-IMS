@@ -4,13 +4,27 @@ import { readAll } from "@/lib/server/read-all";
 
 export type DocumentType = "po" | "grn" | "job_work";
 
+/** Everyone configured on each approver slot — a slot may list several people, any one of whom signs it. */
+export function approversBySlot(rights: { approver_order: number; user_id: string }[]): Map<number, string[]> {
+  const bySlot = new Map<number, string[]>();
+  for (const r of rights) bySlot.set(r.approver_order, [...(bySlot.get(r.approver_order) ?? []), r.user_id]);
+  return bySlot;
+}
+
+/** "A", "A or B", "A, B or C" — whoever may sign a slot. */
+export function joinSignerNames(names: (string | null | undefined)[]): string | null {
+  const n = names.filter((v): v is string => !!v);
+  if (n.length === 0) return null;
+  return n.length === 1 ? n[0] : `${n.slice(0, -1).join(", ")} or ${n[n.length - 1]}`;
+}
+
 export type SigningState = {
   requiredSlots: number[];
   signed: { slot: number; user_id: string; signed_at: string; signer_name: string | null; image_data_url: string }[];
   fullySigned: boolean;
   canSignNow: boolean;
   nextSlot: number | null;
-  /** Name of whoever needs to sign next (the creator for slot 1, the configured approver otherwise) — so admins/creators can see exactly who a document is stuck on, not just that it's stuck. */
+  /** Name of whoever needs to sign next (the creator for slot 1, the configured approver(s) otherwise, "A or B" when several) — so admins/creators can see exactly who a document is stuck on, not just that it's stuck. */
   nextSignerName: string | null;
   /** Whether the document can be printed right now — same as fullySigned, except grandfathered pre-launch GRNs stay printable even while unsigned. */
   printable: boolean;
@@ -58,12 +72,13 @@ export async function getSigningState(
   ]);
 
   const requiredSlots = [...new Set([1, ...(rights ?? []).map((r) => r.approver_order)])].sort((a, b) => a - b);
-  const rightsByOrder = new Map((rights ?? []).map((r) => [r.approver_order, r.user_id]));
+  const rightsByOrder = approversBySlot(rights ?? []);
+  const slotOwners = (slot: number) => (slot === 1 ? (creatorId ? [creatorId] : []) : rightsByOrder.get(slot) ?? []);
 
   const signedSlots = new Set((sigsRaw ?? []).map((s) => s.slot));
   const nextSlot = requiredSlots.find((s) => !signedSlots.has(s)) ?? null;
   const fullySigned = nextSlot === null;
-  const nextSignerId = nextSlot === null ? null : nextSlot === 1 ? creatorId : rightsByOrder.get(nextSlot) ?? null;
+  const nextSignerIds = nextSlot === null ? [] : slotOwners(nextSlot);
 
   // Every slot's owner is resolved, not just the signed ones and the next —
   // a caller showing "who is this waiting on" needs a name for each remaining
@@ -72,7 +87,7 @@ export async function getSigningState(
     ...new Set(
       [
         ...(sigsRaw ?? []).map((s) => s.user_id),
-        ...(nextSignerId ? [nextSignerId] : []),
+        ...nextSignerIds,
         ...(creatorId ? [creatorId] : []),
         ...(rights ?? []).map((r) => r.user_id),
       ].filter((v): v is string => !!v),
@@ -93,7 +108,7 @@ export async function getSigningState(
 
   let canSignNow = false;
   if (nextSlot !== null && actorId) {
-    canSignNow = nextSlot === 1 ? actorId === creatorId : actorId === rightsByOrder.get(nextSlot);
+    canSignNow = slotOwners(nextSlot).includes(actorId);
   }
 
   return {
@@ -102,18 +117,18 @@ export async function getSigningState(
     fullySigned,
     canSignNow,
     nextSlot,
-    nextSignerName: nextSignerId ? nameById.get(nextSignerId) ?? null : null,
+    nextSignerName: joinSignerNames(nextSignerIds.map((id) => nameById.get(id))),
     printable: fullySigned || grandfathered,
     isBackfill: !fullySigned && grandfathered,
     remainingCount: requiredSlots.filter((s) => !signedSlots.has(s)).length,
     slots: [...new Set([...requiredSlots, ...signedSlots])].sort((a, b) => a - b).map((slot) => {
       const sig = (sigsRaw ?? []).find((s) => s.slot === slot);
       // Slot 1 always belongs to the document's creator; every other slot to
-      // whoever is configured at that approver_order.
-      const ownerId = slot === 1 ? creatorId : rightsByOrder.get(slot) ?? null;
+      // whoever is configured at that approver_order ("A or B" until one of
+      // them signs; then whoever actually signed).
       return {
         slot,
-        signerName: nameById.get(sig?.user_id ?? ownerId ?? "") ?? null,
+        signerName: sig ? nameById.get(sig.user_id) ?? null : joinSignerNames(slotOwners(slot).map((id) => nameById.get(id))),
         signedAt: sig?.signed_at ?? null,
         isSigned: !!sig,
       };
@@ -133,7 +148,7 @@ export type BatchSigningState = { fullySigned: boolean; canSignNow: boolean; nex
  * `canSignNow` is deliberately chain-aware: only the *next* unsigned slot
  * counts, so a later approver doesn't see a document until the one before them
  * has signed. Slot 1 belongs to the document's creator, every other slot to the
- * user configured at that approver_order.
+ * users configured at that approver_order (any one of them).
  */
 export function computeSigningStates(
   docs: { id: string; created_by: string | null }[],
@@ -145,7 +160,7 @@ export function computeSigningStates(
   if (!actorId || docs.length === 0) return result;
 
   const requiredSlots = [...new Set([1, ...rights.map((r) => r.approver_order)])].sort((a, b) => a - b);
-  const rightsByOrder = new Map(rights.map((r) => [r.approver_order, r.user_id]));
+  const rightsByOrder = approversBySlot(rights);
 
   const signedSlotsByDoc = new Map<string, Set<number>>();
   for (const s of sigs) {
@@ -162,7 +177,7 @@ export function computeSigningStates(
       nextSlot,
       canSignNow:
         nextSlot !== null &&
-        (nextSlot === 1 ? actorId === doc.created_by : actorId === rightsByOrder.get(nextSlot)),
+        (nextSlot === 1 ? actorId === doc.created_by : (rightsByOrder.get(nextSlot) ?? []).includes(actorId)),
     });
   }
 

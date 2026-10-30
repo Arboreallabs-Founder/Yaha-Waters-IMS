@@ -319,19 +319,18 @@ export async function removePoLine(fd: FormData): Promise<ActionResult> {
   return { ok: true };
 }
 
-// ---- price approval: gated to the configured PO approver (Masters →
+// ---- price approval: gated to the configured PO approvers (Masters →
 // Approval Rights, slot 2) — falls back to Admin-only until that's configured ----
 async function poApprover() {
   const p = await getProfile();
   if (!p) return null;
   const supabase = await createClient();
-  const { data: right } = await supabase
+  const { data: rights } = await supabase
     .from("approval_rights")
     .select("user_id")
     .eq("document_type", "po")
-    .eq("approver_order", 2)
-    .maybeSingle();
-  return canApprovePoLine(p.role, p.id, right?.user_id ?? null) ? p : null;
+    .eq("approver_order", 2);
+  return canApprovePoLine(p.role, p.id, (rights ?? []).map((r) => r.user_id)) ? p : null;
 }
 
 export async function approvePoLine(fd: FormData): Promise<ActionResult> {
