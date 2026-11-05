@@ -37,10 +37,15 @@ export async function PoDetail({ id, scope }: { id: string; scope: "normal" | "c
   if (isConsumables !== (scope === "consumables")) redirect(`${isConsumables ? "/consumables" : "/purchase-orders"}/${id}`);
   const basePath = isConsumables ? "/consumables" : "/purchase-orders";
 
-  // Editable while draft (in place) or sent/partial/completed (line edits
-  // fork a revision, gated by the same price-approval mechanism) — only
-  // cancelled/superseded is permanently read-only.
-  const canWrite = canWriteMasters(profile?.role) && ["draft", "sent", "partial", "completed"].includes(po.status);
+  // Editable while draft (in place), while waiting for approval by its
+  // creator only (in place; the approvers then sign again), or
+  // sent/partial/completed (line edits fork a revision, gated by the same
+  // price-approval mechanism) — only cancelled/superseded is permanently
+  // read-only.
+  const canWrite =
+    canWriteMasters(profile?.role) &&
+    (["draft", "sent", "partial", "completed"].includes(po.status) ||
+      (po.status === "pending_signature" && !!profile?.id && profile.id === po.created_by));
   const canDelete = canDeletePurchaseOrders(profile?.role, po);
 
   let currentRevisionId: string | null = null;
@@ -66,6 +71,11 @@ export async function PoDetail({ id, scope }: { id: string; scope: "normal" | "c
     ]);
   const signingState = await getSigningState("po", id, po.created_by, profile?.id ?? null);
   const inProgress = ["draft", "pending_signature"].includes(po.status);
+  // Approvers who'd have to sign again if the creator edits this pending PO.
+  const signedApproverNames =
+    po.status === "pending_signature"
+      ? signingState.signed.filter((s) => s.slot > 1).map((s) => s.signer_name ?? "an approver")
+      : [];
   const isBackfill = !signingState.fullySigned && !inProgress;
   // Consumables POs: consumables vendors and consumable components only. Normal
   // POs: any vendor, never a consumable (the database refuses new ones too).
@@ -222,6 +232,7 @@ export async function PoDetail({ id, scope }: { id: string; scope: "normal" | "c
             vendorName={po.vendor_id ? vName.get(po.vendor_id) ?? null : null}
             canWrite={canWrite}
             canSeeFinancials={finance}
+            signedApproverNames={signedApproverNames}
           />
         </CardContent>
       </Card>

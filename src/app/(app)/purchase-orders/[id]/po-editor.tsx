@@ -58,6 +58,7 @@ export function PoEditor({
   canWrite,
   canSeeFinancials,
   stockOnly = false,
+  signedApproverNames = [],
 }: {
   poId: string;
   header: {
@@ -79,6 +80,8 @@ export function PoEditor({
   canSeeFinancials: boolean;
   /** Consumables PO: every line is plain stock, so there's no project to pick. */
   stockOnly?: boolean;
+  /** Pending PO: approvers who've already signed and would have to sign again after an edit. */
+  signedApproverNames?: string[];
 }) {
   const router = useRouter();
   const termsRef = React.useRef<HTMLTextAreaElement>(null);
@@ -170,8 +173,19 @@ export function PoEditor({
       }, new Map<string, { label: string; componentId: string | null; entries: number; qty: number; projects: string[] }>()).values()]
     : [];
 
+  const pendingSignature = header.status === "pending_signature";
+
   return (
     <div className="space-y-6">
+      {canWrite && pendingSignature && (
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          This PO is waiting for approval. You can still change it
+          {signedApproverNames.length > 0
+            ? <>, but editing it removes the approvals already given ({signedApproverNames.join(", ")}). They&apos;ll need to sign again.</>
+            : <> — your own signature stays.</>}
+        </p>
+      )}
+
       {/* Header */}
       {canWrite ? (
         <form onSubmit={(e) => { e.preventDefault(); const fd = new FormData(e.currentTarget); fd.set("id", poId); run(updatePO, fd); }}
@@ -241,7 +255,7 @@ export function PoEditor({
             <Textarea ref={termsRef} name="terms_conditions" rows={8} defaultValue={header.terms_conditions} />
             <p className="text-xs text-muted-foreground">
               One term per line — each line prints as a numbered point. Clear the box to print no terms.
-              {header.status !== "draft" && " Changing the terms on a sent PO creates a new revision that must be signed again."}
+              {header.status !== "draft" && !pendingSignature && " Changing the terms on a sent PO creates a new revision that must be signed again."}
             </p>
           </div>
           <div className="sm:col-span-3">

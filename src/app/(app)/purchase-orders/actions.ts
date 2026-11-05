@@ -27,6 +27,23 @@ const EDITABLE_SENT_STATUSES = ["sent", "partial", "completed"];
 
 const PROCURE = ["admin", "team_lead"];
 
+const PENDING_NOT_CREATOR_ERROR = "Only the PO's creator can edit it while it's waiting for approval.";
+
+/**
+ * A PO waiting for approval is edited in place, by its creator only; the
+ * database then removes the approvers' signatures (the creator's stays).
+ * Null when the edit may go ahead, otherwise the error to show.
+ */
+function pendingEditError(po: { status: string; created_by: string | null }, actorId: string): string | null {
+  if (po.status !== "pending_signature") return null;
+  return po.created_by === actorId ? null : PENDING_NOT_CREATOR_ERROR;
+}
+
+/** Editable in place: draft, or pending signature for its creator. */
+function editableInPlace(po: { status: string; created_by: string | null }, actorId: string) {
+  return po.status === "draft" || (po.status === "pending_signature" && po.created_by === actorId);
+}
+
 async function procurer() {
   const p = await getProfile();
   return p && PROCURE.includes(p.role) ? p : null;
@@ -98,9 +115,11 @@ export async function updatePO(fd: FormData): Promise<ActionResult> {
   const id = String(fd.get("id"));
   const supabase = await createClient();
 
-  const { data: po } = await supabase.from("purchase_orders").select("status, vendor_id, terms_conditions").eq("id", id).single();
+  const { data: po } = await supabase.from("purchase_orders").select("status, vendor_id, terms_conditions, created_by").eq("id", id).single();
   if (!po) return { error: "PO not found." };
-  if (po.status !== "draft" && !EDITABLE_SENT_STATUSES.includes(po.status)) return { error: LOCKED_PO_ERROR };
+  const pendingError = pendingEditError(po, p.id);
+  if (pendingError) return { error: pendingError };
+  if (!editableInPlace(po, p.id) && !EDITABLE_SENT_STATUSES.includes(po.status)) return { error: LOCKED_PO_ERROR };
 
   const po_no = String(fd.get("po_no") ?? "").trim();
   if (!po_no) return { error: "PO No. is required." };
@@ -142,7 +161,9 @@ export async function updatePO(fd: FormData): Promise<ActionResult> {
     freight_terms: String(fd.get("freight_terms") ?? "").trim() || "At Actual",
     delivery_address: String(fd.get("delivery_address") ?? "").replace(/\r\n/g, "\n").trim() || null,
     gst_percent: num(fd, "gst_percent") ?? 18,
-    terms_conditions,
+    // Unchanged terms keep their stored text, so a plain re-save isn't an edit
+    // (on a PO waiting for approval an edit removes the approvers' signatures).
+    terms_conditions: termsChanged ? terms_conditions : po.terms_conditions,
   };
   // Status is only ever manually settable while still draft, and only into
   // draft/cancelled — "sent" now only happens via signPo (the sign-off
@@ -201,8 +222,10 @@ export async function addPoLine(fd: FormData): Promise<ActionResult> {
   const expected_date = String(fd.get("expected_date") ?? "") || null;
 
   const supabase = await createClient();
-  const { data: po } = await supabase.from("purchase_orders").select("status").eq("id", po_id).single();
+  const { data: po } = await supabase.from("purchase_orders").select("status, created_by").eq("id", po_id).single();
   if (!po) return { error: "PO not found." };
+  const pendingError = pendingEditError(po, p.id);
+  if (pendingError) return { error: pendingError };
 
   if (EDITABLE_SENT_STATUSES.includes(po.status)) {
     const { data: result, error } = await supabase.rpc("clone_po_revision", {
@@ -219,7 +242,7 @@ export async function addPoLine(fd: FormData): Promise<ActionResult> {
     revalidatePath(`/purchase-orders/${res.id}`);
     return { ok: true, id: res.id, revisedPoId: res.id };
   }
-  if (po.status !== "draft") return { error: LOCKED_PO_ERROR };
+  if (!editableInPlace(po, p.id)) return { error: LOCKED_PO_ERROR };
 
   const { error } = await supabase.from("po_lines").insert({
     po_id, component_id, project_id, qty_ordered: qty, rate, amount, expected_date, created_by: p.id,
@@ -245,11 +268,13 @@ export async function updatePoLine(fd: FormData): Promise<ActionResult> {
 
   const supabase = await createClient();
   const [{ data: po }, { data: line }] = await Promise.all([
-    supabase.from("purchase_orders").select("status").eq("id", po_id).single(),
+    supabase.from("purchase_orders").select("status, created_by").eq("id", po_id).single(),
     supabase.from("po_lines").select("component_id, qty_ordered, rate").eq("id", id).single(),
   ]);
   if (!po) return { error: "PO not found." };
   if (!line) return { error: "Line not found." };
+  const pendingError = pendingEditError(po, p.id);
+  if (pendingError) return { error: pendingError };
 
   // "What was ordered" — component/qty/rate — is what triggers a revision
   // on a sent PO. project_id/expected_date aren't part of the order itself
@@ -274,7 +299,7 @@ export async function updatePoLine(fd: FormData): Promise<ActionResult> {
     revalidatePath(`/purchase-orders/${res.id}`);
     return { ok: true, id: res.id, revisedPoId: res.id };
   }
-  if (po.status !== "draft" && !EDITABLE_SENT_STATUSES.includes(po.status)) return { error: LOCKED_PO_ERROR };
+  if (!editableInPlace(po, p.id) && !EDITABLE_SENT_STATUSES.includes(po.status)) return { error: LOCKED_PO_ERROR };
 
   const { error } = await supabase
     .from("po_lines")
@@ -292,8 +317,10 @@ export async function removePoLine(fd: FormData): Promise<ActionResult> {
   const id = String(fd.get("id"));
   const po_id = String(fd.get("po_id"));
   const supabase = await createClient();
-  const { data: po } = await supabase.from("purchase_orders").select("status").eq("id", po_id).single();
+  const { data: po } = await supabase.from("purchase_orders").select("status, created_by").eq("id", po_id).single();
   if (!po) return { error: "PO not found." };
+  const pendingError = pendingEditError(po, p.id);
+  if (pendingError) return { error: pendingError };
 
   if (EDITABLE_SENT_STATUSES.includes(po.status)) {
     const { data: result, error } = await supabase.rpc("clone_po_revision", {
@@ -310,7 +337,7 @@ export async function removePoLine(fd: FormData): Promise<ActionResult> {
     revalidatePath(`/purchase-orders/${res.id}`);
     return { ok: true, id: res.id, revisedPoId: res.id };
   }
-  if (po.status !== "draft") return { error: LOCKED_PO_ERROR };
+  if (!editableInPlace(po, p.id)) return { error: LOCKED_PO_ERROR };
 
   const { error } = await supabase.from("po_lines").delete().eq("id", id);
   if (error) return { error: error.message };
