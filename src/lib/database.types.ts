@@ -5772,6 +5772,10 @@ export type Database = {
         Args: { p_lot: string; p_qty: number; p_ref: string; p_user: string }
         Returns: undefined
       }
+      _reset_po_approver_signatures: {
+        Args: { p_po_id: string }
+        Returns: undefined
+      }
       admin_list_users: {
         Args: never
         Returns: {
@@ -5944,6 +5948,18 @@ export type Database = {
       }
       peek_next_po_no: { Args: never; Returns: string }
       po_is_consumables: { Args: { p_po: string }; Returns: boolean }
+      po_line_previous_rates: {
+        Args: { p_po_ids: string[] }
+        Returns: {
+          component_id: string
+          line_id: string
+          po_id: string
+          previous_po_date: string
+          previous_po_no: string
+          previous_rate: number
+          rate: number
+        }[]
+      }
       process_grn_line: { Args: { p_grn_line_id: string }; Returns: undefined }
       project_bom_ready: { Args: { p_project: string }; Returns: boolean }
       project_shortfall: {

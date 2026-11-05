@@ -16,6 +16,9 @@ import { DocumentSignButton } from "@/components/document-sign-button";
 import { getPoRegisterRows } from "@/lib/po-register-data";
 import { readAll } from "@/lib/server/read-all";
 import { signPo, backfillPoSignature } from "./actions";
+import { getPoPreviousRates, priceIncreasesByPo } from "@/lib/server/po-previous-rates";
+import { rateUnit } from "@/lib/price-increase";
+import { PriceIncreaseNotice, type PriceIncreaseItem } from "@/components/price-increase-notice";
 
 export type PoScope = "normal" | "consumables";
 
@@ -111,9 +114,9 @@ export async function PoListPage({ scope, tab }: { scope: PoScope; tab: string }
       </div>
 
       {tab === "signatures" ? (
-        <NeedsMySignatureTab rows={needsMySignature} vendors={vendorsAll} mySignatures={mySignatures ?? []} basePath={basePath} />
+        <NeedsMySignatureTab rows={needsMySignature} vendors={vendorsAll} mySignatures={mySignatures ?? []} basePath={basePath} finance={finance} />
       ) : tab === "approvals" ? (
-        <ApprovalsTab canApprove={canApprove} mySignatures={mySignatures ?? []} inScope={inScope} basePath={basePath} />
+        <ApprovalsTab canApprove={canApprove} mySignatures={mySignatures ?? []} inScope={inScope} basePath={basePath} finance={finance} />
       ) : (
         <AllPosTab finance={finance} canDownload={canDownloadReports(profile?.role)} vendors={vendorsAll} inScope={inScope} consumables={consumables} basePath={basePath} />
       )}
@@ -218,15 +221,18 @@ type SignRow = {
  * records the signature for the audit trail without touching the PO's status.
  * This mirrors the same decision on the PO detail page.
  */
-function NeedsMySignatureTab({
-  rows, vendors, mySignatures, basePath,
+async function NeedsMySignatureTab({
+  rows, vendors, mySignatures, basePath, finance,
 }: {
   rows: SignRow[];
   vendors: { id: string; name: string }[];
   mySignatures: MySig[];
   basePath: string;
+  finance: boolean;
 }) {
   const vendorName = new Map(vendors.map((v) => [v.id, v.name]));
+  const inProgressIds = rows.filter((po) => ["draft", "pending_signature"].includes(po.status)).map((po) => po.id);
+  const increases = await getPriceIncreaseItems(inProgressIds, finance);
 
   if (rows.length === 0) {
     return <p className="py-8 text-center text-muted-foreground">Nothing is waiting on your signature.</p>;
@@ -255,6 +261,7 @@ function NeedsMySignatureTab({
                 <TableRow key={po.id}>
                   <TableCell>
                     <Link href={`${basePath}/${po.id}`} className="text-primary hover:underline">{po.po_no}</Link>
+                    <PriceUpBadge count={increases.get(po.id)?.length ?? 0} />
                   </TableCell>
                   <TableCell>{po.vendor_id ? vendorName.get(po.vendor_id) ?? "—" : "—"}</TableCell>
                   <TableCell>
@@ -266,6 +273,7 @@ function NeedsMySignatureTab({
                       documentId={po.id}
                       signatures={mySignatures}
                       signAction={isBackfill ? backfillPoSignature : signPo}
+                      warning={signWarning(increases.get(po.id))}
                       label={isBackfill ? "Sign (for the record)" : "Sign"}
                       description={
                         isBackfill
@@ -286,7 +294,7 @@ function NeedsMySignatureTab({
           return (
             <MobileRowCard
               key={po.id}
-              title={<Link href={`${basePath}/${po.id}`} className="text-primary hover:underline">{po.po_no}</Link>}
+              title={<><Link href={`${basePath}/${po.id}`} className="text-primary hover:underline">{po.po_no}</Link><PriceUpBadge count={increases.get(po.id)?.length ?? 0} /></>}
               subtitle={formatDate(po.created_at)}
               badge={<Badge variant={isBackfill ? "outline" : "secondary"}>{po.status}</Badge>}
               fields={[{ label: "Vendor", value: po.vendor_id ? vendorName.get(po.vendor_id) ?? "—" : "—" }]}
@@ -295,6 +303,7 @@ function NeedsMySignatureTab({
                   documentId={po.id}
                   signatures={mySignatures}
                   signAction={isBackfill ? backfillPoSignature : signPo}
+                  warning={signWarning(increases.get(po.id))}
                   label={isBackfill ? "Sign (for the record)" : "Sign"}
                   description={
                     isBackfill
@@ -314,8 +323,8 @@ function NeedsMySignatureTab({
 type MySig = { id: string; label: string | null; method: string; image_data_url: string; is_default: boolean };
 
 async function ApprovalsTab({
-  canApprove, mySignatures, inScope, basePath,
-}: { canApprove: boolean; mySignatures: MySig[]; inScope: (poId: string) => boolean; basePath: string }) {
+  canApprove, mySignatures, inScope, basePath, finance,
+}: { canApprove: boolean; mySignatures: MySig[]; inScope: (poId: string) => boolean; basePath: string; finance: boolean }) {
   const supabase = await createClient();
 
   const { data: awaitingSignatureAll } = canApprove
@@ -327,6 +336,7 @@ async function ApprovalsTab({
     ? await supabase.from("vendors").select("id, name").in("id", sigVendorIds)
     : { data: [] };
   const sigVendorName = new Map((sigVendors ?? []).map((v) => [v.id, v.name]));
+  const increases = await getPriceIncreaseItems(awaitingSignature.map((po) => po.id), finance);
 
   const { data: allPending } = await supabase
     .from("po_lines")
@@ -384,11 +394,12 @@ async function ApprovalsTab({
                 <TableRow key={po.id}>
                   <TableCell>
                     <Link href={`${basePath}/${po.id}`} className="text-primary hover:underline">{po.po_no}</Link>
+                    <PriceUpBadge count={increases.get(po.id)?.length ?? 0} />
                   </TableCell>
                   <TableCell>{po.vendor_id ? sigVendorName.get(po.vendor_id) ?? "—" : "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{formatDate(po.created_at)}</TableCell>
                   <TableCell className="text-right">
-                    <DocumentSignButton documentId={po.id} signatures={mySignatures} signAction={signPo} label="Sign" description="Your signature is required to send this PO." />
+                    <DocumentSignButton documentId={po.id} signatures={mySignatures} signAction={signPo} label="Sign" description="Your signature is required to send this PO." warning={signWarning(increases.get(po.id))} />
                   </TableCell>
                 </TableRow>
               ))
@@ -441,4 +452,37 @@ async function consumablesPoIdSet(supabase: Awaited<ReturnType<typeof createClie
   const rows = await readAll((f, t) =>
     supabase.from("v_po_kind").select("po_id").eq("is_consumables", true).order("po_id").range(f, t));
   return new Set(rows.map((r) => r.po_id).filter((v): v is string => !!v));
+}
+
+/**
+ * Lines priced above what they last cost, per PO, ready to show. Approvers
+ * can sign straight from these lists, so the increase has to be visible here
+ * too, not only on the PO page. Empty for roles that can't see prices.
+ */
+async function getPriceIncreaseItems(poIds: string[], finance: boolean): Promise<Map<string, PriceIncreaseItem[]>> {
+  if (!finance || poIds.length === 0) return new Map();
+  const supabase = await createClient();
+  const [rows, components] = await Promise.all([getPoPreviousRates(supabase, poIds), getComponentsFull()]);
+  const comp = new Map(components.map((c) => [c.id, c]));
+  const out = new Map<string, PriceIncreaseItem[]>();
+  for (const [poId, list] of priceIncreasesByPo(rows)) {
+    out.set(poId, list.map((i) => {
+      const c = comp.get(i.componentId);
+      return { ...i, label: c ? `${c.component_no} — ${c.name}` : "—", unit: rateUnit(c?.quantity_type) };
+    }));
+  }
+  return out;
+}
+
+function signWarning(items: PriceIncreaseItem[] | undefined) {
+  return items && items.length > 0 ? <PriceIncreaseNotice items={items} /> : undefined;
+}
+
+function PriceUpBadge({ count }: { count: number }) {
+  if (count === 0) return null;
+  return (
+    <Badge variant="warning" className="ml-2 align-middle">
+      ↑ {count === 1 ? "1 price up" : `${count} prices up`}
+    </Badge>
+  );
 }

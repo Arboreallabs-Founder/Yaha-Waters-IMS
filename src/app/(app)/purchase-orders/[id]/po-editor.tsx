@@ -17,6 +17,7 @@ import { updatePO, addPoLine, updatePoLine, removePoLine, type ActionResult } fr
 import { Combobox } from "@/components/ui/combobox";
 import { SearchInput } from "@/components/ui/search-input";
 import { DEFAULT_PO_TERMS } from "@/lib/po-terms";
+import { priceIncreaseText, previousRateText, rateUnit, type PreviousRate } from "@/lib/price-increase";
 
 type Line = {
   id: string;
@@ -31,6 +32,8 @@ type Line = {
   line_status: string;
   approval_status: string;
   rejection_reason: string | null;
+  /** What this component last cost on an earlier PO (finance roles only). */
+  previous: PreviousRate | null;
 };
 type Opt = { id: string; label: string };
 type Suggestion = { vendor: string; price: number | null };
@@ -88,6 +91,7 @@ export function PoEditor({
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [editing, setEditing] = React.useState<Line | null>(null);
+  const [editRate, setEditRate] = React.useState("");
   const [addComp, setAddComp] = React.useState("");
   const [pieceCount, setPieceCount] = React.useState("");
   const [totalLength, setTotalLength] = React.useState("");
@@ -328,7 +332,21 @@ export function PoEditor({
                       return suffix ? <span className="ml-1 text-muted-foreground">{suffix}</span> : null;
                     })()}
                   </TableCell>
-                  {canSeeFinancials && <TableCell>{formatINR(l.rate)}</TableCell>}
+                  {canSeeFinancials && (
+                    <TableCell>
+                      {formatINR(l.rate)}
+                      {(() => {
+                        if (!l.previous) return null;
+                        const unit = rateUnit(l.component_id ? compMap.get(l.component_id)?.quantity_type : null);
+                        const text = priceIncreaseText(l.rate, l.previous.previousRate, unit);
+                        return text ? (
+                          <span className="mt-0.5 block whitespace-nowrap text-xs font-semibold text-amber-700" title={`Last: ${previousRateText(l.previous, unit)}`}>
+                            {text}
+                          </span>
+                        ) : null;
+                      })()}
+                    </TableCell>
+                  )}
                   {canSeeFinancials && <TableCell>{formatINR(l.amount)}</TableCell>}
                   <TableCell className="text-muted-foreground">{formatDate(l.expected_date)}</TableCell>
                   <TableCell>
@@ -348,7 +366,7 @@ export function PoEditor({
                   {canWrite && (
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => { setError(null); setEditing(l); }} aria-label="Edit"><Pencil className="size-4" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => { setError(null); setEditRate(l.rate != null ? String(l.rate) : ""); setEditing(l); }} aria-label="Edit"><Pencil className="size-4" /></Button>
                         <Button variant="ghost" size="icon" className="text-destructive" aria-label="Remove"
                           onClick={() => { const fd = new FormData(); fd.set("id", l.id); run(removePoLine, fd); }}>
                           <Trash2 className="size-4" />
@@ -419,6 +437,12 @@ export function PoEditor({
                 {addComp && lastRateByComponent[addComp] != null && (
                   <p className="text-xs text-muted-foreground">Last approved: {formatINR(lastRateByComponent[addComp])}</p>
                 )}
+                {(() => {
+                  const text = addComp && rateInput !== ""
+                    ? priceIncreaseText(Number(rateInput), lastRateByComponent[addComp], rateUnit(addQt))
+                    : null;
+                  return text ? <p className="text-xs font-semibold text-amber-700">{text}</p> : null;
+                })()}
               </div>
             )}
             <div className="space-y-1.5">
@@ -526,7 +550,17 @@ export function PoEditor({
                 <>
                   <div className="space-y-1.5">
                     <Label>Rate (₹)</Label>
-                    <Input name="rate" type="number" step="any" defaultValue={editing.rate ?? ""} />
+                    <Input name="rate" type="number" step="any" value={editRate} onChange={(e) => setEditRate(e.target.value)} />
+                    {editing.previous && (() => {
+                      const unit = rateUnit(editing.component_id ? compMap.get(editing.component_id)?.quantity_type : null);
+                      const text = editRate !== "" ? priceIncreaseText(Number(editRate), editing.previous.previousRate, unit) : null;
+                      return (
+                        <p className="text-xs text-muted-foreground">
+                          {text && <span className="block font-semibold text-amber-700">{text}</span>}
+                          Last: {previousRateText(editing.previous, unit)}
+                        </p>
+                      );
+                    })()}
                   </div>
                   <div className="space-y-1.5">
                     <Label>Amount (₹)</Label>

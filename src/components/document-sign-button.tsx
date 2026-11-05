@@ -18,12 +18,15 @@ export function DocumentSignButton({
   signAction,
   label = "Sign",
   description,
+  warning,
 }: {
   documentId: string;
   signatures: MySignature[];
   signAction: (fd: FormData) => Promise<SignResult>;
   label?: string;
   description?: string;
+  /** Shown above the signature choice — e.g. lines priced higher than last time. */
+  warning?: React.ReactNode;
 }) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
@@ -63,6 +66,7 @@ export function DocumentSignButton({
       <Dialog open={open} onClose={() => setOpen(false)} title={label} description={description}>
         <form onSubmit={onConfirm} className="space-y-4">
           {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+          {warning}
           <div className="space-y-1.5">
             <Label>Signature</Label>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">

@@ -16,6 +16,9 @@ import { signPo, backfillPoSignature } from "../actions";
 import { PrintPoButton } from "./print-po-button";
 import { projectLabel } from "@/lib/utils";
 import { readAll } from "@/lib/server/read-all";
+import { getPoPreviousRates, priceIncreasesByPo } from "@/lib/server/po-previous-rates";
+import { rateUnit } from "@/lib/price-increase";
+import { PriceIncreaseNotice, type PriceIncreaseItem } from "@/components/price-increase-notice";
 
 /**
  * One PO, shared by Purchase Orders (/purchase-orders/[id]) and Consumables
@@ -58,7 +61,7 @@ export async function PoDetail({ id, scope }: { id: string; scope: "normal" | "c
     currentRevisionId = (lineage ?? []).find((r) => r.superseded_by === null)?.id ?? null;
   }
 
-  const [{ data: lines }, components, vendorsAll, { data: projects }, vcs, customers, lastRates, { data: mySignatures }] =
+  const [{ data: lines }, components, vendorsAll, { data: projects }, vcs, customers, lastRates, { data: mySignatures }, previousRates] =
     await Promise.all([
       supabase.from("po_lines").select("*").eq("po_id", id).order("created_at"),
       getComponents(finance),
@@ -68,6 +71,8 @@ export async function PoDetail({ id, scope }: { id: string; scope: "normal" | "c
       getCustomers(),
       finance ? readAll((f, t) => supabase.from("v_last_component_rate").select("component_id, rate").order("component_id").range(f, t)) : Promise.resolve([] as { component_id: string | null; rate: number | null }[]),
       profile ? supabase.from("signatures").select("id, label, method, image_data_url, is_default").eq("user_id", profile.id).order("is_default", { ascending: false }) : Promise.resolve({ data: [] }),
+      // What each line's component last went out at — prices, so finance roles only.
+      finance ? getPoPreviousRates(supabase, [id]) : Promise.resolve([]),
     ]);
   const signingState = await getSigningState("po", id, po.created_by, profile?.id ?? null);
   const inProgress = ["draft", "pending_signature"].includes(po.status);
@@ -102,6 +107,7 @@ export async function PoDetail({ id, scope }: { id: string; scope: "normal" | "c
     ? [...new Set((vcs ?? []).filter((vc) => vc.vendor_id === po.vendor_id).map((vc) => vc.component_id))]
     : [];
 
+  const previousByLine = new Map(previousRates.map((r) => [r.line_id, r]));
   const lineRows = (lines ?? []).map((l) => ({
     id: l.id,
     component_id: l.component_id,
@@ -115,7 +121,27 @@ export async function PoDetail({ id, scope }: { id: string; scope: "normal" | "c
     line_status: l.line_status,
     approval_status: l.approval_status,
     rejection_reason: l.rejection_reason,
+    previous: finance && previousByLine.has(l.id)
+      ? {
+          previousRate: Number(previousByLine.get(l.id)!.previous_rate),
+          previousPoNo: previousByLine.get(l.id)!.previous_po_no,
+          previousPoDate: previousByLine.get(l.id)!.previous_po_date,
+        }
+      : null,
   }));
+
+  // Lines priced above what they last cost — shown on the page and in the sign
+  // dialog, so whoever signs sees the increase. Admins aren't stopped by the
+  // price-approval check, so this is the only place an increase shows up.
+  const compById = new Map((components ?? []).map((c) => [c.id, c]));
+  const priceIncreases: PriceIncreaseItem[] = finance
+    ? (priceIncreasesByPo(previousRates).get(id) ?? []).map((i) => ({
+        ...i,
+        label: compLabel.get(i.componentId) ?? "—",
+        unit: rateUnit(compById.get(i.componentId)?.quantity_type),
+      }))
+    : [];
+  const signWarning = priceIncreases.length > 0 ? <PriceIncreaseNotice items={priceIncreases} /> : undefined;
 
   const pricesApproved = lineRows.every((l) => l.approval_status === "approved");
   // The print page enforces BOTH gates server-side; mirror them here so the
@@ -173,6 +199,7 @@ export async function PoDetail({ id, scope }: { id: string; scope: "normal" | "c
                 signatures={mySignatures ?? []}
                 signAction={signPo}
                 label={signingState.nextSlot === 1 ? "Sign & Send" : "Sign"}
+                warning={signWarning}
                 description={
                   signingState.nextSlot === 1
                     ? "Signing as the creator sends this PO — unless further approvers are configured, in which case it waits for their signature too."
@@ -204,6 +231,8 @@ export async function PoDetail({ id, scope }: { id: string; scope: "normal" | "c
           )}
         </div>
       )}
+
+      {inProgress && <PriceIncreaseNotice items={priceIncreases} className="mb-4" />}
 
       <Card>
         <CardContent className="p-5">
