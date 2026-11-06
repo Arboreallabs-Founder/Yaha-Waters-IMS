@@ -8,7 +8,7 @@ import { canAccessPath, homePathFor, isFactoryAdmin, type Role } from "@/lib/rol
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 
 // Re-export client-safe helpers so server code can import from one place.
-export { ROLE_LABELS, FINANCE_ROLES, canSeeFinancials, canWriteMasters, canDownloadReports, isFactoryAdmin, canApproveBom, canManageUsers } from "@/lib/roles";
+export { ROLE_LABELS, FINANCE_ROLES, canSeeFinancials, canWriteMasters, canDownloadReports, isFactoryAdmin, canApproveBom, canManageUsers, canSetConsumables } from "@/lib/roles";
 export type { Role } from "@/lib/roles";
 
 /**

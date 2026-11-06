@@ -77,6 +77,11 @@ export function canManageUsers(p: RoleHolder) {
   return !!p && p.role === "admin" && !isFactoryAdmin(p);
 }
 
+/** Ticking "Consumable" on a component / "Consumables vendor" on a vendor: any Admin, Factory Admins included. The database enforces the same. */
+export function canSetConsumables(p: RoleHolder) {
+  return !!p && p.role === "admin";
+}
+
 const FACTORY_ADMIN_BLOCKED_PATHS = ["/masters/approval-rights", "/admin/users"];
 
 /**

@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { getProfile, canWriteMasters, canSeeFinancials, canManageUsers, requirePathAccess } from "@/lib/auth";
+import { getProfile, canWriteMasters, canSeeFinancials, canSetConsumables, requirePathAccess } from "@/lib/auth";
 import { getVendors, getComponents } from "@/lib/masters-data";
 import { PageHeader } from "@/components/page-header";
 import { CrudManager, type Column, type Field } from "@/components/crud/crud-manager";
@@ -94,7 +94,7 @@ export default async function ComponentsPage() {
       help: "Keep at least this much in open stock (in this component's unit). Below it, the component shows in the Action Center. Leave empty for no minimum.",
     },
     { name: "standard_cost", label: "Standard cost (₹)", type: "number", step: "any", financial: true },
-    ...(canManageUsers(profile)
+    ...(canSetConsumables(profile)
       ? [{ name: "is_consumable", label: "Consumable (bought for stock via the Consumables module; never blocked for a project)", type: "checkbox" as const }]
       : []),
     // ---- job work ----

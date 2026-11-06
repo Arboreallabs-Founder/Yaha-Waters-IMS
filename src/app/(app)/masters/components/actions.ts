@@ -2,7 +2,7 @@
 
 import { upsertRecord, deleteRecord, type ActionResult } from "@/lib/server/crud";
 import { createClient } from "@/lib/supabase/server";
-import { getProfile, canManageUsers } from "@/lib/auth";
+import { getProfile, canSetConsumables } from "@/lib/auth";
 
 const FIELDS = {
   component_no: "string",
@@ -34,9 +34,9 @@ const FIELDS = {
 } as const;
 
 export async function upsert(fd: FormData): Promise<ActionResult> {
-  // "Consumable" is a full-Admin decision: only read it from their form, so a
+  // "Consumable" is an Admin decision: only read it from their form, so a
   // Team Lead saving the component can never untick it by omission.
-  const fields = canManageUsers(await getProfile()) ? { ...FIELDS, is_consumable: "boolean" as const } : FIELDS;
+  const fields = canSetConsumables(await getProfile()) ? { ...FIELDS, is_consumable: "boolean" as const } : FIELDS;
   const res = await upsertRecord("components", fields, fd);
   if (res.error) return res;
 
