@@ -67,23 +67,7 @@ export function DocumentSignButton({
         <form onSubmit={onConfirm} className="space-y-4">
           {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
           {warning}
-          <div className="space-y-1.5">
-            <Label>Signature</Label>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {signatures.map((s) => (
-                <button
-                  type="button"
-                  key={s.id}
-                  onClick={() => setSignatureId(s.id)}
-                  className={cn("rounded-md border p-2", signatureId === s.id ? "border-primary bg-primary/5" : "border-border hover:bg-accent")}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={s.image_data_url} className="h-10 w-full object-contain" alt="" />
-                  <p className="mt-1 truncate text-[11px] text-muted-foreground">{s.label || (s.method === "typed" ? "Typed" : "Drawn")}</p>
-                </button>
-              ))}
-            </div>
-          </div>
+          <SignaturePicker signatures={signatures} value={signatureId} onChange={setSignatureId} />
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             <Button type="submit" loading={busy} disabled={!signatureId}>Confirm signature</Button>
@@ -91,5 +75,28 @@ export function DocumentSignButton({
         </form>
       </Dialog>
     </>
+  );
+}
+
+/** The saved signatures to choose from, as used in every sign dialog. */
+export function SignaturePicker({ signatures, value, onChange }: { signatures: MySignature[]; value: string; onChange: (id: string) => void }) {
+  return (
+    <div className="space-y-1.5">
+      <Label>Signature</Label>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {signatures.map((s) => (
+          <button
+            type="button"
+            key={s.id}
+            onClick={() => onChange(s.id)}
+            className={cn("rounded-md border p-2", value === s.id ? "border-primary bg-primary/5" : "border-border hover:bg-accent")}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={s.image_data_url} className="h-10 w-full object-contain" alt="" />
+            <p className="mt-1 truncate text-[11px] text-muted-foreground">{s.label || (s.method === "typed" ? "Typed" : "Drawn")}</p>
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }

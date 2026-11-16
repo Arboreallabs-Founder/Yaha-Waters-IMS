@@ -14,7 +14,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { MobileRowCard } from "@/components/ui/mobile-row-card";
 import { formatNumber } from "@/lib/utils";
 import { addGrnLine, type ActionResult } from "../actions";
-import { RemoveDraftItemButton } from "./draft-controls";
+import { RemoveDraftItemButton, SendGrnPrompt, type SendPromptInfo } from "./draft-controls";
 
 type Posted = { id: string; component_label: string; qty: number; is_untagged: boolean; pending: boolean; lot_code: string | null; lot_id: string | null; blocked_project: string | null };
 type OpenPoEntry = { po_line_id: string; po_no: string; tag: string; project_id: string | null; remaining: number };
@@ -53,6 +53,7 @@ export function GrnReceiver({
   submitIrnAction,
   isDraft = false,
   canRemove = false,
+  sendPrompt,
 }: {
   grnId: string;
   postedLines: Posted[];
@@ -74,8 +75,11 @@ export function GrnReceiver({
   isDraft?: boolean;
   /** Draft, and the viewer is its creator or an Admin: items can be taken off. */
   canRemove?: boolean;
+  /** Draft, viewed by its creator: after each add, offer Sign & Send. */
+  sendPrompt?: SendPromptInfo;
 }) {
   const router = useRouter();
+  const [promptText, setPromptText] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [message, setMessage] = React.useState<string | null>(null);
@@ -157,7 +161,15 @@ export function GrnReceiver({
     const res: ActionResult = await addGrnLine(fd);
     setBusy(null);
     if (res?.error) { setError(res.error); return; }
+    if (sendPrompt) setPromptText(addedText(fd));
     onOk?.(); router.refresh();
+  }
+
+  // "MS COUPLING 1" × 4 added to this GRN."
+  function addedText(fd: FormData) {
+    const c = compMap.get(String(fd.get("component_id") ?? ""));
+    const qty = Number(fd.get("qty_received") ?? 0);
+    return `${c ? `${c.component_no} — ${c.name}` : "Item"} × ${formatNumber(qty)} added to this GRN.`;
   }
 
   async function runIrn(fd: FormData, onOk?: () => void) {
@@ -173,6 +185,7 @@ export function GrnReceiver({
         ? `${res.irn_no} added — it's approved after this GRN is sent.`
         : `${res.irn_no} submitted — pending manager approval before a QR is generated.`,
     );
+    if (sendPrompt) setPromptText(addedText(fd));
     onOk?.(); router.refresh();
   }
 
@@ -616,6 +629,10 @@ export function GrnReceiver({
             </TableBody>
           </Table>
         </section>
+      )}
+
+      {sendPrompt && (
+        <SendGrnPrompt grnId={grnId} info={sendPrompt} addedText={promptText ?? ""} open={promptText !== null} onClose={() => setPromptText(null)} />
       )}
     </div>
   );

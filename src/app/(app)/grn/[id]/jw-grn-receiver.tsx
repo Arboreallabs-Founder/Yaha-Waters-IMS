@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { formatNumber, formatINR } from "@/lib/utils";
 import { addJwGrnLine } from "../actions";
-import { RemoveDraftItemButton } from "./draft-controls";
+import { RemoveDraftItemButton, SendGrnPrompt, type SendPromptInfo } from "./draft-controls";
 
 export type OpenJwLine = {
   id: string; component_id: string; component_label: string;
@@ -37,7 +37,7 @@ const IRN_STATUS_VARIANT: Record<string, "success" | "warning" | "destructive"> 
 
 export function JwGrnReceiver({
   grnId, postedLines, pendingIrns, openLines, templateFieldsByComponent, carryForwardByLine, canReceive, finance,
-  isDraft = false, canRemove = false,
+  isDraft = false, canRemove = false, sendPrompt,
 }: {
   grnId: string;
   postedLines: PostedJwLine[];
@@ -51,8 +51,11 @@ export function JwGrnReceiver({
   isDraft?: boolean;
   /** Draft, and the viewer is its creator or an Admin: items can be taken off. */
   canRemove?: boolean;
+  /** Draft, viewed by its creator: after each add, offer Sign & Send. */
+  sendPrompt?: SendPromptInfo;
 }) {
   const router = useRouter();
+  const [promptText, setPromptText] = React.useState<string | null>(null);
   const [lineId, setLineId] = React.useState("");
   const [qty, setQty] = React.useState("");
   const [answers, setAnswers] = React.useState<Record<string, string>>({});
@@ -110,6 +113,7 @@ export function JwGrnReceiver({
           : "Sent for inspection approval — it'll appear in stock once a manager approves the IRN (GRN → Approvals tab)."
         : isDraft ? "Added to the draft." : "Received.",
     );
+    if (sendPrompt) setPromptText(`${selectedLine?.component_label ?? "Item"} × ${formatNumber(Number(qty) || 0)} added to this GRN.`);
     setLineId(""); setQty(""); setAnswers({});
     router.refresh();
   }
@@ -277,6 +281,10 @@ export function JwGrnReceiver({
           )}
         </TableBody>
       </Table>
+
+      {sendPrompt && (
+        <SendGrnPrompt grnId={grnId} info={sendPrompt} addedText={promptText ?? ""} open={promptText !== null} onClose={() => setPromptText(null)} />
+      )}
     </div>
   );
 }

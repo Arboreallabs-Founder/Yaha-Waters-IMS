@@ -2,13 +2,15 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { PenLine, Save, Trash2 } from "lucide-react";
+import { PenLine, Plus, Save, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog } from "@/components/ui/dialog";
+import Link from "next/link";
 import { startNavProgress } from "@/components/navigation-progress";
-import { updateDraftGrn, removeDraftGrnItem, deleteDraftGrn } from "../actions";
+import { SignaturePicker, type MySignature } from "@/components/document-sign-button";
+import { updateDraftGrn, removeDraftGrnItem, deleteDraftGrn, sendGrn } from "../actions";
 
 /**
  * A draft GRN's own controls (creator or Admin): change the challan / invoice
@@ -131,5 +133,86 @@ export function SendDisabledButton() {
       <Button type="button" disabled><PenLine className="size-4" /> Sign &amp; Send</Button>
       <span className="text-xs text-muted-foreground">Add at least one component first</span>
     </span>
+  );
+}
+
+/** What a draft's creator needs for the "added — send now?" prompt. */
+export type SendPromptInfo = { signatures: MySignature[]; approverName: string | null };
+
+/**
+ * Shown to a draft's creator right after they add an item: Sign & Send the
+ * GRN for approval now, or close it and keep adding. Sending happens right
+ * here, in the same popup.
+ */
+export function SendGrnPrompt({
+  grnId, info, addedText, open, onClose,
+}: {
+  grnId: string;
+  info: SendPromptInfo;
+  addedText: string;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const defaultSig = info.signatures.find((s) => s.is_default) ?? info.signatures[0];
+  const [step, setStep] = React.useState<"ask" | "sign">("ask");
+  const [signatureId, setSignatureId] = React.useState(defaultSig?.id ?? "");
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => { if (open) { setStep("ask"); setError(null); } }, [open]);
+
+  async function send() {
+    if (!signatureId) return;
+    const fd = new FormData();
+    fd.set("document_id", grnId);
+    fd.set("signature_id", signatureId);
+    setBusy(true); setError(null);
+    const res = await sendGrn(fd);
+    setBusy(false);
+    if (res?.error) { setError(res.error); return; }
+    onClose();
+    router.refresh();
+  }
+
+  const to = info.approverName ?? "the approver";
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={step === "ask" ? "Item added" : "Sign & Send"}
+      description={step === "ask"
+        ? addedText
+        : `Your signature goes on this GRN and it's sent to ${to} for approval. After this it can't be edited.`}
+    >
+      {error && <p className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {step === "ask" ? (
+        <div className="space-y-4">
+          <p className="text-sm">Is that everything that came in? Sign &amp; Send this GRN to {to} for approval, or keep adding items.</p>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" onClick={onClose}>
+              <Plus className="size-4" /> Continue adding items
+            </Button>
+            {info.signatures.length > 0 ? (
+              <Button type="button" onClick={() => setStep("sign")}>
+                <PenLine className="size-4" /> Sign &amp; Send for approval
+              </Button>
+            ) : (
+              <Link href="/account/signature" className="inline-flex items-center justify-center gap-1 rounded-md border border-border px-3 py-2 text-sm">
+                <PenLine className="size-4" /> Create a signature to send
+              </Link>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <SignaturePicker signatures={info.signatures} value={signatureId} onChange={setSignatureId} />
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => setStep("ask")}>Back</Button>
+            <Button type="button" loading={busy} disabled={!signatureId} onClick={send}>Confirm signature</Button>
+          </div>
+        </div>
+      )}
+    </Dialog>
   );
 }

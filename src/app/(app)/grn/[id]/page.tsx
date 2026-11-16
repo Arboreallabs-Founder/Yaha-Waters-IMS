@@ -262,6 +262,7 @@ export default async function GrnDetailPage({ params }: { params: Promise<{ id: 
         submitIrnAction={submitIrn}
         isDraft={isDraft}
         canRemove={draft.canEdit}
+        sendPrompt={isDraft && isCreator ? { signatures: mySignatures ?? [], approverName: draft.approverName } : undefined}
       />
 
       <BottomSend grnId={id} draft={draft} hasItems={hasItems} mySignatures={mySignatures ?? []} />
@@ -603,6 +604,7 @@ async function JobWorkGrnPage({
         finance={canSeeFinancials}
         isDraft={draft.isDraft}
         canRemove={draft.canEdit}
+        sendPrompt={draft.isDraft && draft.isCreator ? { signatures: mySignatures, approverName: draft.approverName } : undefined}
       />
 
       <BottomSend grnId={grnId} draft={draft} hasItems={hasItems} mySignatures={mySignatures} />
