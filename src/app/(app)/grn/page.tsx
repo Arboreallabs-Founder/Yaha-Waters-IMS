@@ -70,7 +70,8 @@ async function activeVendors() {
 
 async function AllGrnsTab() {
   const supabase = await createClient();
-  const role = (await getProfile())?.role;
+  const profile = await getProfile();
+  const role = profile?.role;
   const finance = canSeeFinancials(role);
   const canDownload = canDownloadReports(role);
   const [grns, vendors, lines, poRegisterRows] = await Promise.all([
@@ -93,9 +94,34 @@ async function AllGrnsTab() {
     invoice_no: g.invoice_no,
     line_count: lineCount.get(g.id) ?? 0,
     received_at: g.received_at,
+    status: g.status,
   }));
 
-  return <AllGrnsTable rows={rows} poRegisterRows={poRegisterRows} finance={finance} canDownload={canDownload} />;
+  // The viewer's own drafts, so a started GRN isn't forgotten. (Floor staff
+  // can't open the Action Center, so this is their reminder.)
+  const myDrafts = profile?.id ? (grns ?? []).filter((g) => g.status === "draft" && g.created_by === profile.id) : [];
+
+  return (
+    <>
+      {myDrafts.length > 0 && (
+        <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-medium">
+            {myDrafts.length === 1 ? "You have 1 GRN draft that hasn't been sent" : `You have ${myDrafts.length} GRN drafts that haven't been sent`}
+          </p>
+          <p className="mt-1">
+            Finish and Sign &amp; Send, or delete if started by mistake:{" "}
+            {myDrafts.map((g, i) => (
+              <span key={g.id}>
+                {i > 0 && ", "}
+                <Link href={`/grn/${g.id}`} className="font-medium underline">{g.grn_no}</Link>
+              </span>
+            ))}
+          </p>
+        </div>
+      )}
+      <AllGrnsTable rows={rows} poRegisterRows={poRegisterRows} finance={finance} canDownload={canDownload} />
+    </>
+  );
 }
 
 async function ApprovalTab({ canApprove, userId }: { canApprove: boolean; userId: string | null }) {
@@ -103,14 +129,17 @@ async function ApprovalTab({ canApprove, userId }: { canApprove: boolean; userId
   const [{ data: irns }, { data: mySignatures }, { data: allGrns }] = await Promise.all([
     supabase
       .from("irns")
-      .select("id, irn_no, component_id, qty, generated_by, generated_at, grn_id")
+      // Inspections on a draft GRN aren't approvable until it's sent.
+      .select("id, irn_no, component_id, qty, generated_by, generated_at, grn_id, grns!inner(status)")
       .eq("status", "pending_approval")
+      .eq("grns.status", "sent")
       .order("generated_at", { ascending: true }),
     userId
       ? supabase.from("signatures").select("id, label, method, image_data_url, is_default").eq("user_id", userId).order("is_default", { ascending: false })
       : Promise.resolve({ data: [] }),
     userId
-      ? supabase.from("grns").select("id, grn_no, created_by, created_at, vendor_id").order("created_at", { ascending: false })
+      // Drafts aren't waiting on anyone's signature — their creator sends them.
+      ? supabase.from("grns").select("id, grn_no, created_by, created_at, vendor_id").eq("status", "sent").order("created_at", { ascending: false })
       : Promise.resolve({ data: [] }),
   ]);
 

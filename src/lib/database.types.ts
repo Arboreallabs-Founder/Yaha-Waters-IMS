@@ -1400,6 +1400,7 @@ export type Database = {
           po_id: string | null
           received_at: string
           received_by: string | null
+          status: string
           updated_at: string | null
           vendor_id: string | null
         }
@@ -1414,6 +1415,7 @@ export type Database = {
           po_id?: string | null
           received_at?: string
           received_by?: string | null
+          status?: string
           updated_at?: string | null
           vendor_id?: string | null
         }
@@ -1428,6 +1430,7 @@ export type Database = {
           po_id?: string | null
           received_at?: string
           received_by?: string | null
+          status?: string
           updated_at?: string | null
           vendor_id?: string | null
         }
@@ -5747,6 +5750,30 @@ export type Database = {
         Args: { p_component: string; p_project: string; p_user: string }
         Returns: number
       }
+      _draft_grn_for_edit: {
+        Args: { p_grn_id: string }
+        Returns: {
+          challan_no: string | null
+          created_at: string
+          created_by: string | null
+          grn_no: string
+          id: string
+          invoice_no: string | null
+          is_job_work: boolean
+          po_id: string | null
+          received_at: string
+          received_by: string | null
+          status: string
+          updated_at: string | null
+          vendor_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "grns"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       _make_slice: {
         Args: {
           p_from_lot: string
@@ -5876,6 +5903,7 @@ export type Database = {
         }
         Returns: Json
       }
+      delete_draft_grn: { Args: { p_grn_id: string }; Returns: Json }
       dispatch_job_work: {
         Args: { p_order_id: string; p_user_id: string }
         Returns: Json
@@ -6007,8 +6035,16 @@ export type Database = {
         Args: { p_lot_id: string; p_qty?: number }
         Returns: Json
       }
+      remove_draft_grn_item: {
+        Args: { p_grn_id: string; p_irn_id?: string; p_line_id?: string }
+        Returns: Json
+      }
       resubmit_irn: {
         Args: { p_answers: Json; p_irn_id: string; p_submitter_id: string }
+        Returns: Json
+      }
+      send_grn: {
+        Args: { p_grn_id: string; p_signature_id: string }
         Returns: Json
       }
       sign_grn: {
@@ -6041,6 +6077,10 @@ export type Database = {
           p_target_lot_id?: string
           p_unit_cost: number
         }
+        Returns: Json
+      }
+      update_draft_grn: {
+        Args: { p_challan_no: string; p_grn_id: string; p_invoice_no: string }
         Returns: Json
       }
     }

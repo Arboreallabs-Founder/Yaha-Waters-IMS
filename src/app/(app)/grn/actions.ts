@@ -29,6 +29,64 @@ export async function signGrn(fd: FormData): Promise<ActionResult & { fully_sign
   return { ok: true, fully_signed: data?.fully_signed };
 }
 
+/** Sign & Send: the creator signs a draft GRN, which sends it to the approver. */
+export async function sendGrn(fd: FormData): Promise<ActionResult & { fully_signed?: boolean }> {
+  const p = await getProfile();
+  if (!p) return { error: "Not authorized." };
+  const grn_id = String(fd.get("document_id") ?? "");
+  const signature_id = String(fd.get("signature_id") ?? "");
+  if (!grn_id || !signature_id) return { error: "Missing document or signature." };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("send_grn", { p_grn_id: grn_id, p_signature_id: signature_id });
+  if (error) return { error: error.message };
+  const res = data as { error?: string; fully_signed?: boolean } | null;
+  if (res?.error) return { error: res.error };
+  revalidatePath(`/grn/${grn_id}`);
+  revalidatePath("/grn");
+  return { ok: true, fully_signed: res?.fully_signed };
+}
+
+/** Draft only (creator or Admin): change the challan / invoice number. */
+export async function updateDraftGrn(fd: FormData): Promise<ActionResult> {
+  const grn_id = String(fd.get("grn_id") ?? "");
+  const challan_no = String(fd.get("challan_no") ?? "").trim() || null;
+  const invoice_no = String(fd.get("invoice_no") ?? "").trim() || null;
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("update_draft_grn", { p_grn_id: grn_id, p_challan_no: challan_no ?? "", p_invoice_no: invoice_no ?? "" });
+  if (error) return { error: grnDupeError(error, challan_no, invoice_no) };
+  const res = data as { error?: string } | null;
+  if (res?.error) return { error: res.error };
+  revalidatePath(`/grn/${grn_id}`);
+  revalidatePath("/grn");
+  return { ok: true };
+}
+
+/** Draft only (creator or Admin): take a wrongly added line or inspection off the GRN. */
+export async function removeDraftGrnItem(fd: FormData): Promise<ActionResult> {
+  const grn_id = String(fd.get("grn_id") ?? "");
+  const line_id = String(fd.get("line_id") ?? "") || undefined;
+  const irn_id = String(fd.get("irn_id") ?? "") || undefined;
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("remove_draft_grn_item", { p_grn_id: grn_id, p_line_id: line_id, p_irn_id: irn_id });
+  if (error) return { error: error.message };
+  const res = data as { error?: string } | null;
+  if (res?.error) return { error: res.error };
+  revalidatePath(`/grn/${grn_id}`);
+  return { ok: true };
+}
+
+/** Draft only (creator or Admin): delete the whole draft and everything on it. */
+export async function deleteDraftGrn(fd: FormData): Promise<ActionResult> {
+  const grn_id = String(fd.get("grn_id") ?? "");
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("delete_draft_grn", { p_grn_id: grn_id });
+  if (error) return { error: error.message };
+  const res = data as { error?: string } | null;
+  if (res?.error) return { error: res.error };
+  revalidatePath("/grn");
+  return { ok: true };
+}
+
 function grnDupeError(error: { message: string; code?: string }, challan_no: string | null, invoice_no: string | null): string {
   if (error.code === "23505") {
     if (error.message.includes("uq_grns_challan_per_vendor")) {
@@ -71,25 +129,8 @@ export async function createGrn(fd: FormData): Promise<ActionResult> {
     .single();
   if (error) return { error: grnDupeError(error, challan_no, invoice_no) };
 
-  // Auto-sign the creator's slot right away — a GRN has no draft stage to
-  // protect (unlike PO/Job-Work, which still require an explicit Sign &
-  // Send/Dispatch), so there's no reason to make them come back and click
-  // Sign separately. Best-effort: if they have no saved signature yet, this
-  // silently no-ops and the manual Sign button on the GRN page covers it.
-  const { data: mySig } = await supabase
-    .from("signatures")
-    .select("id")
-    .eq("user_id", p.id)
-    .order("is_default", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (mySig) {
-    await supabase.rpc("sign_grn", { p_grn_id: data.id, p_signature_id: mySig.id, p_actor: p.id });
-  }
-
-  if (!invoice_no) {
-    await supabase.rpc("notify_grn_missing_invoice", { p_grn_id: data.id, p_user_id: p.id });
-  }
+  // A new GRN is a draft: no signature yet, and nobody is notified. Its
+  // creator adds the components, then presses Sign & Send (sendGrn).
 
   revalidatePath("/grn");
   return { ok: true, id: data.id };

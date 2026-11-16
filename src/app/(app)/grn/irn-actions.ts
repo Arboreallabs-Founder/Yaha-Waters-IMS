@@ -40,7 +40,7 @@ export async function submitIrn(fd: FormData): Promise<ActionResult> {
 
   // Best-effort: if the submitter has a saved signature, submit_irn can
   // auto-approve inline when they're Admin/Team Lead — same silent
-  // no-op-if-missing pattern as createGrn's auto-sign.
+  // no-op-if-missing pattern. On a draft GRN it stays pending until the GRN is sent.
   const { data: mySig } = await supabase
     .from("signatures")
     .select("id")

@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { formatNumber, formatINR } from "@/lib/utils";
 import { addJwGrnLine } from "../actions";
+import { RemoveDraftItemButton } from "./draft-controls";
 
 export type OpenJwLine = {
   id: string; component_id: string; component_label: string;
@@ -36,6 +37,7 @@ const IRN_STATUS_VARIANT: Record<string, "success" | "warning" | "destructive"> 
 
 export function JwGrnReceiver({
   grnId, postedLines, pendingIrns, openLines, templateFieldsByComponent, carryForwardByLine, canReceive, finance,
+  isDraft = false, canRemove = false,
 }: {
   grnId: string;
   postedLines: PostedJwLine[];
@@ -45,6 +47,10 @@ export function JwGrnReceiver({
   carryForwardByLine: Record<string, Record<string, string>>;
   canReceive: boolean;
   finance: boolean;
+  /** The GRN hasn't been sent yet (Sign & Send). */
+  isDraft?: boolean;
+  /** Draft, and the viewer is its creator or an Admin: items can be taken off. */
+  canRemove?: boolean;
 }) {
   const router = useRouter();
   const [lineId, setLineId] = React.useState("");
@@ -99,8 +105,10 @@ export function JwGrnReceiver({
     if (res?.error) { setError(res.error); return; }
     setNotice(
       res?.status === "pending_approval"
-        ? "Sent for inspection approval — it'll appear in stock once a manager approves the IRN (GRN → Approvals tab)."
-        : "Received.",
+        ? isDraft
+          ? "Added — the inspection is approved after this GRN is sent."
+          : "Sent for inspection approval — it'll appear in stock once a manager approves the IRN (GRN → Approvals tab)."
+        : isDraft ? "Added to the draft." : "Received.",
     );
     setLineId(""); setQty(""); setAnswers({});
     router.refresh();
@@ -188,8 +196,10 @@ export function JwGrnReceiver({
       {pendingIrns.length > 0 && (
         <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-4">
           <p className="text-sm font-medium text-amber-900">
-            Awaiting inspection approval — these receipts are held until a manager approves the IRN
-            (<a href="/grn?tab=approval" className="underline">GRN → Approvals</a>). Nothing is in stock yet.
+            {isDraft
+              ? <>Awaiting inspection approval — approved after this GRN is sent. Nothing is in stock yet.</>
+              : <>Awaiting inspection approval — these receipts are held until a manager approves the IRN
+                (<a href="/grn?tab=approval" className="underline">GRN → Approvals</a>). Nothing is in stock yet.</>}
           </p>
           <Table>
             <TableHeader>
@@ -198,6 +208,7 @@ export function JwGrnReceiver({
                 <TableHead>Qty</TableHead>
                 <TableHead>IRN</TableHead>
                 <TableHead>Status</TableHead>
+                {canRemove && <TableHead className="w-12" />}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -209,6 +220,11 @@ export function JwGrnReceiver({
                   <TableCell>
                     <Badge variant={IRN_STATUS_VARIANT[i.status] ?? "secondary"}>{i.status.replace("_", " ")}</Badge>
                   </TableCell>
+                  {canRemove && (
+                    <TableCell className="text-right">
+                      {i.status !== "approved" && <RemoveDraftItemButton grnId={grnId} irnId={i.id} label={`${i.irn_no} (${i.component_label})`} />}
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>
@@ -225,11 +241,12 @@ export function JwGrnReceiver({
             {finance && <TableHead>Unit cost</TableHead>}
             <TableHead>Inspection</TableHead>
             <TableHead>Stock</TableHead>
+            {canRemove && <TableHead className="w-12" />}
           </TableRow>
         </TableHeader>
         <TableBody>
           {postedLines.length === 0 ? (
-            <TableRow><TableCell colSpan={finance ? 6 : 5} className="py-6 text-center text-muted-foreground">No lines yet.</TableCell></TableRow>
+            <TableRow><TableCell colSpan={(finance ? 6 : 5) + (canRemove ? 1 : 0)} className="py-6 text-center text-muted-foreground">No lines yet.</TableCell></TableRow>
           ) : (
             postedLines.map((l) => (
               <TableRow key={l.id}>
@@ -247,9 +264,14 @@ export function JwGrnReceiver({
                 </TableCell>
                 <TableCell>
                   {l.pending
-                    ? <Badge variant="warning">Pending signature</Badge>
+                    ? <Badge variant="warning">{isDraft ? "Draft" : "Pending signature"}</Badge>
                     : <Badge variant="success">Counted</Badge>}
                 </TableCell>
+                {canRemove && (
+                  <TableCell className="text-right">
+                    {l.pending && <RemoveDraftItemButton grnId={grnId} lineId={l.id} label={l.component_label} />}
+                  </TableCell>
+                )}
               </TableRow>
             ))
           )}

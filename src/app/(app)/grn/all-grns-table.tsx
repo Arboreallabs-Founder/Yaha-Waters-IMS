@@ -19,6 +19,7 @@ export type GrnRow = {
   invoice_no: string | null;
   line_count: number;
   received_at: string | null;
+  status: string;
 };
 
 export function AllGrnsTable({
@@ -33,7 +34,10 @@ export function AllGrnsTable({
   canDownload: boolean;
 }) {
   const [query, setQuery] = React.useState("");
+  const [draftsOnly, setDraftsOnly] = React.useState(false);
+  const draftCount = rows.filter((r) => r.status === "draft").length;
   const filtered = rows.filter((r) => {
+    if (draftsOnly && r.status !== "draft") return false;
     if (!query) return true;
     const q = query.toLowerCase();
     return (
@@ -49,6 +53,12 @@ export function AllGrnsTable({
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <SearchInput value={query} onChange={setQuery} placeholder="Search GRN no., vendor, challan, or invoice…" />
         <p className="text-sm text-muted-foreground">{filtered.length} of {rows.length}</p>
+        {draftCount > 0 && (
+          <label className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <input type="checkbox" checked={draftsOnly} onChange={(e) => setDraftsOnly(e.target.checked)} className="size-3.5 rounded border-input" />
+            Drafts only ({draftCount})
+          </label>
+        )}
         {canDownload && <DownloadPoRegisterButton rows={poRegisterRows} finance={finance} className="ml-auto" />}
       </div>
       <Table>
@@ -56,6 +66,7 @@ export function AllGrnsTable({
           <TableRow>
             <TableHead>GRN No.</TableHead>
             <TableHead>Type</TableHead>
+            <TableHead>Status</TableHead>
             <TableHead>Vendor</TableHead>
             <TableHead>Challan</TableHead>
             <TableHead>Invoice</TableHead>
@@ -67,7 +78,7 @@ export function AllGrnsTable({
         <TableBody>
           {filtered.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
+              <TableCell colSpan={9} className="py-8 text-center text-muted-foreground">
                 {rows.length === 0 ? "No goods receipts yet." : "No matches."}
               </TableCell>
             </TableRow>
@@ -77,6 +88,9 @@ export function AllGrnsTable({
                 <TableCell className="font-medium">{g.grn_no}</TableCell>
                 <TableCell>
                   {g.is_job_work ? <Badge variant="secondary">Job Work</Badge> : <Badge variant="outline">Purchase</Badge>}
+                </TableCell>
+                <TableCell>
+                  {g.status === "draft" ? <Badge variant="warning">Draft</Badge> : <Badge variant="secondary">Sent</Badge>}
                 </TableCell>
                 <TableCell>{g.vendor_name ?? <span className="text-muted-foreground">—</span>}</TableCell>
                 <TableCell className="text-muted-foreground">{g.challan_no ?? "—"}</TableCell>

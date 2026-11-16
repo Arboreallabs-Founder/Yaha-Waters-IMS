@@ -55,12 +55,15 @@ export default async function GrnPrintPage({ params }: { params: Promise<{ id: s
   if (!grn) notFound();
 
   const signingState = await getSigningState("grn", grnId, grn.created_by, null, grn.created_at);
-  if (!signingState.printable) {
+  const isDraft = grn.status === "draft";
+  if (isDraft || !signingState.printable) {
     return (
       <div className="mx-auto max-w-lg py-16 text-center">
         <p className="text-lg font-semibold text-amber-700">Cannot print this GRN</p>
         <p className="mt-2 text-sm text-muted-foreground">
-          It still needs {signingState.remainingCount} signature(s) before it can be printed.
+          {isDraft
+            ? "It's still a draft — it can be printed once it's been sent and signed."
+            : `It still needs ${signingState.remainingCount} signature(s) before it can be printed.`}
         </p>
         <Link href={`/grn/${grnId}`} className="mt-4 inline-flex items-center gap-1 text-sm text-primary hover:underline">
           <ArrowLeft className="size-4" /> Back to GRN

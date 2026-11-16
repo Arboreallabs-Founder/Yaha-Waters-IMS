@@ -33,6 +33,7 @@ export default async function ReconciliationPage() {
     customers,
     minStock,
     vendorsAll,
+    draftGrnsAll,
   ] = await Promise.all([
     supabase.from("v_bom_variance").select("*").or("uncovered_qty.gt.0,receive_gap.gt.0"),
     supabase.from("v_untagged_receipts").select("*").order("received_at", { ascending: false }),
@@ -44,7 +45,24 @@ export default async function ReconciliationPage() {
     getCustomers(),
     readAll((f, t) => supabase.from("v_min_stock_shortfall").select("*").order("component_no").order("component_id").range(f, t)),
     getVendors(),
+    // GRNs started but not sent for over a day.
+    readAll((f, t) => supabase.from("grns").select("id, grn_no, vendor_id, challan_no, created_by, created_at")
+      .eq("status", "draft").lt("created_at", new Date(Date.now() - 24 * 3600 * 1000).toISOString())
+      .order("created_at").order("id").range(f, t)),
   ]);
+
+  // ---- GRN drafts not sent: Admins see everyone's, others their own ----
+  const draftGrns = draftGrnsAll.filter((g) => profile?.role === "admin" || g.created_by === profile?.id);
+  const draftIds = draftGrns.map((g) => g.id);
+  const draftCreatorIds = [...new Set(draftGrns.map((g) => g.created_by).filter((v): v is string => !!v))];
+  const [{ data: draftLines }, { data: draftIrns }, { data: draftCreators }] = await Promise.all([
+    draftIds.length ? supabase.from("grn_lines").select("grn_id").in("grn_id", draftIds) : Promise.resolve({ data: [] as { grn_id: string }[] }),
+    draftIds.length ? supabase.from("irns").select("grn_id").in("grn_id", draftIds).neq("status", "approved") : Promise.resolve({ data: [] as { grn_id: string }[] }),
+    draftCreatorIds.length ? supabase.from("profiles").select("id, full_name").in("id", draftCreatorIds) : Promise.resolve({ data: [] as { id: string; full_name: string | null }[] }),
+  ]);
+  const draftItems = new Map<string, number>();
+  for (const r of [...(draftLines ?? []), ...(draftIrns ?? [])]) draftItems.set(r.grn_id, (draftItems.get(r.grn_id) ?? 0) + 1);
+  const draftCreatorName = new Map((draftCreators ?? []).map((p) => [p.id, p.full_name]));
 
   // ---- Minimum stock: components below their Master Data minimum ----
   const rawSupplier = new Map((components ?? []).map((c) => [c.id, c.raw_supplier_id]));
@@ -78,13 +96,14 @@ export default async function ReconciliationPage() {
     { label: "Missing PO", n: missingPo?.length ?? 0, href: "#missing-po" },
     { label: "Stale stock", n: stale?.length ?? 0, href: "#stale" },
     { label: "PO overdue", n: overdue?.length ?? 0, href: "#overdue" },
+    { label: "GRN drafts", n: draftGrns.length, href: "#grn-drafts" },
   ];
 
   return (
     <div>
       <PageHeader title="Action Center" description="Live discrepancy checks off the ledger — visible without asking anyone to update Excel." />
 
-      <section className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <section className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
         {cards.map((c) => (
           <a key={c.label} href={c.href}>
             <Card className="transition-shadow hover:shadow-md">
@@ -217,6 +236,32 @@ export default async function ReconciliationPage() {
                         <TableCell className="font-medium">{r.component_name ?? r.component_no}</TableCell>
                         <TableCell className="text-muted-foreground">{formatDate(r.expected_date)}</TableCell>
                         <TableCell><Badge variant="destructive">{r.days_overdue}</Badge></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Check>
+            ),
+          },
+          {
+            id: "grn-drafts",
+            label: tabLabel("GRN drafts", draftGrns.length),
+            content: (
+              <Check title={profile?.role === "admin" ? "GRNs started over a day ago and not sent" : "Your GRNs started over a day ago and not sent"} empty={draftGrns.length === 0}>
+                <p className="mb-3 text-xs text-muted-foreground">
+                  A draft isn&apos;t waiting on anyone else — its creator adds what came in and presses Sign &amp; Send, or deletes it if it was started by mistake.
+                </p>
+                <Table>
+                  <TableHeader><TableRow><TableHead>GRN</TableHead><TableHead>Vendor</TableHead><TableHead>Challan</TableHead><TableHead>Started by</TableHead><TableHead>Started</TableHead><TableHead>Items</TableHead></TableRow></TableHeader>
+                  <TableBody>
+                    {draftGrns.map((g) => (
+                      <TableRow key={g.id}>
+                        <TableCell><Link href={`/grn/${g.id}`} className="text-primary hover:underline">{g.grn_no}</Link></TableCell>
+                        <TableCell>{g.vendor_id ? vendorsAll.find((v) => v.id === g.vendor_id)?.name ?? "—" : "—"}</TableCell>
+                        <TableCell className="text-muted-foreground">{g.challan_no ?? "—"}</TableCell>
+                        <TableCell>{g.created_by ? draftCreatorName.get(g.created_by) ?? "—" : "—"}</TableCell>
+                        <TableCell className="text-muted-foreground">{formatDate(g.created_at)}</TableCell>
+                        <TableCell>{(draftItems.get(g.id) ?? 0) === 0 ? <Badge variant="warning">Empty</Badge> : formatNumber(draftItems.get(g.id) ?? 0)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

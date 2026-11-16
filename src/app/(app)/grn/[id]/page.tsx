@@ -12,7 +12,9 @@ import { formatDate } from "@/lib/utils";
 import { GrnReceiver } from "./grn-receiver";
 import { JwGrnReceiver, type OpenJwLine, type PostedJwLine, type PendingJwIrn, type TemplateField } from "./jw-grn-receiver";
 import { submitIrn } from "../irn-actions";
-import { signGrn } from "../actions";
+import { signGrn, sendGrn } from "../actions";
+import { GrnDraftPanel, SendDisabledButton } from "./draft-controls";
+import { Badge } from "@/components/ui/badge";
 import { readAll } from "@/lib/server/read-all";
 
 export default async function GrnDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -30,9 +32,26 @@ export default async function GrnDetailPage({ params }: { params: Promise<{ id: 
     profile ? supabase.from("signatures").select("id, label, method, image_data_url, is_default").eq("user_id", profile.id).order("is_default", { ascending: false }) : Promise.resolve({ data: [] }),
   ]);
 
+  // Draft (not sent yet): only its creator can Sign & Send; the creator or an
+  // Admin can edit it, remove items or delete it.
+  const isDraft = grn.status === "draft";
+  const isCreator = !!profile?.id && profile.id === grn.created_by;
+  const draft: DraftInfo = {
+    isDraft,
+    isCreator,
+    canEdit: isDraft && (isCreator || role === "admin"),
+    creatorName: null,
+    approverName: signingState.slots.find((sl) => sl.slot === 2)?.signerName ?? null,
+  };
+  if (isDraft && grn.created_by && !isCreator) {
+    const { data: creator } = await supabase.from("profiles").select("full_name").eq("id", grn.created_by).maybeSingle();
+    draft.creatorName = creator?.full_name ?? null;
+  }
+
   if (grn.is_job_work) {
     return (
       <JobWorkGrnPage
+        draft={draft}
         grnId={id}
         grn={grn}
         canReceive={canReceive}
@@ -182,6 +201,7 @@ export default async function GrnDetailPage({ params }: { params: Promise<{ id: 
     };
   });
   const lotIds = lots.map((l) => l.id);
+  const hasItems = postedLines.length > 0 || (irns ?? []).some((i) => i.status === "pending_approval");
 
   return (
     <div>
@@ -192,29 +212,29 @@ export default async function GrnDetailPage({ params }: { params: Promise<{ id: 
         title={grn.grn_no}
         description={vendor?.data?.name ?? "no vendor"}
         action={
-          <div className="flex items-center gap-3">
-            {!signingState.fullySigned && signingState.canSignNow && (
-              <DocumentSignButton
-                documentId={id}
-                signatures={mySignatures ?? []}
-                signAction={signGrn}
-                label={signingState.isBackfill ? "Sign (for the record)" : signingState.nextSlot === 1 ? "Sign" : "Sign as approver"}
-                description={
-                  signingState.isBackfill
-                    ? "This GRN predates digital signatures — it already prints fine without one, but you can add yours for the record."
-                    : signApprovesIrnsNote(approvableIrnCount)
-                }
-              />
-            )}
-            {!signingState.fullySigned && !signingState.canSignNow && !signingState.isBackfill && (
-              <span className="text-sm text-muted-foreground">Awaiting signature</span>
-            )}
-            <Link href={`/grn/${id}/print`} className={buttonVariants({ variant: "outline" })}>
-              <Printer className="size-4" /> Print
-            </Link>
-          </div>
+          <GrnHeaderActions
+            grnId={id}
+            draft={draft}
+            hasItems={hasItems}
+            signingState={signingState}
+            mySignatures={mySignatures ?? []}
+            approvableIrnCount={approvableIrnCount}
+          />
         }
       />
+
+      {isDraft && (
+        <GrnDraftPanel
+          grnId={id}
+          grnNo={grn.grn_no}
+          challanNo={grn.challan_no}
+          invoiceNo={grn.invoice_no}
+          canEdit={draft.canEdit}
+          creatorName={draft.creatorName}
+          isCreator={isCreator}
+          approverName={draft.approverName}
+        />
+      )}
 
       <Card className="mb-6">
         <CardContent className="grid grid-cols-2 gap-4 p-5 text-sm sm:grid-cols-4">
@@ -240,7 +260,95 @@ export default async function GrnDetailPage({ params }: { params: Promise<{ id: 
         excludedFieldIdsByComponent={excludedFieldIdsByComponent}
         irnRows={irnRows}
         submitIrnAction={submitIrn}
+        isDraft={isDraft}
+        canRemove={draft.canEdit}
       />
+
+      <BottomSend grnId={id} draft={draft} hasItems={hasItems} mySignatures={mySignatures ?? []} />
+    </div>
+  );
+}
+
+type DraftInfo = {
+  isDraft: boolean;
+  isCreator: boolean;
+  /** Draft, and the viewer is its creator or an Admin. */
+  canEdit: boolean;
+  /** Set for viewers other than the creator. */
+  creatorName: string | null;
+  approverName: string | null;
+};
+
+function sendDescription(approverName: string | null) {
+  return `Your signature goes on this GRN and it's sent to ${approverName ?? "the approver"} for approval. After this it can't be edited.`;
+}
+
+/** Header buttons: Sign & Send on a draft (creator only); otherwise signing as before, plus Print. */
+function GrnHeaderActions({
+  grnId, draft, hasItems, signingState, mySignatures, approvableIrnCount,
+}: {
+  grnId: string;
+  draft: DraftInfo;
+  hasItems: boolean;
+  signingState: Awaited<ReturnType<typeof getSigningState>>;
+  mySignatures: MySignature[];
+  approvableIrnCount: number;
+}) {
+  if (draft.isDraft) {
+    return (
+      <div className="flex items-center gap-3">
+        <Badge variant="warning">Draft</Badge>
+        {draft.isCreator && (hasItems ? (
+          <DocumentSignButton
+            documentId={grnId}
+            signatures={mySignatures}
+            signAction={sendGrn}
+            label="Sign & Send"
+            description={sendDescription(draft.approverName)}
+          />
+        ) : <SendDisabledButton />)}
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center gap-3">
+      {!signingState.fullySigned && signingState.canSignNow && (
+        <DocumentSignButton
+          documentId={grnId}
+          signatures={mySignatures}
+          signAction={signGrn}
+          label={signingState.isBackfill ? "Sign (for the record)" : signingState.nextSlot === 1 ? "Sign" : "Sign as approver"}
+          description={
+            signingState.isBackfill
+              ? "This GRN predates digital signatures — it already prints fine without one, but you can add yours for the record."
+              : signApprovesIrnsNote(approvableIrnCount)
+          }
+        />
+      )}
+      {!signingState.fullySigned && !signingState.canSignNow && !signingState.isBackfill && (
+        <span className="text-sm text-muted-foreground">Awaiting signature</span>
+      )}
+      <Link href={`/grn/${grnId}/print`} className={buttonVariants({ variant: "outline" })}>
+        <Printer className="size-4" /> Print
+      </Link>
+    </div>
+  );
+}
+
+/** A second Sign & Send at the bottom of a draft, so it's in reach after adding items on a phone. */
+function BottomSend({ grnId, draft, hasItems, mySignatures }: { grnId: string; draft: DraftInfo; hasItems: boolean; mySignatures: MySignature[] }) {
+  if (!draft.isDraft || !draft.isCreator) return null;
+  return (
+    <div className="mt-6 flex justify-end border-t border-border pt-4">
+      {hasItems ? (
+        <DocumentSignButton
+          documentId={grnId}
+          signatures={mySignatures}
+          signAction={sendGrn}
+          label="Sign & Send"
+          description={sendDescription(draft.approverName)}
+        />
+      ) : <SendDisabledButton />}
     </div>
   );
 }
@@ -264,10 +372,11 @@ function Info({ label, value }: { label: string; value: string | null }) {
 // (the vendor is fixed at GRN creation) — a separate, simpler picker than the
 // PO-line-driven GrnReceiver, since there's no quantity-type/manual-cost variation.
 async function JobWorkGrnPage({
-  grnId, grn, canReceive, canSeeFinancials, signingState, mySignatures, canApproveIrns,
+  grnId, grn, canReceive, canSeeFinancials, signingState, mySignatures, canApproveIrns, draft,
 }: {
+  draft: DraftInfo;
   grnId: string;
-  grn: { grn_no: string; vendor_id: string | null; challan_no: string | null; received_at: string };
+  grn: { grn_no: string; vendor_id: string | null; challan_no: string | null; invoice_no: string | null; received_at: string };
   canReceive: boolean;
   canSeeFinancials: boolean;
   signingState: Awaited<ReturnType<typeof getSigningState>>;
@@ -425,6 +534,7 @@ async function JobWorkGrnPage({
       status: i.status,
     }));
 
+  const hasItems = (grnLines ?? []).length > 0 || (allIrns ?? []).some((i) => i.status === "pending_approval");
   const postedLines: PostedJwLine[] = (grnLines ?? []).map((l) => {
     const irn = irnByPostedLine.get(l.id);
     return {
@@ -449,29 +559,29 @@ async function JobWorkGrnPage({
         title={grn.grn_no}
         description={vendor?.data?.name ? `Job Work · ${vendor.data.name}` : "Job Work"}
         action={
-          <div className="flex items-center gap-3">
-            {!signingState.fullySigned && signingState.canSignNow && (
-              <DocumentSignButton
-                documentId={grnId}
-                signatures={mySignatures}
-                signAction={signGrn}
-                label={signingState.isBackfill ? "Sign (for the record)" : signingState.nextSlot === 1 ? "Sign" : "Sign as approver"}
-                description={
-                  signingState.isBackfill
-                    ? "This GRN predates digital signatures — it already prints fine without one, but you can add yours for the record."
-                    : signApprovesIrnsNote(approvableIrnCount)
-                }
-              />
-            )}
-            {!signingState.fullySigned && !signingState.canSignNow && !signingState.isBackfill && (
-              <span className="text-sm text-muted-foreground">Awaiting signature</span>
-            )}
-            <Link href={`/grn/${grnId}/print`} className={buttonVariants({ variant: "outline" })}>
-              <Printer className="size-4" /> Print
-            </Link>
-          </div>
+          <GrnHeaderActions
+            grnId={grnId}
+            draft={draft}
+            hasItems={hasItems}
+            signingState={signingState}
+            mySignatures={mySignatures}
+            approvableIrnCount={approvableIrnCount}
+          />
         }
       />
+
+      {draft.isDraft && (
+        <GrnDraftPanel
+          grnId={grnId}
+          grnNo={grn.grn_no}
+          challanNo={grn.challan_no}
+          invoiceNo={grn.invoice_no}
+          canEdit={draft.canEdit}
+          creatorName={draft.creatorName}
+          isCreator={draft.isCreator}
+          approverName={draft.approverName}
+        />
+      )}
 
       <Card className="mb-6">
         <CardContent className="grid grid-cols-2 gap-4 p-5 text-sm sm:grid-cols-4">
@@ -491,7 +601,11 @@ async function JobWorkGrnPage({
         carryForwardByLine={carryForwardByLine}
         canReceive={canReceive}
         finance={canSeeFinancials}
+        isDraft={draft.isDraft}
+        canRemove={draft.canEdit}
       />
+
+      <BottomSend grnId={grnId} draft={draft} hasItems={hasItems} mySignatures={mySignatures} />
     </div>
   );
 }
