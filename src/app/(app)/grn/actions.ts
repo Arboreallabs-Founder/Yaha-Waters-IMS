@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile } from "@/lib/auth";
-import { formatNumber } from "@/lib/utils";
 
 export type ActionResult = { ok?: true; error?: string; id?: string; status?: string };
 
@@ -157,33 +156,12 @@ export async function addGrnLine(fd: FormData): Promise<ActionResult> {
 
   const supabase = await createClient();
 
-  // Block over-receipt: this line may not push the PO line's total received
-  // quantity above what was ordered. Summed off grn_lines directly, not
-  // po_lines.qty_received — that rollup only counts lines whose GRN is fully
-  // signed (see migration 0096), so it lags behind while a receipt is still
-  // pending signature. Matching the DB trigger's own check here means this
-  // friendly message and the trigger's hard stop agree on the same number.
-  const { data: poLine } = await supabase
-    .from("po_lines")
-    .select("qty_ordered")
-    .eq("id", po_line_id)
-    .maybeSingle();
-  if (poLine) {
-    const { data: existingLines } = await supabase
-      .from("grn_lines")
-      .select("qty_received")
-      .eq("po_line_id", po_line_id);
-    const ordered = Number(poLine.qty_ordered ?? 0);
-    const received = (existingLines ?? []).reduce((s, l) => s + Number(l.qty_received ?? 0), 0);
-    const remaining = ordered - received;
-    if (qty > remaining + 1e-6) {
-      return {
-        error:
-          `This PO line has ${formatNumber(remaining)} left to receive ` +
-          `(ordered ${formatNumber(ordered)}, already received or pending ${formatNumber(received)}). ` +
-          `You entered ${formatNumber(qty)}. Revise the PO quantity if the supplier sent more.`,
-      };
-    }
+  // Block over-receipt: received lines plus inspections still waiting for
+  // approval may not exceed what was ordered. Same check (and message) as the
+  // grn_lines trigger and submit_irn — see migration 0118.
+  if (po_line_id) {
+    const { data: overError } = await supabase.rpc("po_line_over_receipt_error", { p_po_line_id: po_line_id, p_qty: qty });
+    if (overError) return { error: overError };
   }
 
   // Trigger: flags untagged, and — once this GRN is fully signed — creates

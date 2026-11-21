@@ -5988,6 +5988,10 @@ export type Database = {
           rate: number
         }[]
       }
+      po_line_over_receipt_error: {
+        Args: { p_po_line_id: string; p_qty: number }
+        Returns: string
+      }
       process_grn_line: { Args: { p_grn_line_id: string }; Returns: undefined }
       project_bom_ready: { Args: { p_project: string }; Returns: boolean }
       project_shortfall: {
