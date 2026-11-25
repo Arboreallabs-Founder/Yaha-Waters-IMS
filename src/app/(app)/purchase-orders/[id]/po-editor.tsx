@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { startNavProgress } from "@/components/navigation-progress";
 import { Plus, Pencil, Trash2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -34,7 +35,29 @@ type Line = {
   rejection_reason: string | null;
   /** What this component last cost on an earlier PO (finance roles only). */
   previous: PreviousRate | null;
+  /** Fully signed GRNs this line came in on, oldest first. */
+  receipts: LineReceipt[];
 };
+export type LineReceipt = { grnId: string; grnNo: string; invoiceNo: string | null; challanNo: string | null; qty: number };
+
+/** "Inv BH/26-27/001997 · GRN 0406" links under a fully received line. */
+function LineReceipts({ receipts }: { receipts: LineReceipt[] }) {
+  if (receipts.length === 0) return null;
+  const many = receipts.length > 1;
+  return (
+    <ul className="space-y-0.5 text-xs">
+      {receipts.map((r) => (
+        <li key={r.grnId}>
+          <Link href={`/grn/${r.grnId}`} className="whitespace-nowrap text-primary hover:underline">
+            {r.invoiceNo ? `Inv ${r.invoiceNo}` : r.challanNo ? `Challan ${r.challanNo}` : "No invoice"}
+            {" · "}GRN {r.grnNo.split("/").pop()}
+          </Link>
+          {many && <span className="ml-1 text-muted-foreground">({formatNumber(r.qty)})</span>}
+        </li>
+      ))}
+    </ul>
+  );
+}
 type Opt = { id: string; label: string };
 type Suggestion = { vendor: string; price: number | null };
 type ComponentOpt = { id: string; component_no: string; name: string; is_job_work?: boolean; quantity_type?: string | null; uom?: string | null };
@@ -352,6 +375,7 @@ export function PoEditor({
                   <TableCell>
                     <div className="flex flex-col items-start gap-1">
                       <Badge variant={l.line_status === "received" ? "success" : "secondary"}>{l.line_status}</Badge>
+                      {l.line_status === "received" && <LineReceipts receipts={l.receipts} />}
                       {l.qty_received > l.qty_ordered + 1e-6 && (
                         <Badge variant="destructive">
                           Over-received ({formatNumber(l.qty_received)}/{formatNumber(l.qty_ordered)})

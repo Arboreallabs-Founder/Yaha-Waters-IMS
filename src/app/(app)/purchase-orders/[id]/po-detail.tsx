@@ -10,7 +10,7 @@ import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { DocumentSignButton } from "@/components/document-sign-button";
-import { PoEditor } from "./po-editor";
+import { PoEditor, type LineReceipt } from "./po-editor";
 import { DeletePoButton } from "./delete-po-button";
 import { signPo, backfillPoSignature } from "../actions";
 import { PrintPoButton } from "./print-po-button";
@@ -107,6 +107,43 @@ export async function PoDetail({ id, scope }: { id: string; scope: "normal" | "c
     ? [...new Set((vcs ?? []).filter((vc) => vc.vendor_id === po.vendor_id).map((vc) => vc.component_id))]
     : [];
 
+  // Which GRNs each line came in on — stocked (fully signed) GRN lines only, so
+  // drafts and GRNs still waiting for a signature never show. Shown under a
+  // fully received line as its invoice (or challan) and GRN number.
+  const lineIds = (lines ?? []).map((l) => l.id);
+  type StockedRow = {
+    po_line_id: string | null;
+    qty_received: number | null;
+    grns: { id: string; grn_no: string; invoice_no: string | null; challan_no: string | null } | null;
+  };
+  let stocked: StockedRow[] = [];
+  if (lineIds.length) {
+    const { data } = await supabase
+      .from("grn_lines")
+      .select("po_line_id, qty_received, grns!inner(id, grn_no, invoice_no, challan_no)")
+      .in("po_line_id", lineIds)
+      .not("processed_at", "is", null)
+      .order("created_at")
+      .returns<StockedRow[]>();
+    stocked = data ?? [];
+  }
+  const receiptsByLine = new Map<string, LineReceipt[]>();
+  for (const r of stocked) {
+    const g = r.grns;
+    if (!r.po_line_id || !g) continue;
+    const list = receiptsByLine.get(r.po_line_id) ?? [];
+    const same = list.find((x) => x.grnId === g.id);
+    if (same) same.qty += Number(r.qty_received ?? 0);
+    else list.push({
+      grnId: g.id,
+      grnNo: g.grn_no,
+      invoiceNo: g.invoice_no?.trim() || null,
+      challanNo: g.challan_no?.trim() || null,
+      qty: Number(r.qty_received ?? 0),
+    });
+    receiptsByLine.set(r.po_line_id, list);
+  }
+
   const previousByLine = new Map(previousRates.map((r) => [r.line_id, r]));
   const lineRows = (lines ?? []).map((l) => ({
     id: l.id,
@@ -121,6 +158,7 @@ export async function PoDetail({ id, scope }: { id: string; scope: "normal" | "c
     line_status: l.line_status,
     approval_status: l.approval_status,
     rejection_reason: l.rejection_reason,
+    receipts: receiptsByLine.get(l.id) ?? [],
     previous: finance && previousByLine.has(l.id)
       ? {
           previousRate: Number(previousByLine.get(l.id)!.previous_rate),
