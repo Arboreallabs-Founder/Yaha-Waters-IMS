@@ -13,7 +13,14 @@ export default async function InventoryPage() {
   const supabase = await createClient();
 
   const view = finance ? "v_component_on_hand" : "v_component_on_hand_safe";
-  const data = await readAll((f, t) => supabase.from(view as "v_component_on_hand").select("*").order("component_id").range(f, t));
+  const [data, deliveryRows] = await Promise.all([
+    readAll((f, t) => supabase.from(view as "v_component_on_hand").select("*").order("component_id").range(f, t)),
+    // Average days from PO date to GRN receipt, per component (migration 0119).
+    readAll((f, t) => supabase.from("v_component_delivery_days").select("component_id, avg_days, deliveries").order("component_id").range(f, t)),
+  ]);
+  const deliveryByComponent = new Map(
+    deliveryRows.filter((d) => d.component_id).map((d) => [d.component_id as string, { avgDays: Number(d.avg_days), deliveries: Number(d.deliveries) }]),
+  );
   const allComponents = (data ?? []).map((r) => ({
     ...r,
     qty_on_hand: Number(r.qty_on_hand ?? 0),
@@ -143,14 +150,14 @@ export default async function InventoryPage() {
   const onHandRows: InventoryRow[] = allComponents
     .filter((r) => r.qty_on_hand !== 0 || r.has_stock_history)
     .sort((a, b) => b.qty_on_hand - a.qty_on_hand)
-    .map((r) => toRow(r, breakdownByComponent, consumedByComponent));
+    .map((r) => toRow(r, breakdownByComponent, consumedByComponent, deliveryByComponent));
 
   const exportRows: InventoryRow[] = [
     ...onHandRows,
     ...allComponents
       .filter((r) => !r.has_stock_history)
       .sort((a, b) => a.component_no.localeCompare(b.component_no))
-      .map((r) => toRow(r, breakdownByComponent, consumedByComponent)),
+      .map((r) => toRow(r, breakdownByComponent, consumedByComponent, deliveryByComponent)),
   ];
 
   return (
@@ -171,6 +178,7 @@ function toRow(
   r: { component_id: string; component_no: string; name: string; uom: string | null; qty_on_hand: number; lot_count: number; stock_value: number | null },
   breakdownByComponent: Map<string, BreakdownEntry[]>,
   consumedByComponent: Map<string, { projectNo: string; qty: number }[]>,
+  deliveryByComponent: Map<string, { avgDays: number; deliveries: number }>,
 ): InventoryRow {
   return {
     component_id: r.component_id,
@@ -182,5 +190,6 @@ function toRow(
     stock_value: r.stock_value ?? null,
     breakdown: breakdownByComponent.get(r.component_id) ?? [],
     consumedProjects: consumedByComponent.get(r.component_id) ?? [],
+    delivery: deliveryByComponent.get(r.component_id) ?? null,
   };
 }

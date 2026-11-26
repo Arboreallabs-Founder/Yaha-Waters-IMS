@@ -38,7 +38,19 @@ export type InventoryRow = {
   breakdown: BreakdownEntry[];
   /** Project(s) this component was actually consumed on — independent of the PO it was ordered against. */
   consumedProjects: { projectNo: string; qty: number }[];
+  /** Average days from PO date to GRN receipt, over its deliveries. */
+  delivery: { avgDays: number; deliveries: number } | null;
 };
+
+function deliveryText(d: InventoryRow["delivery"]) {
+  if (!d) return "—";
+  return `${formatNumber(Math.round(d.avgDays))} day${Math.round(d.avgDays) === 1 ? "" : "s"}`;
+}
+
+function deliveryTitle(d: InventoryRow["delivery"]) {
+  if (!d) return "Never received against a PO";
+  return `Average ${d.avgDays} days from PO date to GRN, over ${d.deliveries} deliver${d.deliveries === 1 ? "y" : "ies"}`;
+}
 
 const EXPORT_HEADERS = [
   "Sr.No.", "Material Description", "Received Qty", "Balance Stock", "Unit", "Rate", "Amount",
@@ -178,6 +190,7 @@ export function InventoryTable({ rows, exportRows, finance, canDownload }: { row
               <TableHead>Component</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>UoM</TableHead>
+              <TableHead className="whitespace-nowrap">Avg delivery</TableHead>
               <TableHead>On hand</TableHead>
               <TableHead>Lots</TableHead>
               {finance && <TableHead>Value</TableHead>}
@@ -186,13 +199,17 @@ export function InventoryTable({ rows, exportRows, finance, canDownload }: { row
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={finance ? 7 : 6} className="py-8 text-center text-muted-foreground">No matches.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={finance ? 8 : 7} className="py-8 text-center text-muted-foreground">No matches.</TableCell></TableRow>
             ) : (
               filtered.map((r) => (
                 <TableRow key={r.component_id}>
                   <TableCell className="font-medium">{r.component_no}</TableCell>
                   <TableCell>{r.name}</TableCell>
                   <TableCell className="text-muted-foreground">{r.uom ?? "—"}</TableCell>
+                  <TableCell className="whitespace-nowrap" title={deliveryTitle(r.delivery)}>
+                    {deliveryText(r.delivery)}
+                    {r.delivery && <span className="ml-1 text-xs text-muted-foreground">({r.delivery.deliveries})</span>}
+                  </TableCell>
                   <TableCell>{formatNumber(r.qty_on_hand)}</TableCell>
                   <TableCell>{formatNumber(r.lot_count)}</TableCell>
                   {finance && <TableCell>{formatINR(r.stock_value ?? 0)}</TableCell>}
@@ -220,6 +237,7 @@ export function InventoryTable({ rows, exportRows, finance, canDownload }: { row
               subtitle={r.uom ?? undefined}
               fields={[
                 { label: "On hand", value: formatNumber(r.qty_on_hand) },
+                { label: "Avg delivery", value: deliveryText(r.delivery) },
                 { label: "Lots", value: formatNumber(r.lot_count) },
                 ...(finance ? [{ label: "Value", value: formatINR(r.stock_value ?? 0) }] : []),
               ]}

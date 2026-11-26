@@ -4072,6 +4072,14 @@ export type Database = {
         }
         Relationships: []
       }
+      v_component_delivery_days: {
+        Row: {
+          avg_days: number | null
+          component_id: string | null
+          deliveries: number | null
+        }
+        Relationships: []
+      }
       v_component_on_hand: {
         Row: {
           component_id: string | null
