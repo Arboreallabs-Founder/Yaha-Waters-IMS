@@ -25,6 +25,11 @@ export type BreakdownEntry = {
   projectNo: string | null;
   qtyReceived: number;
   qtyBalance: number;
+  /** Part of the balance free to use on any project. */
+  qtyOpen: number;
+  /** Part of the balance reserved (blocked) for a project. */
+  qtyReserved: number;
+  reservedFor: { projectNo: string; qty: number }[];
 };
 
 export type InventoryRow = {
@@ -53,7 +58,7 @@ function deliveryTitle(d: InventoryRow["delivery"]) {
 }
 
 const EXPORT_HEADERS = [
-  "Sr.No.", "Material Description", "Received Qty", "Balance Stock", "Unit", "Rate", "Amount",
+  "Sr.No.", "Material Description", "Received Qty", "Balance Stock", "Open Stock", "Reserved Stock", "Reserved For", "Unit", "Rate", "Amount",
   "GST 18%", "Total Amount", "Vendor Name", "PO. No.", "PO Date", "GRN No.", "Project No.", "WIP on Project",
   "GST No.", "PAN", "Vendor Contact Details", "Vendor Mail ID", "official Website",
 ];
@@ -76,13 +81,16 @@ async function downloadInventoryExcel(rows: InventoryRow[]) {
 
     const groups = r.breakdown.length > 0 ? r.breakdown : [null];
     for (const g of groups) {
-      let received: Cell, balance: Cell, rate: Cell, amount: Cell, gst: Cell, total: Cell;
+      let received: Cell, balance: Cell, open: Cell, reserved: Cell, reservedFor: string, rate: Cell, amount: Cell, gst: Cell, total: Cell;
       let vendor: string, poNo: string, poDate: string, grn: string, project: string;
       let gstNo: string, pan: string, contact: string, email: string, website: string;
 
       if (!g) {
         received = 0;
         balance = r.qty_on_hand;
+        open = r.qty_on_hand;
+        reserved = 0;
+        reservedFor = "—";
         rate = amount = gst = total = null;
         vendor = poNo = poDate = grn = project = gstNo = pan = contact = email = website = "—";
       } else {
@@ -92,6 +100,11 @@ async function downloadInventoryExcel(rows: InventoryRow[]) {
         const gstAmt = amt !== null && g.gstPercent !== null ? amt * (g.gstPercent / 100) : null;
         received = g.qtyReceived;
         balance = g.qtyBalance;
+        open = g.qtyOpen;
+        reserved = g.qtyReserved;
+        reservedFor = g.reservedFor.length
+          ? g.reservedFor.map((x) => `${x.projectNo}: ${formatNumber(x.qty)}${r.uom ? ` ${r.uom}` : ""}`).join(", ")
+          : "—";
         rate = g.rate;
         amount = amt;
         gst = gstAmt;
@@ -113,6 +126,9 @@ async function downloadInventoryExcel(rows: InventoryRow[]) {
         `${r.component_no} — ${r.name}`,
         received,
         balance,
+        open,
+        reserved,
+        reservedFor,
         r.uom ?? "—",
         rate,
         amount,
@@ -140,9 +156,9 @@ async function downloadInventoryExcel(rows: InventoryRow[]) {
     filename: `Inventory-Export-${today}.xlsx`,
     sheetName: "Inventory",
     colWidths: EXPORT_HEADERS.map((h) =>
-      h === "WIP on Project" ? 28 : h === "GRN No." ? 24 : 20,
+      h === "WIP on Project" || h === "Reserved For" ? 28 : h === "GRN No." ? 24 : 20,
     ),
-    numberFormats: { 0: "0", 2: qty, 3: qty, 5: "#,##0.00", 6: "#,##0", 7: "#,##0", 8: "#,##0" },
+    numberFormats: { 0: "0", 2: qty, 3: qty, 4: qty, 5: qty, 8: "#,##0.00", 9: "#,##0", 10: "#,##0", 11: "#,##0" },
   });
 }
 

@@ -42,7 +42,7 @@ export default async function InventoryPage() {
   // roles that can't download the export.
   const empty = Promise.resolve([] as never[]);
   const [lots, lotRates, receipts, consumption, grnLines, grns, poLines, purchaseOrders, projects, vendorRows] = await Promise.all([
-    canDownload ? readAll((f, t) => supabase.from("inventory_lots").select("id, component_id, vendor_id, qty_on_hand, qty_initial, grn_line_id").order("id").range(f, t)) : empty,
+    canDownload ? readAll((f, t) => supabase.from("inventory_lots").select("id, component_id, vendor_id, qty_on_hand, qty_initial, grn_line_id, project_id").order("id").range(f, t)) : empty,
     canDownload ? readAll((f, t) => supabase.from("v_lot_rates").select("lot_id, rate, jw_charge").order("lot_id").range(f, t)) : empty,
     // Received qty per lot comes from the receipt ledger, not qty_initial: a box topped up
     // by a later GRN gets a receipt movement but its qty_initial is never raised. A job-work
@@ -79,7 +79,7 @@ export default async function InventoryPage() {
 
   // Group lots per component into receipt-groups: one entry per distinct po_line
   // (or per distinct vendor+rate for lots with no traceable PO, e.g. site purchases).
-  const groupsByComponent = new Map<string, Map<string, { vendorId: string | null; rate: number | null; poLineId: string | null; qtyReceived: number; qtyBalance: number; grnNos: Set<string> }>>();
+  const groupsByComponent = new Map<string, Map<string, { vendorId: string | null; rate: number | null; poLineId: string | null; qtyReceived: number; qtyBalance: number; qtyReserved: number; reservedFor: Map<string, number>; grnNos: Set<string> }>>();
   for (const l of lots ?? []) {
     const poLineId = l.grn_line_id ? poLineIdByGrnLine.get(l.grn_line_id) ?? null : null;
     const poLine = poLineId ? poLineById.get(poLineId) : null;
@@ -90,7 +90,11 @@ export default async function InventoryPage() {
     let compGroups = groupsByComponent.get(l.component_id);
     if (!compGroups) { compGroups = new Map(); groupsByComponent.set(l.component_id, compGroups); }
 
-    const existing = compGroups.get(key);
+    // Stock in a lot tied to a project is reserved (blocked) for it; the rest is open.
+    const onHand = Number(l.qty_on_hand ?? 0);
+    const reservedProject = l.project_id && onHand !== 0 ? l.project_id : null;
+
+    let existing = compGroups.get(key);
     if (existing) {
       existing.qtyReceived += receivedQty(l);
       existing.qtyBalance += Number(l.qty_on_hand ?? 0);
@@ -102,8 +106,15 @@ export default async function InventoryPage() {
         poLineId,
         qtyReceived: receivedQty(l),
         qtyBalance: Number(l.qty_on_hand ?? 0),
+        qtyReserved: 0,
+        reservedFor: new Map(),
         grnNos: new Set(grnNo ? [grnNo] : []),
       });
+      existing = compGroups.get(key)!;
+    }
+    if (reservedProject) {
+      existing.qtyReserved += onHand;
+      existing.reservedFor.set(reservedProject, (existing.reservedFor.get(reservedProject) ?? 0) + onHand);
     }
   }
 
@@ -129,6 +140,11 @@ export default async function InventoryPage() {
         projectNo,
         qtyReceived: g.qtyReceived,
         qtyBalance: g.qtyBalance,
+        qtyOpen: g.qtyBalance - g.qtyReserved,
+        qtyReserved: g.qtyReserved,
+        reservedFor: [...g.reservedFor]
+          .map(([projectId, qty]) => ({ projectNo: projectNoById.get(projectId) ?? "—", qty }))
+          .sort((a, b) => b.qty - a.qty),
       };
     });
     breakdownByComponent.set(componentId, entries);
