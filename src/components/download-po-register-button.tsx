@@ -34,6 +34,18 @@ export type PoRegisterRow = {
 
 type Cell = string | number | null;
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * "2026-11 Nov" — one value per month, so the Excel filter lists months (not
+ * every date), and the year-first form keeps that list in date order.
+ */
+function poMonth(date: string | null): string {
+  const m = date?.match(/^(\d{4})-(\d{2})/);
+  if (!m) return "—";
+  return `${m[1]}-${m[2]} ${MONTHS[Number(m[2]) - 1]}`;
+}
+
 /** Multiple GRNs against the same PO line stay clubbed in one cell. */
 function receiptsText(entry: PoLineEntry) {
   if (!entry.receipts.length) return "—";
@@ -49,7 +61,7 @@ async function downloadPoRegisterExcel(rows: PoRegisterRow[], finance: boolean) 
     "Sr. No.", "Component No.", "Material Description", "UOM",
     "PO No.",
     ...(finance ? ["Rate", "Amount"] : []),
-    "PO Date", "Expected Date", "Project No.", "Ordered Qty", "Received Qty", "Remaining Qty",
+    "PO Date", "PO Month", "Expected Date", "Project No.", "Ordered Qty", "Received Qty", "Remaining Qty",
     "Receipts (GRN — Date — Qty)",
     "Vendor Name", "Vendor Contact No.", "Vendor Email", "Vendor PAN", "Vendor GST No.", "Vendor Website",
   ];
@@ -57,7 +69,7 @@ async function downloadPoRegisterExcel(rows: PoRegisterRow[], finance: boolean) 
     6, 16, 40, 8,
     16,
     ...(finance ? [14, 16] : []),
-    14, 14, 22, 12, 12, 12, 42, 22, 16, 24, 16, 18, 24,
+    14, 14, 14, 22, 12, 12, 12, 42, 22, 16, 24, 16, 18, 24,
   ];
 
   // Per-PO-line cells (everything to the right of the repeated component columns).
@@ -65,6 +77,7 @@ async function downloadPoRegisterExcel(rows: PoRegisterRow[], finance: boolean) 
     e.poNo,
     ...(finance ? [e.rate, e.amount] : []),
     formatDate(e.poDate),
+    poMonth(e.poDate),
     formatDate(e.expectedDate),
     e.projectNo ?? "—",
     e.orderedQty,
@@ -92,7 +105,7 @@ async function downloadPoRegisterExcel(rows: PoRegisterRow[], finance: boolean) 
         ...comp,
         "—",
         ...(finance ? ["—", "—"] : []),
-        "—", "—", "—", null, null, null, "—", "—", "—", "—", "—", "—", "—",
+        "—", "—", "—", "—", null, null, null, "—", "—", "—", "—", "—", "—", "—",
       ]);
       continue;
     }
@@ -109,8 +122,8 @@ async function downloadPoRegisterExcel(rows: PoRegisterRow[], finance: boolean) 
     sheetName: "PO Register",
     colWidths,
     numberFormats: finance
-      ? { 0: "0", 5: '"₹"#,##0.00', 6: '"₹"#,##0', 10: qty, 11: qty, 12: qty }
-      : { 0: "0", 8: qty, 9: qty, 10: qty },
+      ? { 0: "0", 5: '"₹"#,##0.00', 6: '"₹"#,##0', 11: qty, 12: qty, 13: qty }
+      : { 0: "0", 9: qty, 10: qty, 11: qty },
   });
 }
 
